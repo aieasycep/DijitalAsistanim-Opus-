@@ -412,6 +412,18 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
         }
         return feed
       },
+
+      // Demo mutations mutate the in-memory store, so the whole loop is
+      // genuinely exercisable without a backend.
+      async completeInsight(insightId) {
+        const insight = store.insights.find((item) => item.id === insightId)
+        if (insight) insight.completedAt = nowIso()
+      },
+
+      async dismissInsight(insightId) {
+        const insight = store.insights.find((item) => item.id === insightId)
+        if (insight) insight.dismissedAt = nowIso()
+      },
     },
 
     briefings: {
@@ -751,6 +763,22 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
         }
         store.commitments.push(commitment)
         return commitment
+      },
+    },
+
+    events: {
+      async list(range) {
+        return store.events
+          .filter(
+            (event) =>
+              dayOf(event.endsAt) >= range.from &&
+              dayOf(event.startsAt) <= range.to &&
+              event.status !== 'cancelled',
+          )
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      },
+      async get(eventId) {
+        return store.events.find((event) => event.id === eventId) ?? null
       },
     },
 

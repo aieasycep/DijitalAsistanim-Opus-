@@ -225,4 +225,19 @@ export const settings = {
     confirm: 'Çıkış yap',
     done: 'Çıkış yapıldı.',
   },
+
+  demo: {
+    title: 'Demo modu',
+    body: 'Hesap bağlamadan örnek verilerle gezinebilirsin. Hiçbir şey gönderilmez.',
+    enter: 'Demoyu incele',
+    exit: 'Demodan çık',
+    banner: 'Demo modundasın. Veriler örnektir.',
+  },
+
+  deviceNotifications: {
+    title: 'Cihaz bildirimlerini oku',
+    body: 'Kargo, banka ve rezervasyon bildirimlerini de anlayabilmemiz için Android bildirim erişimi gerekir. Şifre ve doğrulama kodu bildirimleri hiçbir zaman okunmaz.',
+    enable: 'Bildirim erişimini aç',
+    disabled: 'Kapalı',
+  },
 } satisfies MessageTree

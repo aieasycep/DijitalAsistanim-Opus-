@@ -67,10 +67,10 @@ export function InsightCard({
           <Badge label={t('common.importance.critical')} tone="critical" icon="priority-high" />
         ) : null}
         {insight.dueAt ? (
-          <Badge label={t('common.deadline')} tone="warning" icon="flag" />
+          <Badge label={t('mail.categories.deadline')} tone="warning" icon="flag" />
         ) : null}
         {isDone ? (
-          <Badge label={t('common.done')} tone="success" icon="check-circle" />
+          <Badge label={t('common.action.done')} tone="success" icon="check-circle" />
         ) : null}
       </View>
 

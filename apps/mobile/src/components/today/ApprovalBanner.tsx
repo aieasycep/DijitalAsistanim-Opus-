@@ -30,8 +30,8 @@ export function ApprovalBanner({ count, onOpen, busy = false }: ApprovalBannerPr
     <Pressable
       onPress={onOpen}
       disabled={busy}
-      accessibilityLabel={plural('approval.pendingCount', count)}
-      accessibilityHint={t('a11y.approval.openCenterHint')}
+      accessibilityLabel={plural('approval.count', count)}
+      accessibilityHint={t('a11y.hint.doubleTapToOpen')}
       haptic="light"
       testID="approval-banner"
       style={{
@@ -50,10 +50,10 @@ export function ApprovalBanner({ count, onOpen, busy = false }: ApprovalBannerPr
       <MaterialIcons name="task-alt" size={20} color={theme.colors.primaryOnSoft} />
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong" tone="primary" numberOfLines={2}>
-          {plural('approval.pendingCount', count)}
+          {plural('approval.count', count)}
         </Text>
         <Text variant="micro" tone="primary" style={{ letterSpacing: 0, opacity: 0.85 }}>
-          {t('approval.bannerHint')}
+          {t('approval.subtitle')}
         </Text>
       </View>
       <MaterialIcons name="chevron-right" size={20} color={theme.colors.primaryOnSoft} />

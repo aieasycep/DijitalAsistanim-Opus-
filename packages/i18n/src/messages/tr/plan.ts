@@ -2,6 +2,10 @@ import type { MessageTree } from '../../engine.ts'
 
 export const plan = {
   title: 'Planla',
+  range: {
+    day: 'Gün',
+    week: 'Hafta',
+  },
   day: {
     title: 'Günü planla',
     subtitle: 'Bugünü baştan sona bir kere gözden geçir.',

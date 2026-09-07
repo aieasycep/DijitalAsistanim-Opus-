@@ -72,6 +72,12 @@ export const errors = {
     queuedOffline: 'Çevrimdışısın. Bağlanınca göndereceğiz.',
   },
 
+  boundary: {
+    title: 'Bir şeyler ters gitti',
+    description: 'Bu ekranı açarken beklenmedik bir hata oldu. Verilerin yerinde duruyor.',
+    action: 'Ekranı yeniden yükle',
+  },
+
   offlineBanner: 'Çevrimdışısın. Elimizdeki son bilgileri gösteriyoruz.',
   staleBanner: 'Bu bilgiler {time} tarihinden. Yenilemek için aşağı çek.',
   supportHint: 'Sorun sürerse Yardım bölümünden bize yazabilirsin.',

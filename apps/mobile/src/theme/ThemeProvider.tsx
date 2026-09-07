@@ -62,9 +62,10 @@ export function ThemeProvider({
   }, [])
 
   // Keep the native root view in step so the gap during a screen transition
-  // does not flash the opposite theme.
+  // does not flash the opposite theme. React Native spells "follow the OS" as
+  // 'unspecified' rather than null.
   useEffect(() => {
-    Appearance.setColorScheme(preference === 'system' ? null : preference)
+    Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference)
   }, [preference])
 
   const value = useMemo<ThemeContextValue>(() => {

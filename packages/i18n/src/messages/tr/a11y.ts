@@ -15,6 +15,7 @@ export const a11y = {
     back: 'Geri git',
     close: 'Kapat',
     menu: 'Menüyü aç',
+    profile: 'Profil ve ayarlar',
     more: 'Daha fazla seçenek',
     refresh: 'Yenile',
     search: 'Ara',

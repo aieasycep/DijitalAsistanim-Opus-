@@ -100,7 +100,7 @@ export function LifeEventCard({
           </Text>
         ) : null}
         {event.type === 'security' ? (
-          <Badge label={t('mail.badge.security')} tone="critical" icon="shield" />
+          <Badge label={t('mail.category.security')} tone="critical" icon="shield" />
         ) : null}
       </View>
 

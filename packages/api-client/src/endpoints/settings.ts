@@ -32,6 +32,8 @@ const profileUpdateSchema = z
     avatarUrl: z.string().url().nullable(),
     timeZone: timeZoneSchema,
     locale: z.enum(LOCALES),
+    /** Set once, when the onboarding flow finishes; the server stamps the time. */
+    onboardingCompleted: z.literal(true),
   })
   .partial()
 

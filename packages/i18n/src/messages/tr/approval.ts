@@ -68,10 +68,13 @@ export const approval = {
   preview: {
     title: 'Ne olacak?',
     to: 'Kime',
+    cc: 'Bilgi',
     subject: 'Konu',
     body: 'İçerik',
     when: 'Ne zaman',
+    until: 'Bitiş',
     where: 'Nerede',
+    person: 'Kişi',
     attendees: 'Katılımcılar',
     dueDate: 'Son tarih',
     notes: 'Notlar',

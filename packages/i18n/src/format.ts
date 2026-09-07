@@ -25,6 +25,39 @@ export function formatTime(instant: Date, locale: Locale, timeZone: string): str
   }).format(instant)
 }
 
+/**
+ * `07:30` from a stored `LocalTime`.
+ *
+ * A wall-clock preference has no date and no zone — rendering it through
+ * `Date` would attach both and shift the value across a DST boundary.
+ */
+export function formatLocalTime(time: string, _locale: Locale): string {
+  const [hours = '00', minutes = '00'] = time.split(':')
+  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
+}
+
+/**
+ * `Pzt` / `Mon` from a weekday index (0 = Sunday, matching Postgres and the
+ * preference columns).
+ *
+ * Derived from a fixed reference week in UTC rather than from a catalogue of
+ * hand-written day names, so it stays correct in every locale we add.
+ */
+const REFERENCE_SUNDAY_UTC = Date.UTC(2024, 0, 7)
+
+export function formatWeekdayName(
+  weekdayIndex: number,
+  locale: Locale,
+  style: 'short' | 'long' = 'short',
+): string {
+  const normalized = ((weekdayIndex % 7) + 7) % 7
+  const date = new Date(REFERENCE_SUNDAY_UTC + normalized * 86_400_000)
+  return new Intl.DateTimeFormat(LOCALE_TAGS[locale], {
+    timeZone: 'UTC',
+    weekday: style,
+  }).format(date)
+}
+
 /** `5 Eylül` / `5 September` */
 export function formatDayMonth(instant: Date, locale: Locale, timeZone: string): string {
   return new Intl.DateTimeFormat(LOCALE_TAGS[locale], {

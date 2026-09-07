@@ -4,9 +4,11 @@ import { parseRequest } from '../http'
 import type { EndpointContext, ReferralSummary } from '../types'
 
 const referralCodeResponseSchema = z.object({
-  code: z.string(),
+  code: z.string().nullable(),
   redemptionCount: z.number().int().min(0),
-  bonusDaysEarned: z.number().int().min(0),
+  /** Latest expiry across every unrevoked bonus; null when none is active. */
+  bonusExpiresAt: z.string().nullable().default(null),
+  activeBonuses: z.number().int().min(0).default(0),
 })
 
 export type ReferralRedemption = z.infer<typeof redeemReferralResponseSchema>
@@ -21,9 +23,10 @@ export function createReferralApi(ctx: EndpointContext): ReferralApi {
     async getCode() {
       const result = await ctx.http.callFunction('referral-code', {}, referralCodeResponseSchema)
       return {
-        code: result.code,
+        code: result.code ?? '',
         redemptionCount: result.redemptionCount,
-        bonusDaysEarned: result.bonusDaysEarned,
+        bonusExpiresAt: result.bonusExpiresAt,
+        activeBonuses: result.activeBonuses,
       }
     },
 

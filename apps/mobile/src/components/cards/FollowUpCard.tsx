@@ -70,14 +70,14 @@ export function FollowUpCard({
         <Badge label={t('followup.noReplyYet')} tone="warning" icon="schedule-send" />
         <Text variant="micro" tone="tertiary" tabular>
           {silentDays >= 1
-            ? plural('followup.silentDays', silentDays)
-            : plural('followup.silentHours', silentHours)}
+            ? plural('followup.card.waitingFor', silentDays)
+            : plural('followup.card.waitingFor', silentHours)}
         </Text>
       </View>
 
       <View style={{ gap: spacing.xs }}>
         <Button
-          label={t('followup.draftNudge')}
+          label={t('followup.action.nudgeDraft')}
           onPress={onDraftNudge}
           variant="tonal"
           size="sm"
@@ -86,14 +86,14 @@ export function FollowUpCard({
         />
         <View style={{ flexDirection: 'row', gap: spacing.xs }}>
           <Button
-            label={t('followup.remindTomorrow')}
+            label={t('followup.action.remindMe')}
             onPress={onRemindTomorrow}
             variant="neutral"
             size="sm"
             style={{ flex: 1 }}
           />
           <Button
-            label={t('followup.close')}
+            label={t('followup.action.markResolved')}
             onPress={onClose}
             variant="neutral"
             size="sm"

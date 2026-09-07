@@ -47,7 +47,7 @@ export function MeetingCard({
   const start = new Date(event.startsAt)
   const end = new Date(event.endsAt)
   const range = event.isAllDay
-    ? t('calendar.allDay')
+    ? t('calendar.event.allDay')
     : formatTimeRange(start, end, locale, timeZone)
 
   const others = event.attendees.filter((a) => !a.isSelf)
@@ -88,11 +88,11 @@ export function MeetingCard({
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
         {inProgress ? (
-          <Badge label={t('calendar.inProgress')} tone="primary" icon="play-circle" />
+          <Badge label={t('calendar.event.inProgress')} tone="primary" icon="play-circle" />
         ) : null}
         {imminent && minutesUntil !== null ? (
           <Badge
-            label={plural('calendar.startsInMinutes', minutesUntil)}
+            label={plural('calendar.event.startsIn', minutesUntil)}
             tone="warning"
             icon="schedule"
           />
@@ -101,7 +101,7 @@ export function MeetingCard({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <MaterialIcons name="group" size={13} color={theme.colors.textTertiary} />
             <Text variant="micro" tone="tertiary" tabular>
-              {plural('calendar.attendeeCount', others.length)}
+              {plural('calendar.event.attendeeCount', others.length)}
             </Text>
           </View>
         ) : null}
@@ -111,7 +111,7 @@ export function MeetingCard({
         <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xxs }}>
           {onPrepare ? (
             <Button
-              label={t('meeting.prepare')}
+              label={t('meeting.action.generatePrep')}
               onPress={onPrepare}
               variant="tonal"
               size="sm"
@@ -120,7 +120,7 @@ export function MeetingCard({
           ) : null}
           {onJoin ? (
             <Button
-              label={t('calendar.join')}
+              label={t('meeting.action.join')}
               onPress={onJoin}
               variant="neutral"
               size="sm"

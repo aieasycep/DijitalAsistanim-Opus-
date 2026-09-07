@@ -4,6 +4,14 @@ export const common = {
   appName: 'Dijital Asistan',
   tagline: 'Gününü senin yerine takip eder.',
 
+  tab: {
+    today: 'Bugün',
+    flow: 'Akış',
+    plan: 'Planla',
+    assistant: 'Asistan',
+    settings: 'Ayarlar',
+  },
+
   // Relative day labels resolved by `relativeDayKey`.
   today: 'Bugün',
   tomorrow: 'Yarın',

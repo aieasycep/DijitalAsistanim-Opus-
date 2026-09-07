@@ -1,4 +1,4 @@
-import { qk } from '@da/api-client'
+import { qk, type SearchType } from '@da/api-client'
 import {
   type ApprovalStatus,
   type BriefingKind,
@@ -62,14 +62,56 @@ export function useThread(threadId: string | null) {
   })
 }
 
-export function usePlan(range: 'day' | 'week', forDate?: IsoDate) {
+export function usePlanDay(forDate?: IsoDate) {
   const api = useApi()
   const { timeZone } = useUserContext()
   const date = forDate ?? toIsoDate(systemClock.now(), timeZone)
 
   return useQuery({
-    queryKey: qk.plan(range, date),
-    queryFn: () => api.plan.get({ range, forDate: date, timeZone }),
+    queryKey: qk.plan('day', date),
+    queryFn: () => api.plan.day({ date, timeZone }),
+  })
+}
+
+export function usePlanWeek(forDate?: IsoDate) {
+  const api = useApi()
+  const { timeZone } = useUserContext()
+  const date = forDate ?? toIsoDate(systemClock.now(), timeZone)
+
+  return useQuery({
+    queryKey: qk.plan('week', date),
+    queryFn: () => api.plan.week({ startDate: date, timeZone }),
+  })
+}
+
+export function usePlanSuggestions(forDate?: IsoDate) {
+  const api = useApi()
+  const { timeZone } = useUserContext()
+  const date = forDate ?? toIsoDate(systemClock.now(), timeZone)
+
+  return useQuery({
+    queryKey: [...qk.plan('day', date), 'suggestions'] as const,
+    queryFn: () => api.plan.suggestions({ date, timeZone }),
+    // A suggestion costs a scan of the calendar; it does not need to be fresh
+    // on every focus.
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useEvent(eventId: string | null) {
+  const api = useApi()
+  return useQuery({
+    queryKey: ['events', 'detail', eventId ?? 'none'],
+    queryFn: () => api.events.get(eventId as string),
+    enabled: Boolean(eventId),
+  })
+}
+
+export function useEvents(range: { from: IsoDate; to: IsoDate }) {
+  const api = useApi()
+  return useQuery({
+    queryKey: qk.events(range),
+    queryFn: () => api.events.list(range),
   })
 }
 
@@ -87,9 +129,18 @@ export function useApprovals(status: ApprovalStatus | 'all' = 'pending') {
   const api = useApi()
   return useQuery({
     queryKey: qk.approvals(status),
-    queryFn: () => api.approvals.list(status),
+    queryFn: () => api.approvals.list(status === 'all' ? {} : { status }),
     // Approvals expire, so a stale list can offer an action that will fail.
     staleTime: 15_000,
+  })
+}
+
+export function useApproval(approvalId: string | null) {
+  const api = useApi()
+  return useQuery({
+    queryKey: qk.approval(approvalId ?? 'none'),
+    queryFn: () => api.approvals.get(approvalId as string),
+    enabled: Boolean(approvalId),
   })
 }
 
@@ -125,19 +176,19 @@ export function usePriorityRules() {
 
 export function useLearnedPreferences() {
   const api = useApi()
-  return useQuery({ queryKey: qk.learnedPreferences(), queryFn: () => api.rules.listLearned() })
+  return useQuery({ queryKey: qk.learnedPreferences(), queryFn: () => api.rules.learnedList() })
 }
 
 export function usePreferences() {
   const api = useApi()
-  return useQuery({ queryKey: qk.preferences(), queryFn: () => api.settings.getPreferences() })
+  return useQuery({ queryKey: qk.preferences(), queryFn: () => api.settings.preferences() })
 }
 
 export function useNotificationPreferences() {
   const api = useApi()
   return useQuery({
     queryKey: qk.notificationPrefs(),
-    queryFn: () => api.settings.getNotificationPreferences(),
+    queryFn: () => api.settings.notificationPrefs(),
   })
 }
 
@@ -177,32 +228,35 @@ export function useCapture(captureId: string | null) {
 
 export function useAssistantThreads() {
   const api = useApi()
-  return useQuery({ queryKey: qk.assistantThreads(), queryFn: () => api.assistant.listThreads() })
+  return useQuery({ queryKey: qk.assistantThreads(), queryFn: () => api.assistant.threads() })
 }
 
 export function useAssistantMessages(threadId: string | null) {
   const api = useApi()
   return useQuery({
     queryKey: qk.assistantMessages(threadId ?? 'none'),
-    queryFn: () => api.assistant.listMessages(threadId as string),
+    queryFn: () => api.assistant.messages(threadId as string),
     enabled: Boolean(threadId),
   })
 }
 
-export function useSearch(query: string, types: readonly string[]) {
+export function useSearch(query: string, types: readonly SearchType[]) {
   const api = useApi()
   const trimmed = query.trim()
   return useQuery({
     queryKey: qk.search(trimmed, types),
     queryFn: () => api.search.query({ query: trimmed, types: [...types] }),
-    // Searching on every keystroke would bill a model call per character.
+    // Searching on every keystroke would bill a request per character.
     enabled: trimmed.length >= 2,
   })
 }
 
 export function useLifeEvents() {
   const api = useApi()
-  return useQuery({ queryKey: qk.lifeEvents(), queryFn: () => api.today.get().then((f) => f.lifeEvents) })
+  return useQuery({
+    queryKey: qk.lifeEvents(),
+    queryFn: () => api.today.get().then((feed) => feed.lifeEvents),
+  })
 }
 
 /**
@@ -230,10 +284,7 @@ export function useInvalidateAfterWrite() {
 
 export function useRefreshToday() {
   const queryClient = useQueryClient()
-  return useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ['today'] }),
-    [queryClient],
-  )
+  return useCallback(() => queryClient.invalidateQueries({ queryKey: ['today'] }), [queryClient])
 }
 
 /** Pull-to-refresh: refetch the active queries for a screen's key prefix. */

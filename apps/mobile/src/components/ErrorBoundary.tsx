@@ -74,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <Text variant="secondary" tone="secondary" center>
             {t('errors.boundary.description')}
           </Text>
-          <Button label={t('common.retry')} onPress={this.handleRetry} variant="tonal" />
+          <Button label={t('common.action.retry')} onPress={this.handleRetry} variant="tonal" />
         </View>
       </Screen>
     )

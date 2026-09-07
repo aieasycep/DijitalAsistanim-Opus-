@@ -13,15 +13,15 @@ import { Text } from '../ui/Text'
 const CATEGORY_BADGE: Partial<
   Record<EmailCategory, { tone: BadgeTone; icon: keyof typeof MaterialIcons.glyphMap; key: string }>
 > = {
-  security: { tone: 'critical', icon: 'shield', key: 'mail.badge.security' },
-  deadline: { tone: 'warning', icon: 'flag', key: 'mail.badge.deadline' },
-  waiting_for_user: { tone: 'warning', icon: 'schedule-send', key: 'mail.badge.waitingForYou' },
-  waiting_for_other: { tone: 'neutral', icon: 'hourglass-empty', key: 'mail.badge.waitingForThem' },
-  meeting: { tone: 'info', icon: 'event', key: 'mail.badge.meeting' },
-  payment: { tone: 'neutral', icon: 'receipt-long', key: 'mail.badge.payment' },
-  travel: { tone: 'info', icon: 'flight', key: 'mail.badge.travel' },
-  shipment: { tone: 'neutral', icon: 'local-shipping', key: 'mail.badge.shipment' },
-  action_required: { tone: 'primary', icon: 'bolt', key: 'mail.badge.actionRequired' },
+  security: { tone: 'critical', icon: 'shield', key: 'mail.category.security' },
+  deadline: { tone: 'warning', icon: 'flag', key: 'mail.category.deadline' },
+  waiting_for_user: { tone: 'warning', icon: 'schedule-send', key: 'mail.category.waiting_for_user' },
+  waiting_for_other: { tone: 'neutral', icon: 'hourglass-empty', key: 'mail.category.waiting_for_other' },
+  meeting: { tone: 'info', icon: 'event', key: 'mail.category.meeting' },
+  payment: { tone: 'neutral', icon: 'receipt-long', key: 'mail.category.payment' },
+  travel: { tone: 'info', icon: 'flight', key: 'mail.category.travel' },
+  shipment: { tone: 'neutral', icon: 'local-shipping', key: 'mail.category.shipment' },
+  action_required: { tone: 'primary', icon: 'bolt', key: 'mail.category.action_required' },
 }
 
 export interface EmailCardProps {
@@ -119,11 +119,11 @@ export function EmailCard({
         ) : null}
         {badge ? <Badge label={t(badge.key)} tone={badge.tone} icon={badge.icon} /> : null}
         {thread.requiresUserAction ? (
-          <Badge label={t('mail.badge.needsYou')} tone="primary" icon="reply" />
+          <Badge label={t('mail.categories.awaitingYou')} tone="primary" icon="reply" />
         ) : null}
         {thread.messageCount > 1 ? (
           <Text variant="micro" tone="tertiary" tabular>
-            {t('mail.messageCount', { count: thread.messageCount })}
+            {t('mail.thread.messages', { count: thread.messageCount })}
           </Text>
         ) : null}
       </View>

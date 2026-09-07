@@ -47,7 +47,7 @@ export function BriefingHero({
     <Pressable
       onPress={onOpen}
       accessibilityLabel={headline}
-      accessibilityHint={t('a11y.briefing.openHint')}
+      accessibilityHint={t('a11y.hint.doubleTapToOpen')}
       haptic="light"
       style={{ marginTop: spacing.md, borderRadius: radius.hero, overflow: 'hidden' }}
       testID="briefing-hero"
@@ -85,16 +85,16 @@ export function BriefingHero({
             <MaterialIcons name="menu-book" size={14} color={palette.white} />
             <Text variant="micro" style={{ color: palette.white, letterSpacing: 0 }}>
               {durationMinutes
-                ? plural('briefing.readMinutes', durationMinutes)
-                : t('briefing.open')}
+                ? plural('briefing.readingTime', durationMinutes)
+                : t('today.action.openBriefing')}
             </Text>
           </View>
 
           {isReady ? (
             <Pressable
               onPress={onListen}
-              accessibilityLabel={t('briefing.listen')}
-              accessibilityHint={canListen ? undefined : t('paywall.proFeatureHint')}
+              accessibilityLabel={t('briefing.audio.listen')}
+              accessibilityHint={canListen ? undefined : t('paywall.lock.body')}
               haptic="light"
               style={{
                 flexDirection: 'row',
@@ -109,7 +109,7 @@ export function BriefingHero({
             >
               <MaterialIcons name="headphones" size={14} color={palette.white} />
               <Text variant="micro" style={{ color: palette.white, letterSpacing: 0 }}>
-                {t('briefing.listen')}
+                {t('briefing.audio.listen')}
               </Text>
               {!canListen ? (
                 <MaterialIcons name="lock" size={11} color={palette.indigo300} />
@@ -120,7 +120,7 @@ export function BriefingHero({
 
         {!isReady && briefing?.status === 'generating' ? (
           <Text variant="micro" style={{ color: palette.indigo300 }}>
-            {t('briefing.generating')}
+            {t('briefing.status.generating')}
           </Text>
         ) : null}
       </LinearGradient>

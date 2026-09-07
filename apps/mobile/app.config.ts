@@ -38,18 +38,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // The warm neutral background, so the gap before first paint matches the app.
   backgroundColor: '#F5F4F0',
   icon: './assets/icon.png',
-  newArchEnabled: true,
-
-  splash: {
-    image: './assets/splash-icon.png',
-    resizeMode: 'contain',
-    backgroundColor: '#F5F4F0',
-    dark: {
-      image: './assets/splash-icon.png',
-      resizeMode: 'contain',
-      backgroundColor: '#141311',
-    },
-  },
 
   assetBundlePatterns: ['**/*'],
 
@@ -97,7 +85,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/monochrome-icon.png',
       backgroundColor: '#5B5CE2',
     },
-    edgeToEdgeEnabled: true,
     permissions: [
       'android.permission.POST_NOTIFICATIONS',
       'android.permission.READ_CALENDAR',

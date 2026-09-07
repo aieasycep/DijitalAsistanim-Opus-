@@ -40,6 +40,10 @@ const todayResponseSchema = z.object({
 
 export interface TodayApi {
   get(input?: { forDate?: IsoDate; timeZone?: string }): Promise<TodayFeed>
+  /** Mark an insight done. Purely local state, so it applies immediately. */
+  completeInsight(insightId: string): Promise<void>
+  /** Hide an insight without completing it. */
+  dismissInsight(insightId: string): Promise<void>
 }
 
 export function createTodayApi(ctx: EndpointContext): TodayApi {
@@ -64,6 +68,21 @@ export function createTodayApi(ctx: EndpointContext): TodayApi {
         lifeEvents: result.lifeEvents.map(mapLifeEvent),
         pendingApprovals: result.pendingApprovals.map(mapApprovalAction),
       }
+    },
+
+    // Both write through RLS rather than an edge function: completing or
+    // hiding an insight has no effect outside the app, so it needs no approval
+    // and no server-side reasoning.
+    async completeInsight(insightId) {
+      await ctx.db.updateOne('insights', insightId, {
+        completed_at: ctx.config.clock.now().toISOString(),
+      })
+    },
+
+    async dismissInsight(insightId) {
+      await ctx.db.updateOne('insights', insightId, {
+        dismissed_at: ctx.config.clock.now().toISOString(),
+      })
     },
   }
 }

@@ -9,7 +9,7 @@ import {
 import { useRouter } from 'expo-router'
 import { useCallback, useMemo } from 'react'
 import { track } from '../lib/analytics'
-import { useSubscription } from './queries'
+import { useReferral, useSubscription } from './queries'
 
 /**
  * Entitlement access for the UI.
@@ -24,6 +24,9 @@ export function useEntitlements(): {
   can: (feature: Feature) => boolean
 } {
   const { data, isLoading } = useSubscription()
+  // Pro can come from a paid subscription OR an unexpired referral bonus, and
+  // the two live in different records, so both are read here.
+  const { data: referral } = useReferral()
 
   const entitlements = useMemo<Entitlements>(() => {
     if (!data) {
@@ -34,10 +37,10 @@ export function useEntitlements(): {
     return resolveEntitlements({
       subscriptionStatus: data.status,
       activeEntitlement: data.entitlement,
-      referralBonusExpiresAt: data.referralBonusExpiresAt ?? null,
+      referralBonusExpiresAt: referral?.bonusExpiresAt ?? null,
       now: systemClock.now(),
     })
-  }, [data])
+  }, [data, referral])
 
   const can = useCallback(
     (feature: Feature) => hasFeature(entitlements, feature),

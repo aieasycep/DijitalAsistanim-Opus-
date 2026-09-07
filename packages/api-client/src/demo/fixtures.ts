@@ -77,7 +77,12 @@ export interface DemoStore {
   subscription: Subscription
   pushTokens: PushToken[]
   exports: DataExportRequest[]
-  referral: { code: string; redemptionCount: number; bonusDaysEarned: number }
+  referral: {
+    code: string
+    redemptionCount: number
+    bonusExpiresAt: string | null
+    activeBonuses: number
+  }
 }
 
 /** Stable, uuid-shaped ids so demo rows survive schema validation anywhere. */
@@ -1339,6 +1344,12 @@ export function createDemoStore(clock: Clock): DemoStore {
     subscription,
     pushTokens: [],
     exports: [],
-    referral: { code: 'DA7K2M9P', redemptionCount: 2, bonusDaysEarned: 28 },
+    referral: {
+      code: 'DA7K2M9P',
+      redemptionCount: 2,
+      // Two referrals stack to 28 days; the demo shows one still running.
+      bonusExpiresAt: new Date(now.getTime() + 9 * DAY_MS).toISOString(),
+      activeBonuses: 1,
+    },
   }
 }

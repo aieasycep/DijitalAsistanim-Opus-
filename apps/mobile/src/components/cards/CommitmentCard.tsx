@@ -71,18 +71,18 @@ export function CommitmentCard({
         <Badge
           label={t(
             commitment.direction === 'user_owes'
-              ? 'commitment.direction.youOwe'
-              : 'commitment.direction.theyOwe',
+              ? 'commitment.direction.user_owes'
+              : 'commitment.direction.other_owes',
           )}
           tone={commitment.direction === 'user_owes' ? 'primary' : 'neutral'}
           icon="handshake"
         />
         {isOverdue ? (
-          <Badge label={t('commitment.overdue')} tone="critical" icon="priority-high" />
+          <Badge label={t('commitment.status.overdue')} tone="critical" icon="priority-high" />
         ) : due ? (
           <Badge label={due} tone="warning" icon="schedule" />
         ) : null}
-        {isDone ? <Badge label={t('common.done')} tone="success" icon="check-circle" /> : null}
+        {isDone ? <Badge label={t('common.action.done')} tone="success" icon="check-circle" /> : null}
       </View>
 
       <Text variant="h3" numberOfLines={3}>
@@ -112,13 +112,13 @@ export function CommitmentCard({
       <SourceChip source={commitment.source} onPress={onOpenSource} />
 
       {needsConfirmation && onConfirm ? (
-        <Button label={t('commitment.confirm')} onPress={onConfirm} variant="tonal" size="sm" />
+        <Button label={t('commitment.detected.confirm')} onPress={onConfirm} variant="tonal" size="sm" />
       ) : null}
 
       {!isDone && commitment.status !== 'cancelled' ? (
         <View style={{ flexDirection: 'row', gap: spacing.xs }}>
           <Button
-            label={t('commitment.markDone')}
+            label={t('commitment.action.markDone')}
             onPress={onComplete}
             variant="tonal"
             size="sm"
@@ -126,7 +126,7 @@ export function CommitmentCard({
             style={{ flex: 1 }}
           />
           <Button
-            label={t('commitment.snooze')}
+            label={t('commitment.action.snooze')}
             onPress={onSnooze}
             variant="neutral"
             size="sm"

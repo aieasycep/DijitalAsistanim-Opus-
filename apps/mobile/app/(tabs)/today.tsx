@@ -150,7 +150,7 @@ export default function TodayScreen() {
         <ErrorState
           message={t(errorMessageKey(query.error))}
           {...(isRetryable(query.error)
-            ? { retryLabel: t('common.retry'), onRetry: () => void query.refetch() }
+            ? { retryLabel: t('common.action.retry'), onRetry: () => void query.refetch() }
             : {})}
         />
       </Screen>
@@ -199,8 +199,8 @@ export default function TodayScreen() {
         <EmptyState
           icon="wb-sunny"
           title={t('empty.noImportantEmail')}
-          description={t('today.empty.description')}
-          actionLabel={t('today.empty.action')}
+          description={t('empty.today.allClearHint')}
+          actionLabel={t('today.action.planDay')}
           onAction={() => router.push('/(tabs)/flow')}
         />
       ) : null}
@@ -209,7 +209,7 @@ export default function TodayScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <SectionHeader
             title={t('today.section.priorities')}
-            actionLabel={t('common.seeAll')}
+            actionLabel={t('common.action.seeAll')}
             onAction={() => router.push('/(tabs)/flow')}
           />
           <View style={{ gap: spacing.sm }}>
@@ -231,7 +231,7 @@ export default function TodayScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <SectionHeader
             title={t('today.section.schedule')}
-            actionLabel={t('common.seeAll')}
+            actionLabel={t('common.action.seeAll')}
             onAction={() => router.push('/(tabs)/plan')}
           />
           <View style={{ gap: spacing.sm }}>
@@ -262,7 +262,7 @@ export default function TodayScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <SectionHeader
             title={t('today.section.waitingOnOthers')}
-            actionLabel={t('common.seeAll')}
+            actionLabel={t('common.action.seeAll')}
             onAction={() => router.push('/followups')}
           />
           <View style={{ gap: spacing.sm }}>
@@ -287,7 +287,7 @@ export default function TodayScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <SectionHeader
             title={t('today.section.expectedFromYou')}
-            actionLabel={t('common.seeAll')}
+            actionLabel={t('common.action.seeAll')}
             onAction={() => router.push('/commitment')}
           />
           <View style={{ gap: spacing.sm }}>
@@ -334,10 +334,10 @@ export default function TodayScreen() {
       <View style={{ marginTop: spacing.xxl, alignItems: 'center', gap: spacing.xs }}>
         <MaterialIcons name="check-circle-outline" size={18} color="#9B978E" />
         <Text variant="micro" tone="tertiary" center>
-          {plural('today.footer.analyzed', feed?.briefing?.stats?.emailsAnalyzed ?? 0)}
+          {plural('mail.summary.scanned', feed?.briefing?.stats?.emailsAnalyzed ?? 0)}
         </Text>
         <Button
-          label={t('today.openFlow')}
+          label={t('today.action.reviewAll')}
           onPress={() => router.push('/(tabs)/flow')}
           variant="ghost"
           size="sm"

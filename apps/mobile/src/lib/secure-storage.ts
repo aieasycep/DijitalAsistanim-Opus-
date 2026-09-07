@@ -141,4 +141,6 @@ export const STORAGE_KEYS = {
   cachedPlan: 'da.cache.plan',
   pendingActions: 'da.queue.pendingActions',
   demoMode: 'da.demo.enabled',
+  deviceId: 'da.device.id',
+  pushToken: 'da.push.token',
 } as const

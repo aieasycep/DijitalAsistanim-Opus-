@@ -69,54 +69,54 @@ function PayloadPreview({
     switch (payload.kind) {
       case 'email_send':
         return [
-          { label: t('approval.field.to'), value: payload.to.join(', ') },
+          { label: t('approval.preview.to'), value: payload.to.join(', ') },
           ...(payload.cc.length > 0
-            ? [{ label: t('approval.field.cc'), value: payload.cc.join(', ') }]
+            ? [{ label: t('approval.preview.cc'), value: payload.cc.join(', ') }]
             : []),
-          { label: t('approval.field.subject'), value: payload.subject },
-          { label: t('approval.field.body'), value: payload.body },
+          { label: t('approval.preview.subject'), value: payload.subject },
+          { label: t('approval.preview.body'), value: payload.body },
         ]
       case 'calendar_create':
         return [
-          { label: t('approval.field.title'), value: payload.title },
-          { label: t('approval.field.start'), value: instant(payload.startsAt) },
-          { label: t('approval.field.end'), value: instant(payload.endsAt) },
+          { label: t('approval.preview.title'), value: payload.title },
+          { label: t('approval.preview.when'), value: instant(payload.startsAt) },
+          { label: t('approval.preview.until'), value: instant(payload.endsAt) },
           ...(payload.location
-            ? [{ label: t('approval.field.location'), value: payload.location }]
+            ? [{ label: t('approval.preview.where'), value: payload.location }]
             : []),
           ...(payload.attendees.length > 0
-            ? [{ label: t('approval.field.attendees'), value: payload.attendees.join(', ') }]
+            ? [{ label: t('approval.preview.attendees'), value: payload.attendees.join(', ') }]
             : []),
         ]
       case 'calendar_update': {
         const c = payload.changes
         return [
-          ...(c.title ? [{ label: t('approval.field.title'), value: c.title }] : []),
-          ...(c.startsAt ? [{ label: t('approval.field.start'), value: instant(c.startsAt) }] : []),
-          ...(c.endsAt ? [{ label: t('approval.field.end'), value: instant(c.endsAt) }] : []),
+          ...(c.title ? [{ label: t('approval.preview.title'), value: c.title }] : []),
+          ...(c.startsAt ? [{ label: t('approval.preview.when'), value: instant(c.startsAt) }] : []),
+          ...(c.endsAt ? [{ label: t('approval.preview.until'), value: instant(c.endsAt) }] : []),
           ...(c.location !== undefined
-            ? [{ label: t('approval.field.location'), value: c.location ?? '—' }]
+            ? [{ label: t('approval.preview.where'), value: c.location ?? '—' }]
             : []),
         ]
       }
       case 'task_create':
         return [
-          { label: t('approval.field.title'), value: payload.title },
-          ...(payload.dueAt ? [{ label: t('approval.field.due'), value: instant(payload.dueAt) }] : []),
-          ...(payload.notes ? [{ label: t('approval.field.notes'), value: payload.notes }] : []),
+          { label: t('approval.preview.title'), value: payload.title },
+          ...(payload.dueAt ? [{ label: t('approval.preview.dueDate'), value: instant(payload.dueAt) }] : []),
+          ...(payload.notes ? [{ label: t('approval.preview.notes'), value: payload.notes }] : []),
         ]
       case 'reminder_create':
         return [
-          { label: t('approval.field.title'), value: payload.title },
-          { label: t('approval.field.when'), value: instant(payload.remindAt) },
+          { label: t('approval.preview.title'), value: payload.title },
+          { label: t('approval.preview.when'), value: instant(payload.remindAt) },
         ]
       case 'commitment_create':
         return [
-          { label: t('approval.field.commitment'), value: payload.text },
+          { label: t('approval.preview.title'), value: payload.text },
           ...(payload.personName
-            ? [{ label: t('approval.field.person'), value: payload.personName }]
+            ? [{ label: t('approval.preview.person'), value: payload.personName }]
             : []),
-          ...(payload.dueAt ? [{ label: t('approval.field.due'), value: instant(payload.dueAt) }] : []),
+          ...(payload.dueAt ? [{ label: t('approval.preview.dueDate'), value: instant(payload.dueAt) }] : []),
         ]
     }
   })()
@@ -199,7 +199,7 @@ export function ApprovalCard({
           label={t(`approval.status.${approval.status}`)}
           tone={STATUS_TONE[approval.status]}
         />
-        <Badge label={t(`approval.type.${approval.type}`)} tone="neutral" />
+        <Badge label={t(`approval.actionType.${approval.type}`)} tone="neutral" />
       </View>
 
       {approval.source ? <SourceChip source={approval.source} onPress={onOpenSource} /> : null}
@@ -215,22 +215,22 @@ export function ApprovalCard({
       {isPending ? (
         <View style={{ gap: spacing.xs }}>
           <Button
-            label={t('approval.approve')}
+            label={t('approval.decide.approve')}
             onPress={onApprove}
             loading={busy}
             fullWidth
-            accessibilityHint={t('a11y.approval.approveHint')}
+            accessibilityHint={t('a11y.button.approve')}
           />
           <View style={{ flexDirection: 'row', gap: spacing.xs }}>
             <Button
-              label={t('approval.edit')}
+              label={t('approval.decide.edit')}
               onPress={onEdit}
               variant="neutral"
               size="sm"
               style={{ flex: 1 }}
             />
             <Button
-              label={t('approval.reject')}
+              label={t('approval.decide.reject')}
               onPress={onReject}
               variant="destructive"
               size="sm"
@@ -241,7 +241,7 @@ export function ApprovalCard({
       ) : null}
 
       {isFailed && onRetry ? (
-        <Button label={t('common.retry')} onPress={onRetry} variant="tonal" size="sm" />
+        <Button label={t('common.action.retry')} onPress={onRetry} variant="tonal" size="sm" />
       ) : null}
     </Card>
   )

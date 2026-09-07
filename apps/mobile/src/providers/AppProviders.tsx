@@ -12,7 +12,8 @@ import { createQueryClient } from '../lib/query-client'
 import { I18nProvider, type LanguagePreference } from '../i18n/I18nProvider'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { STORAGE_KEYS, initEncryptedCache, plainCache } from '../lib/secure-storage'
-import { useSessionStore } from '../stores/session'
+import { refreshSupabaseSession } from '../lib/auth'
+import { setSessionRefresher, useSessionStore } from '../stores/session'
 
 /**
  * The provider stack, assembled once at the root.
@@ -56,6 +57,9 @@ export function AppProviders({ children }: AppProvidersProps) {
       // and analytics/error reporting before anything can fail interestingly.
       initErrorReporting()
       initAnalytics()
+      // The store refreshes tokens but must not depend on the auth module, so
+      // the implementation is injected here, once, before hydration runs.
+      setSessionRefresher(refreshSupabaseSession)
       await initEncryptedCache()
       await hydrate()
       setReady(true)

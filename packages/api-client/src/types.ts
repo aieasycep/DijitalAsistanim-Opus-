@@ -674,7 +674,9 @@ export interface CaptureUploadTarget {
 export interface ReferralSummary {
   code: string
   redemptionCount: number
-  bonusDaysEarned: number
+  /** Latest expiry across the user's unrevoked bonuses; null when none is active. */
+  bonusExpiresAt: IsoInstant | null
+  activeBonuses: number
 }
 
 export interface ExportStatusView {

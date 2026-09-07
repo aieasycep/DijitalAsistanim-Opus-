@@ -1,6 +1,7 @@
 import { layout, spacing } from '@da/design-tokens'
 import { MaterialIcons } from '@expo/vector-icons'
 import { Tabs } from 'expo-router'
+import type { ColorValue } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '../../src/components/ui/Text'
 import { useT } from '../../src/i18n/I18nProvider'
@@ -21,16 +22,16 @@ export default function TabsLayout() {
 
   const renderIcon =
     (name: IconName, activeName: IconName) =>
-    ({ color, focused }: { color: string; focused: boolean }) => (
-      <MaterialIcons name={focused ? activeName : name} size={24} color={color} />
+    ({ color, focused }: { color: ColorValue; focused: boolean }) => (
+      <MaterialIcons name={focused ? activeName : name} size={24} color={String(color)} />
     )
 
   const renderLabel =
     (label: string) =>
-    ({ color, focused }: { color: string; focused: boolean }) => (
+    ({ color, focused }: { color: ColorValue; focused: boolean }) => (
       <Text
         variant="micro"
-        style={{ color, fontWeight: focused ? '700' : '500', letterSpacing: 0 }}
+        style={{ color: String(color), fontWeight: focused ? '700' : '500', letterSpacing: 0 }}
         numberOfLines={1}
       >
         {label}
@@ -61,37 +62,37 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="today"
         options={{
-          title: t('common.tabs.today'),
+          title: t('common.tab.today'),
           tabBarIcon: renderIcon('wb-sunny', 'wb-sunny'),
-          tabBarLabel: renderLabel(t('common.tabs.today')),
-          tabBarAccessibilityLabel: t('a11y.tabs.today'),
+          tabBarLabel: renderLabel(t('common.tab.today')),
+          tabBarAccessibilityLabel: t('a11y.tab.today'),
         }}
       />
       <Tabs.Screen
         name="flow"
         options={{
-          title: t('common.tabs.flow'),
+          title: t('common.tab.flow'),
           tabBarIcon: renderIcon('dynamic-feed', 'dynamic-feed'),
-          tabBarLabel: renderLabel(t('common.tabs.flow')),
-          tabBarAccessibilityLabel: t('a11y.tabs.flow'),
+          tabBarLabel: renderLabel(t('common.tab.flow')),
+          tabBarAccessibilityLabel: t('a11y.tab.flow'),
         }}
       />
       <Tabs.Screen
         name="plan"
         options={{
-          title: t('common.tabs.plan'),
+          title: t('common.tab.plan'),
           tabBarIcon: renderIcon('calendar-today', 'calendar-today'),
-          tabBarLabel: renderLabel(t('common.tabs.plan')),
-          tabBarAccessibilityLabel: t('a11y.tabs.plan'),
+          tabBarLabel: renderLabel(t('common.tab.plan')),
+          tabBarAccessibilityLabel: t('a11y.tab.plan'),
         }}
       />
       <Tabs.Screen
         name="assistant"
         options={{
-          title: t('common.tabs.assistant'),
+          title: t('common.tab.assistant'),
           tabBarIcon: renderIcon('auto-awesome', 'auto-awesome'),
-          tabBarLabel: renderLabel(t('common.tabs.assistant')),
-          tabBarAccessibilityLabel: t('a11y.tabs.assistant'),
+          tabBarLabel: renderLabel(t('common.tab.assistant')),
+          tabBarAccessibilityLabel: t('a11y.tab.assistant'),
         }}
       />
     </Tabs>

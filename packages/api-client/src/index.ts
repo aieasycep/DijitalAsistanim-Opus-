@@ -6,6 +6,7 @@ import { createAssistantApi, type AssistantApi } from './endpoints/assistant'
 import { createBriefingsApi, type BriefingsApi } from './endpoints/briefings'
 import { createCapturesApi, type CapturesApi } from './endpoints/captures'
 import { createCommitmentsApi, type CommitmentsApi } from './endpoints/commitments'
+import { createEventsApi, type EventsApi } from './endpoints/events'
 import { createFollowUpsApi, type FollowUpsApi } from './endpoints/followups'
 import { createMeetingsApi, type MeetingsApi } from './endpoints/meetings'
 import { createNotificationsApi, type NotificationsApi } from './endpoints/notifications'
@@ -37,6 +38,7 @@ export interface ApiClient {
   reply: ReplyApi
   followUps: FollowUpsApi
   commitments: CommitmentsApi
+  events: EventsApi
   plan: PlanApi
   meetings: MeetingsApi
   assistant: AssistantApi
@@ -70,6 +72,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     reply: createReplyApi(ctx),
     followUps: createFollowUpsApi(ctx),
     commitments: createCommitmentsApi(ctx),
+    events: createEventsApi(ctx),
     plan: createPlanApi(ctx),
     meetings: createMeetingsApi(ctx),
     assistant: createAssistantApi(ctx),
@@ -88,6 +91,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
 }
 
 export { qk, type QueryKey } from './query-keys'
+export type { SearchType, SearchInput } from './endpoints/search'
 export { DEFAULT_TIMEOUT_MS, type ApiClientConfig } from './config'
 export {
   createHttp,
@@ -107,6 +111,7 @@ export type {
   BriefingsApi,
   CapturesApi,
   CommitmentsApi,
+  EventsApi,
   FollowUpsApi,
   MeetingsApi,
   NotificationsApi,
