@@ -1,0 +1,80 @@
+import type { MessageTree } from '../../engine.ts'
+
+export const today = {
+  title: 'Bugün',
+  greeting: {
+    morning: 'Günaydın, {name}',
+    afternoon: 'İyi günler, {name}',
+    evening: 'İyi akşamlar, {name}',
+    night: 'İyi geceler, {name}',
+  },
+  hero: {
+    count: {
+      zero: 'Bugün acil bir şey yok.',
+      one: 'Bugün bilmen gereken 1 şey var.',
+      other: 'Bugün bilmen gereken {count} şey var.',
+    },
+    subtitle: 'Sabahtan beri {scanned} mail tarandı.',
+    updated: '{time} itibarıyla',
+    refresh: 'Yenile',
+  },
+  section: {
+    priorities: 'Bugünün öncelikleri',
+    schedule: 'Programın',
+    expectedFromYou: 'Senden beklenenler',
+    waitingOnOthers: 'Senin beklediklerin',
+    deadlines: 'Son tarihler',
+    personal: 'Kişisel gelişmeler',
+    suggestions: 'Öneriler',
+    captures: 'Yakaladıkların',
+  },
+  schedule: {
+    nextUp: 'Sıradaki',
+    startsAt: '{time} başlıyor',
+    inMinutes: { one: '1 dakika sonra', other: '{count} dakika sonra' },
+    now: 'Şu an devam ediyor',
+    freeUntil: '{time} kadar boşsun',
+    meetingCount: { zero: 'Toplantı yok', one: '1 toplantı', other: '{count} toplantı' },
+    busyLoad: 'Günün {percent} dolu',
+    firstFree: 'İlk boş aralık: {range}',
+  },
+  priority: {
+    reason: 'Neden önemli?',
+    fromPerson: '{name} yazdı',
+    dueToday: 'Bugün son gün',
+    dueTomorrow: 'Yarın son gün',
+    unanswered: '{days} gündür cevapsız',
+  },
+  action: {
+    openBriefing: 'Brifingi aç',
+    listenBriefing: 'Dinle',
+    planDay: 'Günü planla',
+    reviewAll: 'Hepsini gözden geçir',
+    askAssistant: 'Asistana sor',
+    capture: 'Bir şey yakala',
+    markAllSeen: 'Hepsini gördüm',
+  },
+  timeSaved: {
+    title: 'Kazandığın zaman',
+    thisWeek: 'Bu hafta yaklaşık {minutes} dakika',
+    total: 'Toplam {hours} saat',
+    hint: 'Senin yerine okunan, ayıklanan ve özetlenen işlerin karşılığı.',
+  },
+  streak: {
+    title: 'Üst üste {count} gün',
+    hint: 'Her sabah gününe hazır başlıyorsun.',
+  },
+  eveningNudge: {
+    title: 'Günü kapatmaya ne dersin?',
+    body: 'Bugünden kalanları toparlayıp yarını hazırlayalım.',
+    action: 'Günü kapat',
+  },
+  syncBanner: {
+    syncing: 'Hesapların eşitleniyor',
+    backfilling: 'Geçmiş mailler taranıyor, {percent} tamam',
+    error: 'Bir hesap eşitlenemedi',
+    fix: 'Düzelt',
+  },
+  pullToRefresh: 'Yenilemek için çek',
+  lastChecked: 'Son kontrol {time}',
+} satisfies MessageTree

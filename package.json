@@ -1,0 +1,37 @@
+{
+  "name": "dijital-asistan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dijital Asistan — proactive personal command center for email, calendar and commitments.",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "typecheck": "pnpm -r --workspace-concurrency=1 run typecheck",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:mobile": "pnpm --filter @da/mobile run test",
+    "build:web": "pnpm --filter @da/web run build",
+    "verify:mobile": "pnpm --filter @da/mobile run verify",
+    "verify:supabase": "node scripts/validate-supabase.mjs",
+    "verify:no-dead-code": "node scripts/check-no-dead-code.mjs",
+    "verify:secrets": "node scripts/check-secrets.mjs",
+    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run verify:supabase && pnpm run verify:no-dead-code && pnpm run verify:secrets"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.19.1",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.47.0",
+    "vitest": "^3.2.4"
+  }
+}

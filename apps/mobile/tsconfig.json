@@ -1,0 +1,41 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@da/design-tokens": ["../../packages/design-tokens/src/index.ts"],
+      "@da/design-tokens/*": ["../../packages/design-tokens/src/*"],
+      "@da/domain": ["../../packages/domain/src/index.ts"],
+      "@da/domain/*": ["../../packages/domain/src/*"],
+      "@da/validation": ["../../packages/validation/src/index.ts"],
+      "@da/validation/*": ["../../packages/validation/src/*"],
+      "@da/i18n": ["../../packages/i18n/src/index.ts"],
+      "@da/i18n/*": ["../../packages/i18n/src/*"],
+      "@da/api-client": ["../../packages/api-client/src/index.ts"],
+      "@da/api-client/*": ["../../packages/api-client/src/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "../../packages/*/src/**/*.ts"
+  ],
+  "exclude": ["node_modules", "ios", "android", ".expo", "native"]
+}

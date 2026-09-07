@@ -1,0 +1,72 @@
+import type { MessageTree } from '../../engine.ts'
+
+export const plan = {
+  title: 'Plan',
+  subtitle: 'Your schedule, your commitments and your open time.',
+  views: {
+    day: 'Day',
+    week: 'Week',
+    agenda: 'Agenda',
+  },
+  sections: {
+    schedule: 'Schedule',
+    tasks: 'Tasks',
+    commitments: 'Commitments',
+    deadlines: 'Deadlines',
+    freeTime: 'Open time',
+    suggestions: 'Suggestions',
+  },
+  suggestion: {
+    focusBlock: 'You have {duration} free between {start} and {end}. A good window for focused work.',
+    protectTime: 'Protect this block',
+    dismiss: 'Not now',
+    added: 'Added to your calendar',
+  },
+  freeBlock: {
+    label: '{duration} free',
+    range: '{start} – {end}',
+    none: 'No open block long enough today.',
+    shortest: 'Shortest useful block: {duration}',
+  },
+  load: {
+    title: 'Day load',
+    meetings: '{count} meetings',
+    hoursInMeetings: '{hours} h in meetings',
+    focusHours: '{hours} h for focus',
+    ratio: '{percent}% of your day is booked',
+    light: 'Light',
+    moderate: 'Moderate',
+    heavy: 'Heavy',
+    overloaded: 'Overloaded',
+  },
+  task: {
+    add: 'Add task',
+    placeholder: 'What needs doing?',
+    dueLabel: 'Due',
+    noDue: 'No date',
+    status: {
+      open: 'Open',
+      done: 'Done',
+      cancelled: 'Cancelled',
+    },
+    completed: 'Completed',
+    reopen: 'Reopen',
+    delete: 'Delete task',
+  },
+  deadline: {
+    today: 'Due today',
+    tomorrow: 'Due tomorrow',
+    inDays: 'Due in {count} days',
+    passed: 'The date has passed',
+    at: 'Due {date}',
+  },
+  weekOverview: {
+    title: 'Your week',
+    busiest: 'Busiest: {day}',
+    lightest: 'Lightest: {day}',
+    totalMeetings: '{count} meetings this week',
+  },
+  emptyDay: 'Nothing scheduled.',
+  jumpToToday: 'Today',
+  addEvent: 'Add event',
+} satisfies MessageTree

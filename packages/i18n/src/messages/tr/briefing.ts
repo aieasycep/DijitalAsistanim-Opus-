@@ -1,0 +1,123 @@
+import type { MessageTree } from '../../engine.ts'
+
+/**
+ * Section keys mirror `BRIEFING_SECTIONS` exactly so the renderer can look a
+ * section title up by its enum value without a mapping table.
+ */
+export const briefing = {
+  title: 'Brifing',
+  kind: {
+    morning: 'Sabah brifingi',
+    midday: 'Öğle nabzı',
+    evening: 'Gün kapanışı',
+    weekly: 'Haftalık değerlendirme',
+  },
+  kindSubtitle: {
+    morning: 'Güne başlamadan önce bilmen gerekenler',
+    midday: 'Günün ortasında değişenler',
+    evening: 'Bugünden kalanlar ve yarına hazırlık',
+    weekly: 'Haftanın özeti ve gelecek hafta',
+  },
+  section: {
+    priorities: 'Bugünün öncelikleri',
+    schedule: 'Programın',
+    expected_from_you: 'Senden beklenenler',
+    waiting_on_others: 'Senin beklediklerin',
+    deadlines: 'Son tarihler',
+    personal: 'Kişisel gelişmeler',
+  },
+  sectionEmpty: {
+    priorities: 'Bugün öne çıkan bir konu yok.',
+    schedule: 'Programın boş.',
+    expected_from_you: 'Senden beklenen bir şey yok.',
+    waiting_on_others: 'Kimseden bir dönüş beklemiyorsun.',
+    deadlines: 'Yaklaşan son tarih yok.',
+    personal: 'Kişisel tarafta yeni bir gelişme yok.',
+  },
+  status: {
+    queued: 'Sıraya alındı',
+    generating: 'Yazılıyor',
+    ready: 'Hazır',
+    failed: 'Hazırlanamadı',
+    skipped: 'Atlandı',
+  },
+  statusHint: {
+    queued: 'Birazdan hazırlamaya başlayacağız.',
+    generating: 'Maillerin ve takvimin okunuyor.',
+    ready: '{time} itibarıyla hazır.',
+    failed: 'Bu brifing hazırlanamadı. Yeniden deneyebilirsin.',
+    skipped: 'Paylaşacak yeni bir şey olmadığı için atlandı.',
+  },
+  stats: {
+    scanned: { one: '1 mail tarandı', other: '{count} mail tarandı' },
+    surfaced: { one: '1 konu öne çıkarıldı', other: '{count} konu öne çıkarıldı' },
+    silenced: { one: '1 mail sessize alındı', other: '{count} mail sessize alındı' },
+    meetings: { zero: 'Toplantı yok', one: '1 toplantı', other: '{count} toplantı' },
+    deadlines: { zero: 'Son tarih yok', one: '1 son tarih', other: '{count} son tarih' },
+    timeSaved: 'Yaklaşık {minutes} dakika kazandırdı',
+  },
+  push: {
+    morning: 'Günaydın. Bugün bilmen gereken {count} şey var.',
+    morningQuiet: 'Günaydın. Bugün acil bir şey yok.',
+    midday: 'Öğleden sonra için {count} yeni konu var.',
+    middayQuiet: 'Öğleden beri yeni bir şey çıkmadı.',
+    evening: 'Günü kapatalım. Yarına {count} madde kaldı.',
+    eveningQuiet: 'Bugün temiz kapandı. Yarın sakin görünüyor.',
+    weekly: 'Haftan hazır. {count} başlıkta özetledik.',
+    titleMorning: 'Sabah brifingin hazır',
+    titleMidday: 'Öğle nabzı',
+    titleEvening: 'Gün kapanışı',
+    titleWeekly: 'Haftalık değerlendirme',
+  },
+  audio: {
+    listen: 'Dinle',
+    pause: 'Duraklat',
+    resume: 'Devam et',
+    stop: 'Durdur',
+    generating: 'Sesli anlatım hazırlanıyor',
+    duration: '{minutes} dakikalık anlatım',
+    speed: 'Hız',
+    unavailable: 'Sesli anlatım şu an hazırlanamıyor.',
+    notInPlan: 'Sesli brifing Pro planında.',
+  },
+  item: {
+    openSource: 'Kaynağı aç',
+    why: 'Neden burada?',
+    dismiss: 'İlgilenmiyorum',
+    dismissed: 'Bir dahakine göstermeyeceğiz.',
+    act: 'İşlem yap',
+  },
+  weekly: {
+    title: 'Haftalık değerlendirme',
+    subtitle: '{start} – {end}',
+    handled: { one: '1 konu kapandı', other: '{count} konu kapandı' },
+    stillOpen: { zero: 'Açık kalan yok', one: '1 konu açık kaldı', other: '{count} konu açık kaldı' },
+    busiestDay: 'En yoğun günün {day} oldu.',
+    quietestDay: 'En sakin günün {day} oldu.',
+    topContact: 'En çok {name} ile yazıştın.',
+    meetingHours: 'Toplantılarda {hours} saat geçirdin.',
+    nextWeek: 'Gelecek hafta',
+    nextWeekLoad: 'Gelecek hafta {count} toplantı görünüyor.',
+  },
+  regenerate: 'Yeniden hazırla',
+  archiveTitle: 'Geçmiş brifingler',
+  readingTime: '{minutes} dakikalık okuma',
+  signature: 'Bu brifing senin verilerinden hazırlandı.',
+} satisfies MessageTree
+
+/** Evening close-out flow, addressed from the Today screen as `evening.*`. */
+export const evening = {
+  title: 'Günü kapat',
+  subtitle: 'Bugünden kalanları toparlayalım.',
+  readyForTomorrow: 'Yarına Hazırım',
+  leftOver: { zero: 'Bugünden bir şey kalmadı.', one: 'Bugünden 1 madde kaldı.', other: 'Bugünden {count} madde kaldı.' },
+  carryOver: 'Yarına taşı',
+  carriedOver: 'Yarına taşındı',
+  closeItem: 'Kapat',
+  tomorrowTitle: 'Yarın seni ne bekliyor?',
+  tomorrowMeetings: { zero: 'Yarın toplantın yok.', one: 'Yarın 1 toplantın var.', other: 'Yarın {count} toplantın var.' },
+  tomorrowFirst: 'İlk işin {time}: {title}',
+  tomorrowDeadlines: { zero: 'Yarın son tarih yok.', one: 'Yarın 1 son tarih var.', other: 'Yarın {count} son tarih var.' },
+  prepSuggestion: 'Yarın sabah için {minutes} dakikalık hazırlık aralığı ayıralım mı?',
+  wrapUp: 'Bugünü kapattın. İyi dinlenmeler.',
+} satisfies MessageTree

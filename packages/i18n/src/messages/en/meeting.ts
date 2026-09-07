@@ -1,0 +1,66 @@
+import type { MessageTree } from '../../engine.ts'
+
+export const meeting = {
+  title: 'Meeting prep',
+  twoMinuteSummary: 'Two-minute brief',
+  prep: {
+    ready: 'Your brief is ready',
+    generating: 'Preparing your brief',
+    unavailable: 'We could not prepare a brief for this meeting.',
+    openBefore: 'Open {minutes} minutes before',
+  },
+  sections: {
+    context: 'Context',
+    people: 'Who is in the room',
+    history: 'What came before',
+    documents: 'Documents',
+    openItems: 'Open items',
+    talkingPoints: 'Talking points',
+    questions: 'Questions to ask',
+  },
+  people: {
+    lastTalked: 'Last spoke {elapsed}',
+    firstTime: 'First time meeting',
+    role: '{role}',
+    company: '{company}',
+    threadsWith: '{count} conversations with you',
+  },
+  history: {
+    lastThread: 'Last conversation: {subject}',
+    lastDecision: 'Last decision: {decision}',
+    none: 'No shared history.',
+  },
+  openItems: {
+    youOwe: 'You promised: {item}',
+    theyOwe: '{name} promised: {item}',
+    none: 'Nothing open between you.',
+  },
+  documents: {
+    fromInvite: 'From the invite',
+    fromThread: 'From the conversation',
+    open: 'Open',
+    none: 'No documents attached.',
+  },
+  after: {
+    title: 'After the meeting',
+    prompt: 'How did it go?',
+    captureNotes: 'Add notes',
+    notesPlaceholder: 'Decisions, next steps, who does what',
+    extractCommitments: 'Find commitments',
+    extracting: 'Reading your notes',
+    foundCommitments: {
+      one: '1 commitment found',
+      other: '{count} commitments found',
+    },
+    noCommitments: 'No commitments found in your notes.',
+    sendRecap: 'Draft a recap email',
+    scheduleFollowUp: 'Schedule a follow-up',
+    saveNotes: 'Save notes',
+    saved: 'Notes saved',
+    skip: 'Not now',
+  },
+  joinNow: 'Join now',
+  startsIn: 'Starts in {minutes} min',
+  runningLate: 'Running late? Let them know.',
+  notifyLate: 'Send a heads-up',
+} satisfies MessageTree

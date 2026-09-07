@@ -1,0 +1,73 @@
+import type { MessageTree } from '../../engine.ts'
+
+export const commitment = {
+  title: 'Commitments',
+  subtitle: 'What you promised, and what was promised to you.',
+  direction: {
+    user_owes: 'You promised',
+    other_owes: 'Promised to you',
+  },
+  directionShort: {
+    user_owes: 'You owe',
+    other_owes: 'They owe',
+  },
+  status: {
+    open: 'Open',
+    done: 'Done',
+    snoozed: 'Snoozed',
+    cancelled: 'Cancelled',
+    overdue: 'Overdue',
+  },
+  sections: {
+    dueToday: 'Due today',
+    dueSoon: 'Due soon',
+    overdue: 'Overdue',
+    noDate: 'No date',
+    completed: 'Completed',
+  },
+  toPerson: 'to {name}',
+  fromPerson: 'from {name}',
+  dueOn: 'Due {date}',
+  noDue: 'No date agreed',
+  detectedFrom: 'Found in {source}',
+  detectedFromEmail: 'Found in an email',
+  detectedFromMeeting: 'Found in meeting notes',
+  quote: 'In your words: “{quote}”',
+  actions: {
+    markDone: 'Mark done',
+    snooze: 'Snooze',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    remind: 'Remind me',
+    openSource: 'Open the source',
+    nudge: 'Nudge them',
+    draftUpdate: 'Draft an update',
+  },
+  create: {
+    title: 'New commitment',
+    whatLabel: 'What',
+    whatPlaceholder: 'What was promised?',
+    whoLabel: 'Who',
+    whoPlaceholder: 'Who is it with?',
+    directionLabel: 'Direction',
+    dueLabel: 'By when',
+    save: 'Save',
+    created: 'Commitment saved',
+  },
+  confirm: {
+    title: 'Is this a commitment?',
+    body: 'The assistant read: “{quote}”',
+    yes: 'Yes, keep it',
+    no: 'No, discard',
+  },
+  markedDone: 'Marked done',
+  cancelled: 'Cancelled',
+  count: {
+    one: '1 commitment',
+    other: '{count} commitments',
+  },
+  overdueCount: {
+    one: '1 overdue commitment',
+    other: '{count} overdue commitments',
+  },
+} satisfies MessageTree

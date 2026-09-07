@@ -1,0 +1,80 @@
+import type { MessageTree } from '../../engine.ts'
+
+export const email = {
+  title: 'Email',
+  actions: {
+    draftReply: 'Draft reply',
+    createTask: 'Create task',
+    addToCalendar: 'Add to calendar',
+    remind: 'Remind me',
+    openOriginal: 'Open original',
+  },
+  summary: {
+    title: 'Summary',
+    oneLine: 'In one line',
+    generating: 'Summarizing',
+    unavailable: 'We could not summarize this message.',
+    aiMark: 'Written by the assistant',
+  },
+  asks: {
+    title: 'What this asks of you',
+    none: 'Nothing is asked of you.',
+  },
+  keyPoints: 'Key points',
+  dates: {
+    title: 'Dates in this message',
+    unverified: 'Not confirmed by the source.',
+    addToCalendar: 'Add to calendar',
+    setReminder: 'Set a reminder',
+  },
+  amounts: {
+    title: 'Amounts',
+    unverified: 'Not confirmed by the source.',
+  },
+  people: {
+    title: 'People',
+    from: 'From',
+    to: 'To',
+    cc: 'Cc',
+    bcc: 'Bcc',
+    andOthers: 'and {count} others',
+  },
+  meta: {
+    receivedAt: 'Received {time}',
+    sentAt: 'Sent {time}',
+    account: 'Account',
+    labels: 'Labels',
+    thread: 'Conversation',
+  },
+  body: {
+    showFull: 'Show full message',
+    hideFull: 'Hide full message',
+    showQuoted: 'Show quoted text',
+    hideQuoted: 'Hide quoted text',
+    externalImagesBlocked: 'Remote images are blocked.',
+    loadImages: 'Load images',
+    linksWarning: 'Check links before opening them.',
+  },
+  markImportant: 'Mark important',
+  markNotImportant: 'Not important',
+  muteSender: 'Mute this sender',
+  unmuteSender: 'Unmute this sender',
+  markVip: 'Mark as VIP',
+  stopFollowing: 'Stop following this conversation',
+  archive: 'Archive',
+  attachments: {
+    title: 'Attachments',
+    analyze: 'Have the assistant read it',
+    openInApp: 'Open',
+    sizeLabel: '{size}',
+  },
+  why: {
+    title: 'Why this reached you',
+    close: 'Got it',
+  },
+  feedback: {
+    good: 'Good summary',
+    bad: 'Off the mark',
+    thanks: 'Thanks. We will adjust.',
+  },
+} satisfies MessageTree

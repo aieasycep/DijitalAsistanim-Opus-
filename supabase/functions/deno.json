@@ -1,0 +1,29 @@
+{
+  "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+  "imports": {
+    "@da/domain": "../../packages/domain/src/index.ts",
+    "@da/validation": "../../packages/validation/src/index.ts",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.115.0",
+    "zod": "npm:zod@^3.25.76"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "lib": ["deno.window", "deno.unstable", "esnext"]
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["no-explicit-any"]
+    }
+  },
+  "fmt": {
+    "semiColons": false,
+    "singleQuote": true,
+    "lineWidth": 100,
+    "indentWidth": 2
+  },
+  "exclude": ["../../node_modules", "../../apps", "../.temp"]
+}

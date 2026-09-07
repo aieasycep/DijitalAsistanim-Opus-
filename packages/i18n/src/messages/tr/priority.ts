@@ -1,0 +1,98 @@
+import type { MessageTree } from '../../engine.ts'
+
+export const priority = {
+  title: 'Öncelik Kuralları',
+  subtitle: 'Neyin önemli olduğunu sen tanımla.',
+
+  /** Human explanations produced by `evaluatePriority`. */
+  reason: {
+    mutedSender: '{sender} sessize alınmış.',
+    senderRule: '{sender} için "her zaman önemli" kuralın var.',
+    domainRule: '{domain} adresinden gelenleri her zaman öne çıkarıyoruz.',
+    keywordRule: '“{keyword}” geçtiği için öne çıkarıldı.',
+    vipRule: '{sender} VIP listende.',
+    categoryDemoted: '{category} kategorisini düşük önceliğe aldın.',
+    promotion: 'Tanıtım maili olarak görünüyor.',
+    security: 'Güvenlikle ilgili bir uyarı içeriyor.',
+    deadline: '{hours} saat içinde bir son tarih var.',
+    deadlinePassed: 'Son tarih geçmiş.',
+    vip: 'VIP listendeki bir kişiden geldi.',
+    awaitingReply: '{hours} saattir cevap bekliyor.',
+    commitment: 'İçinde verilmiş bir söz var.',
+    meetingRelevance: 'Yaklaşan bir toplantıyla ilgili.',
+    learned: 'Bu tür maillere genelde hızlı dönüyorsun.',
+    aiImportance: 'İçerik {importance} önemde değerlendirildi.',
+  },
+  reasonTitle: 'Neden bu sırada?',
+  reasonMore: { one: 've 1 sebep daha', other: 've {count} sebep daha' },
+
+  band: {
+    critical: 'Kritik',
+    high: 'Yüksek',
+    normal: 'Normal',
+    low: 'Düşük',
+  },
+  bandHint: {
+    critical: 'Bugün mutlaka görülmeli',
+    high: 'Bugün içinde ele alınmalı',
+    normal: 'Sırası gelince',
+    low: 'Sessize alınır',
+  },
+
+  rule: {
+    kind: {
+      sender_always_important: 'Bu gönderen her zaman önemli',
+      domain_always_important: 'Bu alan adı her zaman önemli',
+      keyword_high_priority: 'Bu kelime yüksek öncelikli',
+      vip_always_notify: 'VIP: her zaman bildir',
+      category_low_priority: 'Bu kategori düşük öncelikli',
+      mute_sender: 'Bu göndereni sessize al',
+    },
+    kindHint: {
+      sender_always_important: 'Bu adresten gelen her mail öne çıkar.',
+      domain_always_important: 'Bu alan adındaki herkes öne çıkar.',
+      keyword_high_priority: 'Konu ya da metinde bu kelime geçerse öne çıkar.',
+      vip_always_notify: 'Sessiz saatlerde bile bildirim gelir.',
+      category_low_priority: 'Bu kategori günlük özete iner.',
+      mute_sender: 'Bu gönderen artık öne çıkmaz.',
+    },
+    add: 'Kural ekle',
+    edit: 'Kuralı düzenle',
+    delete: 'Kuralı sil',
+    deleteConfirm: 'Bu kural silinsin mi?',
+    senderLabel: 'Gönderen adresi',
+    senderPlaceholder: 'ornek@sirket.com',
+    domainLabel: 'Alan adı',
+    domainPlaceholder: 'sirket.com',
+    keywordLabel: 'Anahtar kelime',
+    keywordPlaceholder: 'sözleşme',
+    categoryLabel: 'Kategori',
+    enabled: 'Etkin',
+    disabled: 'Kapalı',
+    matches: { zero: 'Henüz eşleşme yok', one: '1 mailde eşleşti', other: '{count} mailde eşleşti' },
+    created: 'Kural eklendi.',
+    updated: 'Kural güncellendi.',
+    deleted: 'Kural silindi.',
+    duplicate: 'Bu kural zaten var.',
+    limitReached: 'Bu planda en fazla {limit} kural tanımlayabilirsin.',
+  },
+
+  learned: {
+    title: 'Öğrenilenler',
+    subtitle: 'Davranışından çıkardıklarımız.',
+    item: '{description}',
+    confidence: 'Güven: {percent}',
+    promote: 'Kurala dönüştür',
+    forget: 'Unut',
+    forgotten: 'Unutuldu.',
+    empty: 'Henüz bir örüntü çıkarmadık.',
+  },
+
+  feedback: {
+    title: 'Bu sıralama doğru mu?',
+    tooHigh: 'Fazla öne çıkmış',
+    tooLow: 'Daha önde olmalıydı',
+    justRight: 'Doğru',
+    thanks: 'Teşekkürler, bir sonraki sıralamada dikkate alacağız.',
+  },
+} satisfies MessageTree
