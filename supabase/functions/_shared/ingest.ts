@@ -492,7 +492,7 @@ async function writeThreadAnalysis(
   message: DecodedLike,
   analysis: ThreadAnalysis,
 ): Promise<void> {
-  const candidate = toPriorityCandidate(context, message, analysis)
+  const candidate = toPriorityCandidate(message, analysis)
   const priority = evaluatePriority(candidate, {
     now: context.now,
     rules: context.rules,
@@ -523,7 +523,6 @@ async function writeThreadAnalysis(
 }
 
 export function toPriorityCandidate(
-  context: IngestContext,
   message: DecodedLike,
   analysis: ThreadAnalysis,
 ): PriorityCandidate {

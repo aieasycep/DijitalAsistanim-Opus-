@@ -13,7 +13,7 @@ const GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me'
 const CALENDAR = 'https://www.googleapis.com/calendar/v3'
 const TASKS = 'https://tasks.googleapis.com/tasks/v1'
 
-async function call<T>(
+function call<T>(
   url: string,
   accessToken: string,
   init: RequestInit = {},
@@ -345,7 +345,7 @@ function encodeRfc2047(value: string): string {
   return `=?UTF-8?B?${btoa(binary)}?=`
 }
 
-export async function sendMessage(
+export function sendMessage(
   accessToken: string,
   input: SendMessageInput,
 ): Promise<{ id: string; threadId: string }> {

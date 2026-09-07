@@ -282,7 +282,7 @@ export async function buildBriefing(
     }
   }
 
-  return buildDeterministicBriefing(kind, locale, userName, inputs, timeZone)
+  return buildDeterministicBriefing(locale, userName, inputs, timeZone)
 }
 
 const SECTION_FOR = {
@@ -302,7 +302,6 @@ const SECTION_FOR = {
  * behind it.
  */
 function buildDeterministicBriefing(
-  kind: BriefingKind,
   locale: Locale,
   userName: string | null,
   inputs: BriefingInputs,

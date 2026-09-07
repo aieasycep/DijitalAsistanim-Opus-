@@ -1,7 +1,7 @@
 import { briefingAudioRequestSchema } from '@da/validation'
-import { AppError, systemClock } from '../_shared/domain.ts'
+import { AppError } from '../_shared/domain.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
-import { fetchWithLimits, jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
+import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
 import { CAPTURES_BUCKET, signedDownloadUrl, uploadBytes } from '../_shared/storage.ts'
 
 /**
@@ -15,7 +15,6 @@ import { CAPTURES_BUCKET, signedDownloadUrl, uploadBytes } from '../_shared/stor
 serveFunction('briefing-audio', async ({ request, origin }) => {
   const user = await requireUser(request)
   const body = await parseBody(request, briefingAudioRequestSchema)
-  const now = systemClock.now()
   const client = serviceClient()
 
   const briefing = await client

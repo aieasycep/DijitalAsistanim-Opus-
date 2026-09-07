@@ -1,5 +1,5 @@
 import { generateBriefingRequestSchema } from '@da/validation'
-import { AppError, systemClock, toZonedParts } from '../_shared/domain.ts'
+import { systemClock, toZonedParts } from '../_shared/domain.ts'
 import { audit } from '../_shared/audit.ts'
 import { dbError, loadUserContext, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'

@@ -178,7 +178,7 @@ interface DispatchOutcome {
   resultRef: string | null
 }
 
-async function dispatch(
+function dispatch(
   approval: ApprovalRow,
   userId: string,
   now: Date,

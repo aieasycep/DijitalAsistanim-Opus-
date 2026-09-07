@@ -12,7 +12,7 @@ import { fetchWithLimits, withRetry } from '../http.ts'
 
 const GRAPH = 'https://graph.microsoft.com/v1.0'
 
-async function call<T>(
+function call<T>(
   url: string,
   accessToken: string,
   init: RequestInit = {},
