@@ -188,6 +188,7 @@ try {
     'subscriptions',
     'connected_accounts',
     'oauth_credentials',
+    'oauth_states',
     'sync_states',
     'email_threads',
     'email_messages',
@@ -256,6 +257,9 @@ try {
   // Tables that must be unreachable by a client under any policy.
   const SERVICE_ROLE_ONLY = [
     'oauth_credentials',
+    // A client that could read or write this table could bind another user's
+    // consent to its own account, so it carries RLS with no policies at all.
+    'oauth_states',
     'audit_logs',
     'ai_usage_events',
     'rate_limit_counters',

@@ -333,7 +333,8 @@ const withIosWidget = (config) => {
       if (!buildSettings || buildSettings.PRODUCT_NAME !== `"${TARGET_NAME}"`) continue
       buildSettings.CODE_SIGN_ENTITLEMENTS = `"${TARGET_NAME}/${TARGET_NAME}.entitlements"`
       buildSettings.INFOPLIST_FILE = `"${TARGET_NAME}/Info.plist"`
-      buildSettings.IPHONEOS_DEPLOYMENT_TARGET = '16.0'
+      // Matches the app target's floor (Expo SDK 57 requires 16.4).
+      buildSettings.IPHONEOS_DEPLOYMENT_TARGET = '16.4'
       buildSettings.SWIFT_VERSION = '5.0'
       buildSettings.TARGETED_DEVICE_FAMILY = '"1"'
       buildSettings.PRODUCT_BUNDLE_IDENTIFIER = `"${bundleId}"`

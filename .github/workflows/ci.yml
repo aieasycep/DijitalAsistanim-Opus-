@@ -1,0 +1,234 @@
+name: CI
+
+# Every gate that `pnpm verify` runs locally, run again on every push and pull
+# request. The jobs are split so a failure names itself: "types" failing is a
+# different conversation from "database" failing, and a contributor should not
+# have to read a 400-line log to find out which.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A new push supersedes the run in flight for the same ref.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Nothing in CI talks to a real project. Every integration has a local
+  # fallback, so the absence of these is the tested configuration, not a gap.
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  static:
+    name: Format, lint and types
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Format
+        run: pnpm run format:check
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Types
+        run: pnpm run typecheck
+
+  test:
+    name: Unit and component tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Shared packages and edge-function helpers
+        run: pnpm run test
+
+      - name: React Native components
+        run: pnpm run test:mobile
+
+  guards:
+    name: Product and security guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Turkish and English define the same keys, every key the app asks for
+      # exists, and no string claims end-to-end encryption.
+      - name: Message catalogue
+        run: pnpm run verify:i18n
+
+      # No unfinished-work markers, no control that looks pressable and is not.
+      - name: Dead code and dead controls
+        run: pnpm run verify:no-dead-code
+
+      # No committed credential, and no server secret referenced from a bundle.
+      - name: Secrets
+        run: pnpm run verify:secrets
+
+      # Every element the end-to-end flows reach for is one the app renders.
+      - name: End-to-end flow targets
+        run: pnpm run verify:e2e-ids
+
+  database:
+    name: Migrations and RLS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install psql
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y postgresql-client
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Applies every migration to an empty database, applies them a second
+      # time to prove they are re-runnable, checks each Postgres enum against
+      # the TypeScript union it mirrors, and asserts RLS is enabled *and*
+      # forced on every user table.
+      - name: Migrations, enums and RLS
+        run: pnpm run verify:supabase
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+  functions:
+    name: Edge functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The functions import the shared packages as TypeScript source, so this
+      # also proves those compile under Deno's checker and not just tsc's.
+      - name: Type-check
+        run: deno check --config supabase/functions/deno.json supabase/functions/*/index.ts
+
+      - name: Lint
+        run: deno lint --config supabase/functions/deno.json supabase/functions
+
+  web:
+    name: Marketing site build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build:web
+
+  mobile:
+    name: Mobile app config
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Resolves app.config.ts and every config plugin. A plugin that throws —
+      # or emits a manifest entry that does not parse — fails here rather than
+      # during a build on someone's machine.
+      - name: Resolve Expo config
+        run: pnpm run verify:mobile
+
+      # The icons are generated from the design tokens rather than checked in
+      # by hand, so a change to the palette that was not regenerated shows up
+      # as a dirty tree.
+      - name: Brand assets are up to date
+        run: |
+          pnpm run assets:generate
+          git diff --exit-code -- apps/mobile/assets apps/web/src/app

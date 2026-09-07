@@ -201,7 +201,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-build-properties',
       {
-        ios: { deploymentTarget: '16.0' },
+        // 16.4 is the floor Expo SDK 57 enforces — below it the config does
+        // not resolve at all. The widget and share-extension targets are
+        // pinned to the same version by their plugins, so every target in the
+        // project agrees.
+        ios: { deploymentTarget: '16.4' },
         android: { minSdkVersion: 26, compileSdkVersion: 36, targetSdkVersion: 36 },
       },
     ],

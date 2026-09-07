@@ -36,9 +36,7 @@
       "@da/i18n": ["packages/i18n/src/index.ts"],
       "@da/i18n/*": ["packages/i18n/src/*"],
       "@da/api-client": ["packages/api-client/src/index.ts"],
-      "@da/api-client/*": ["packages/api-client/src/*"],
-      "@da/ui": ["packages/ui/src/index.ts"],
-      "@da/ui/*": ["packages/ui/src/*"]
+      "@da/api-client/*": ["packages/api-client/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build", ".next", ".expo"]
