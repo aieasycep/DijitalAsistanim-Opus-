@@ -85,7 +85,9 @@ export default async function InvitePage({ params }: PageProps) {
           href={siteConfig.store.android.href}
           className="rounded-xl border border-hairline px-5 py-3 text-[15px] font-medium text-ink"
         >
-          {siteConfig.store.android.available ? siteConfig.store.android.label : 'Android için indir'}
+          {siteConfig.store.android.available
+            ? siteConfig.store.android.label
+            : 'Android için indir'}
         </Link>
       </div>
 

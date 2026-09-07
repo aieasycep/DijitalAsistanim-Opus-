@@ -281,8 +281,7 @@ serveFunction('assistant-ask', async ({ request, origin }) => {
         sourceType: citation.sourceType,
         sourceId: citation.sourceId,
         label: citation.label,
-        occurredAt:
-          chunks.find((chunk) => chunk.id === citation.sourceId)?.occurredAt ?? null,
+        occurredAt: chunks.find((chunk) => chunk.id === citation.sourceId)?.occurredAt ?? null,
       })),
       proposedApprovalId,
       // An answer with no surviving citation is reported as ungrounded, whatever

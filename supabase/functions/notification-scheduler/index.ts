@@ -8,11 +8,7 @@ import {
 import { dbError, requireServiceSecret, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, serveFunction } from '../_shared/http.ts'
 import { sendPush } from '../_shared/push.ts'
-import {
-  briefingStats,
-  buildBriefing,
-  collectBriefingInputs,
-} from '../_shared/briefing-builder.ts'
+import { briefingStats, buildBriefing, collectBriefingInputs } from '../_shared/briefing-builder.ts'
 
 /**
  * The scheduler, run every few minutes by cron.
@@ -111,7 +107,10 @@ serveFunction('notification-scheduler', async ({ request, origin }) => {
     if (row.midday_pulse_enabled && justPassed(minutesOf(row.midday_pulse_time), currentMinutes)) {
       due.push('midday')
     }
-    if (row.evening_close_enabled && justPassed(minutesOf(row.evening_close_time), currentMinutes)) {
+    if (
+      row.evening_close_enabled &&
+      justPassed(minutesOf(row.evening_close_time), currentMinutes)
+    ) {
       due.push('evening')
     }
     if (
@@ -212,8 +211,7 @@ serveFunction('notification-scheduler', async ({ request, origin }) => {
             category,
             title: built.headline,
             body:
-              built.narrative.split(/(?<=\.)\s/)[0]?.slice(0, 140) ??
-              built.narrative.slice(0, 140),
+              built.narrative.split(/(?<=\.)\s/)[0]?.slice(0, 140) ?? built.narrative.slice(0, 140),
             path: `briefing/${kind}`,
             dedupeKey: `${kind}:${forDate}`,
             data: { briefingId },

@@ -45,9 +45,5 @@ serveFunction('approvals-expire', async ({ request, origin }) => {
     metadata: { expired: (expired.data as number | null) ?? 0, retried, succeeded },
   })
 
-  return jsonResponse(
-    { expired: expired.data ?? 0, retried, succeeded },
-    200,
-    origin,
-  )
+  return jsonResponse({ expired: expired.data ?? 0, retried, succeeded }, 200, origin)
 })

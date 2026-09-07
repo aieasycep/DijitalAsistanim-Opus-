@@ -55,7 +55,10 @@ export default function FeedbackScreen() {
 
   return (
     <Screen scroll={false}>
-      <ScreenHeader title={t('settings.feedback.title')} subtitle={t('settings.feedback.subtitle')} />
+      <ScreenHeader
+        title={t('settings.feedback.title')}
+        subtitle={t('settings.feedback.subtitle')}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

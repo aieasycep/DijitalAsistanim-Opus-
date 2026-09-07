@@ -122,7 +122,10 @@ export default function ApprovalScreen() {
 
   return (
     <Screen scroll bottomInset={spacing.xxl}>
-      <ScreenHeader title={t('approval.title')} subtitle={t(`approval.actionType.${approval.type}`)} />
+      <ScreenHeader
+        title={t('approval.title')}
+        subtitle={t(`approval.actionType.${approval.type}`)}
+      />
 
       <View style={{ gap: spacing.md, paddingTop: spacing.sm }}>
         <ApprovalCard

@@ -121,14 +121,13 @@ export default function PrivacyPage() {
         rows={googleScopes.map((scope) => [scope.label, scope.why])}
       />
       <p>
-        <strong>Sınırlı Kullanım taahhüdü:</strong> Google API’lerinden alınan bilgilerin
-        kullanımı ve başka uygulamalara aktarımı, Sınırlı Kullanım gereklilikleri dâhil olmak
-        üzere Google API Hizmetleri Kullanıcı Verileri Politikası’na uygundur. Buna göre Google
-        kullanıcı verileri yalnızca kullanıcıya görünür özellikleri sağlamak için kullanılır;
-        reklam amacıyla kullanılmaz, satılmaz, veri simsarlarına verilmez ve genel amaçlı yapay
-        zekâ modellerinin eğitiminde kullanılmaz. İnsan erişimi yalnızca senin açık izninle, yasal
-        zorunlulukla, güvenlik amacıyla veya tamamen kimliksizleştirilmiş toplu veriler üzerinde
-        gerçekleşir.
+        <strong>Sınırlı Kullanım taahhüdü:</strong> Google API’lerinden alınan bilgilerin kullanımı
+        ve başka uygulamalara aktarımı, Sınırlı Kullanım gereklilikleri dâhil olmak üzere Google API
+        Hizmetleri Kullanıcı Verileri Politikası’na uygundur. Buna göre Google kullanıcı verileri
+        yalnızca kullanıcıya görünür özellikleri sağlamak için kullanılır; reklam amacıyla
+        kullanılmaz, satılmaz, veri simsarlarına verilmez ve genel amaçlı yapay zekâ modellerinin
+        eğitiminde kullanılmaz. İnsan erişimi yalnızca senin açık izninle, yasal zorunlulukla,
+        güvenlik amacıyla veya tamamen kimliksizleştirilmiş toplu veriler üzerinde gerçekleşir.
       </p>
       <p>
         Microsoft hesabında Mail.Read, Mail.Send, Calendars.ReadWrite, Tasks.ReadWrite ve
@@ -138,9 +137,9 @@ export default function PrivacyPage() {
 
       <h2 id="yapay-zeka">5. Yapay zekâ nasıl kullanılır?</h2>
       <p>
-        Özet, öncelik ve öneri üretmek için içerik, sözleşmeli model sağlayıcılarına şifreli bağlantı
-        üzerinden gönderilir. Sağlayıcılarla yapılan sözleşmeler bu verilerin model eğitiminde
-        kullanılmasını yasaklar ve verinin işlemeden sonra saklanmamasını şart koşar.
+        Özet, öncelik ve öneri üretmek için içerik, sözleşmeli model sağlayıcılarına şifreli
+        bağlantı üzerinden gönderilir. Sağlayıcılarla yapılan sözleşmeler bu verilerin model
+        eğitiminde kullanılmasını yasaklar ve verinin işlemeden sonra saklanmamasını şart koşar.
       </p>
       <p>
         Yapay zekâ tarih, tutar, katılımcı, fiyat veya rezervasyon bilgisi uydurmaz. Bir bilgi
@@ -209,8 +208,8 @@ export default function PrivacyPage() {
       <p>
         Hesabını ve tüm içeriğini uygulamadan Profil {'>'} Gizlilik ve Güvenlik {'>'} Hesabı Sil
         adımını izleyerek kaldırabilirsin. Uygulamaya erişemiyorsan aynı talebi e-posta ile de
-        iletebilirsin. Adımların tamamı için{' '}
-        <Link href="/data-deletion">Veri Silme</Link> sayfasına bak.
+        iletebilirsin. Adımların tamamı için <Link href="/data-deletion">Veri Silme</Link> sayfasına
+        bak.
       </p>
 
       <h2 id="cocuklar">12. Çocuklar</h2>
@@ -227,8 +226,8 @@ export default function PrivacyPage() {
 
       <h2 id="degisiklikler">14. Değişiklikler</h2>
       <p>
-        Bu politikayı güncellersek sayfanın üstündeki tarih değişir. Önemli değişikliklerde
-        uygulama içinden ve e-posta ile ayrıca bilgilendiririz.
+        Bu politikayı güncellersek sayfanın üstündeki tarih değişir. Önemli değişikliklerde uygulama
+        içinden ve e-posta ile ayrıca bilgilendiririz.
       </p>
 
       <h2 id="iletisim">15. İletişim</h2>

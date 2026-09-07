@@ -58,9 +58,7 @@ export function relativeLuminance(color: string, backdrop = '#FFFFFF'): number {
     b = fg.b * fg.a + bg.b * (1 - fg.a)
   }
 
-  return (
-    0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b)
-  )
+  return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b)
 }
 
 /** WCAG 2.1 contrast ratio, 1..21. Both colours are composited over `base`. */

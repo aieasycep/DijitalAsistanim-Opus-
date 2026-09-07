@@ -69,7 +69,9 @@ async function postAuth<T>(path: string, body: Record<string, unknown>): Promise
         throw new AppError('unauthorized', { detail: detail ?? 'invalid credentials' })
       }
       if (response.status === 429) throw new AppError('rate_limited', { detail: detail ?? '' })
-      throw new AppError('unknown', { detail: detail ?? `auth request failed (${response.status})` })
+      throw new AppError('unknown', {
+        detail: detail ?? `auth request failed (${response.status})`,
+      })
     }
 
     return parsed as T

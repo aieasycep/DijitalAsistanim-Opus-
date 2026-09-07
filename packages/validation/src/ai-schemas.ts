@@ -8,12 +8,7 @@ import {
   REPLY_TONES,
 } from '@da/domain'
 import { z } from 'zod'
-import {
-  confidenceSchema,
-  isoInstantSchema,
-  moneySchema,
-  safeUrlSchema,
-} from './primitives.ts'
+import { confidenceSchema, isoInstantSchema, moneySchema, safeUrlSchema } from './primitives.ts'
 
 /**
  * Structured output contracts for every model call.

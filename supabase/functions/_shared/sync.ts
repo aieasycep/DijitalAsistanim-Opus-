@@ -83,15 +83,17 @@ async function writeSyncState(
   resource: string,
   patch: Record<string, unknown>,
 ): Promise<void> {
-  await serviceClient().from('sync_states').upsert(
-    {
-      user_id: userId,
-      connected_account_id: connectedAccountId,
-      resource,
-      ...patch,
-    },
-    { onConflict: 'connected_account_id,resource' },
-  )
+  await serviceClient()
+    .from('sync_states')
+    .upsert(
+      {
+        user_id: userId,
+        connected_account_id: connectedAccountId,
+        resource,
+        ...patch,
+      },
+      { onConflict: 'connected_account_id,resource' },
+    )
 }
 
 /** Exponential backoff, capped so a persistently broken account is still retried daily. */

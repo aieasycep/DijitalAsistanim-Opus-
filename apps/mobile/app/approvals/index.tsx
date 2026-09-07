@@ -84,9 +84,7 @@ export default function ApprovalsScreen() {
               onApprove={() => void decide({ approvalId: approval.id, decision: 'approve' })}
               onReject={() => void decide({ approvalId: approval.id, decision: 'reject' })}
               onEdit={() => router.push(`/approval/${approval.id}`)}
-              {...(approval.status === 'failed'
-                ? { onRetry: () => void retry(approval.id) }
-                : {})}
+              {...(approval.status === 'failed' ? { onRetry: () => void retry(approval.id) } : {})}
               {...(approval.source
                 ? { onOpenSource: () => router.push(`/approval/${approval.id}`) }
                 : {})}

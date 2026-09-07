@@ -202,11 +202,7 @@ export function addLocalDays(instant: Date, days: number, timeZone: string): Dat
 }
 
 /** The next instant at which `timeZone` reads `localTime`, strictly after `from`. */
-export function nextLocalTimeOccurrence(
-  from: Date,
-  localTime: LocalTime,
-  timeZone: string,
-): Date {
+export function nextLocalTimeOccurrence(from: Date, localTime: LocalTime, timeZone: string): Date {
   const { hour, minute } = parseLocalTime(localTime)
   const p = toZonedParts(from, timeZone)
   const today = zonedTimeToUtc({ year: p.year, month: p.month, day: p.day, hour, minute }, timeZone)

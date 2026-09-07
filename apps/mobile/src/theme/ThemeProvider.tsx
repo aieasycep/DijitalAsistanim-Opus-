@@ -54,7 +54,10 @@ export function ThemeProvider({
     void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
       if (!cancelled) setOsReduceMotion(enabled)
     })
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setOsReduceMotion)
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setOsReduceMotion,
+    )
     return () => {
       cancelled = true
       subscription.remove()
@@ -83,7 +86,14 @@ export function ThemeProvider({
         onReduceMotionChange?.(next)
       },
     }
-  }, [preference, systemScheme, osReduceMotion, userReduceMotion, onPreferenceChange, onReduceMotionChange])
+  }, [
+    preference,
+    systemScheme,
+    osReduceMotion,
+    userReduceMotion,
+    onPreferenceChange,
+    onReduceMotionChange,
+  ])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

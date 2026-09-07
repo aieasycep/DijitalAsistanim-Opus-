@@ -32,7 +32,13 @@ export function useEntitlements(): {
     if (!data) {
       // Assume Free until the real answer arrives. Optimistically showing Pro
       // and then taking it away is a far worse experience than the reverse.
-      return { plan: 'free', limits: PLAN_LIMITS.free, source: 'none', expiresAt: null, isTrial: false }
+      return {
+        plan: 'free',
+        limits: PLAN_LIMITS.free,
+        source: 'none',
+        expiresAt: null,
+        isTrial: false,
+      }
     }
     return resolveEntitlements({
       subscriptionStatus: data.status,
@@ -42,10 +48,7 @@ export function useEntitlements(): {
     })
   }, [data, referral])
 
-  const can = useCallback(
-    (feature: Feature) => hasFeature(entitlements, feature),
-    [entitlements],
-  )
+  const can = useCallback((feature: Feature) => hasFeature(entitlements, feature), [entitlements])
 
   return { entitlements, isLoading, can }
 }

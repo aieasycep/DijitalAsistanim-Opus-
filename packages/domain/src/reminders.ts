@@ -261,7 +261,9 @@ export function resolveReminderTime(input: ResolveReminderInput): ResolvedRemind
   if (input.notLaterThan) {
     const ceiling = new Date(input.notLaterThan)
     if (!Number.isNaN(ceiling.getTime()) && new Date(resolved.remindAt) > ceiling) {
-      const before = new Date(Math.max(now.getTime() + MINUTE_MS, ceiling.getTime() - 30 * MINUTE_MS))
+      const before = new Date(
+        Math.max(now.getTime() + MINUTE_MS, ceiling.getTime() - 30 * MINUTE_MS),
+      )
       resolved = { remindAt: before.toISOString(), explanationKey: 'reminder.beforeDeadline' }
     }
   }

@@ -129,7 +129,9 @@ export default function SubscriptionSettingsScreen() {
           />
           <ListRow
             title={t('paywall.freeFeatures.assistant')}
-            value={limits.assistantQueriesPerDay === null ? '∞' : `${limits.assistantQueriesPerDay}`}
+            value={
+              limits.assistantQueriesPerDay === null ? '∞' : `${limits.assistantQueriesPerDay}`
+            }
             icon="auto-awesome"
           />
           <ListRow
@@ -172,7 +174,11 @@ export default function SubscriptionSettingsScreen() {
         />
 
         {restoreMutation.isSuccess ? (
-          <Text variant="secondary" tone={restoreMutation.data.isPro ? 'success' : 'tertiary'} center>
+          <Text
+            variant="secondary"
+            tone={restoreMutation.data.isPro ? 'success' : 'tertiary'}
+            center
+          >
             {restoreMutation.data.isPro
               ? t('settings.subscription.restored')
               : t('settings.subscription.nothingToRestore')}

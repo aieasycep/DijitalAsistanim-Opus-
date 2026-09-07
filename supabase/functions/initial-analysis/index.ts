@@ -3,17 +3,8 @@ import { systemClock, toIsoDate } from '../_shared/domain.ts'
 import { audit } from '../_shared/audit.ts'
 import { dbError, loadUserContext, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
-import {
-  listSyncableAccounts,
-  syncCalendar,
-  syncMail,
-  type SyncOutcome,
-} from '../_shared/sync.ts'
-import {
-  briefingStats,
-  buildBriefing,
-  collectBriefingInputs,
-} from '../_shared/briefing-builder.ts'
+import { listSyncableAccounts, syncCalendar, syncMail, type SyncOutcome } from '../_shared/sync.ts'
+import { briefingStats, buildBriefing, collectBriefingInputs } from '../_shared/briefing-builder.ts'
 
 /**
  * The onboarding pass.

@@ -41,9 +41,7 @@ export function Sheet({
   const theme = useTheme()
   const insets = useSafeAreaInsets()
 
-  const body = (
-    <View style={{ gap: spacing.md, paddingHorizontal: spacing.lg }}>{children}</View>
-  )
+  const body = <View style={{ gap: spacing.md, paddingHorizontal: spacing.lg }}>{children}</View>
 
   return (
     <Modal

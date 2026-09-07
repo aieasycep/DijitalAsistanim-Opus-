@@ -66,7 +66,9 @@ export function FollowUpCard({
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}>
+      <View
+        style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}
+      >
         <Badge label={t('followup.noReplyYet')} tone="warning" icon="schedule-send" />
         <Text variant="micro" tone="tertiary" tabular>
           {silentDays >= 1

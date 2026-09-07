@@ -198,8 +198,9 @@ function MemoryMedia() {
 
       <div className="mt-3 max-w-[88%] rounded-lg rounded-bl-sm border border-hairline px-3.5 py-3">
         <p className="text-[13px] leading-6 text-muted">
-          Tabloda hangi rakamın konuşulduğu sorulursa: <strong className="text-ink">Kaynakta
-          kesinleşmiyor.</strong> Asistan tahmin etmez, boş bırakır.
+          Tabloda hangi rakamın konuşulduğu sorulursa:{' '}
+          <strong className="text-ink">Kaynakta kesinleşmiyor.</strong> Asistan tahmin etmez, boş
+          bırakır.
         </p>
       </div>
     </div>

@@ -97,8 +97,9 @@ export default function LicensesPage() {
       <h2>Tam liste</h2>
       <p>
         Yukarıdaki tablo doğrudan bağımlılıkları kapsar. Geçişli bağımlılıklar dahil tam listeyi ve
-        her paketin lisans metnini <a href={`mailto:${siteConfig.email.legal}`}>{siteConfig.email.legal}</a>{' '}
-        adresinden isteyebilirsin.
+        her paketin lisans metnini{' '}
+        <a href={`mailto:${siteConfig.email.legal}`}>{siteConfig.email.legal}</a> adresinden
+        isteyebilirsin.
       </p>
     </LegalPage>
   )

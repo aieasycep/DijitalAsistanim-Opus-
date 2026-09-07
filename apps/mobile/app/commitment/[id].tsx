@@ -103,10 +103,7 @@ export default function CommitmentScreen() {
               label={t(`commitment.status.${commitment.status}`)}
               tone={STATUS_TONE[commitment.status]}
             />
-            <Badge
-              label={t(`commitment.direction.${commitment.direction}`)}
-              tone="neutral"
-            />
+            <Badge label={t(`commitment.direction.${commitment.direction}`)} tone="neutral" />
             {!commitment.confirmedByUser ? (
               <Badge label={t('common.state.proposed')} tone="primary" icon="auto-awesome" />
             ) : null}
@@ -120,7 +117,10 @@ export default function CommitmentScreen() {
             </Text>
           ) : null}
           {commitment.dueAt ? (
-            <Text variant="secondary" tone={commitment.status === 'overdue' ? 'critical' : 'secondary'}>
+            <Text
+              variant="secondary"
+              tone={commitment.status === 'overdue' ? 'critical' : 'secondary'}
+            >
               {t('commitment.card.dueOn', {
                 date: formatFullDate(new Date(commitment.dueAt), locale, timeZone),
               })}

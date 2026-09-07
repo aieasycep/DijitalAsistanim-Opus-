@@ -45,10 +45,7 @@ export function BriefingShowcase({ compact = false }: BriefingShowcaseProps) {
 
       <dl className="mt-4 flex gap-2">
         {briefingDemo.stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="flex-1 rounded-md bg-surface2 px-3 py-2.5 text-center"
-          >
+          <div key={stat.label} className="flex-1 rounded-md bg-surface2 px-3 py-2.5 text-center">
             <dt className="sr-only">{stat.label}</dt>
             <dd>
               <span className="block text-[18px] font-semibold text-ink">{stat.value}</span>
@@ -66,10 +63,7 @@ export function BriefingShowcase({ compact = false }: BriefingShowcaseProps) {
             </h4>
             <ul className="mt-2 space-y-2">
               {section.items.map((item) => (
-                <li
-                  key={item.title}
-                  className="flex gap-2.5 rounded-md bg-surface2 px-3 py-2.5"
-                >
+                <li key={item.title} className="flex gap-2.5 rounded-md bg-surface2 px-3 py-2.5">
                   <span
                     aria-hidden="true"
                     className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass[item.tone]}`}

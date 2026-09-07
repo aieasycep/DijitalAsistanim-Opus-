@@ -15,8 +15,16 @@ const CATEGORY_BADGE: Partial<
 > = {
   security: { tone: 'critical', icon: 'shield', key: 'mail.category.security' },
   deadline: { tone: 'warning', icon: 'flag', key: 'mail.category.deadline' },
-  waiting_for_user: { tone: 'warning', icon: 'schedule-send', key: 'mail.category.waiting_for_user' },
-  waiting_for_other: { tone: 'neutral', icon: 'hourglass-empty', key: 'mail.category.waiting_for_other' },
+  waiting_for_user: {
+    tone: 'warning',
+    icon: 'schedule-send',
+    key: 'mail.category.waiting_for_user',
+  },
+  waiting_for_other: {
+    tone: 'neutral',
+    icon: 'hourglass-empty',
+    key: 'mail.category.waiting_for_other',
+  },
   meeting: { tone: 'info', icon: 'event', key: 'mail.category.meeting' },
   payment: { tone: 'neutral', icon: 'receipt-long', key: 'mail.category.payment' },
   travel: { tone: 'info', icon: 'flight', key: 'mail.category.travel' },
@@ -113,7 +121,9 @@ export function EmailCard({
         </Text>
       ) : null}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}
+      >
         {thread.importance === 'critical' ? (
           <Badge label={importanceLabel.critical} tone="critical" icon="priority-high" />
         ) : null}

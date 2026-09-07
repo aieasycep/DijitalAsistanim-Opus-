@@ -88,12 +88,7 @@ export function formatFullDate(instant: Date, locale: Locale, timeZone: string):
 }
 
 /** `14:00 – 16:30` */
-export function formatTimeRange(
-  start: Date,
-  end: Date,
-  locale: Locale,
-  timeZone: string,
-): string {
+export function formatTimeRange(start: Date, end: Date, locale: Locale, timeZone: string): string {
   return `${formatTime(start, locale, timeZone)} – ${formatTime(end, locale, timeZone)}`
 }
 
@@ -151,10 +146,7 @@ export function relativeDayKey(
  * "4 gün önce" style elapsed-time key for last-contact lines. Keys are plural
  * families so the caller resolves them with `plural`.
  */
-export function elapsedKey(
-  from: Date,
-  now: Date,
-): { key: string; count: number } {
+export function elapsedKey(from: Date, now: Date): { key: string; count: number } {
   const minutes = Math.max(0, Math.floor((now.getTime() - from.getTime()) / 60_000))
   if (minutes < 1) return { key: 'common.elapsed.justNow', count: 0 }
   if (minutes < 60) return { key: 'common.elapsed.minutes', count: minutes }

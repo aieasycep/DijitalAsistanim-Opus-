@@ -66,8 +66,7 @@ serveFunction('briefing-audio', async ({ request, origin }) => {
   try {
     const voice = body.voice ?? Deno.env.get('TTS_VOICE_ID')?.trim() ?? 'alloy'
     const model = Deno.env.get('TTS_MODEL')?.trim() ?? 'tts-1'
-    const endpoint =
-      Deno.env.get('TTS_URL')?.trim() ?? 'https://api.openai.com/v1/audio/speech'
+    const endpoint = Deno.env.get('TTS_URL')?.trim() ?? 'https://api.openai.com/v1/audio/speech'
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -82,7 +81,8 @@ serveFunction('briefing-audio', async ({ request, origin }) => {
       signal: AbortSignal.timeout(45_000),
     })
 
-    if (!response.ok) throw new AppError('provider_unavailable', { detail: `tts_${response.status}` })
+    if (!response.ok)
+      throw new AppError('provider_unavailable', { detail: `tts_${response.status}` })
 
     const audio = new Uint8Array(await response.arrayBuffer())
     const path = `${user.id}/briefing-${body.briefingId}.mp3`

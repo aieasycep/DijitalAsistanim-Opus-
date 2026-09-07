@@ -85,8 +85,7 @@ export function StepFrame({
               flex: 1,
               height: 3,
               borderRadius: 2,
-              backgroundColor:
-                entryIndex <= index ? theme.colors.primary : theme.colors.surface2,
+              backgroundColor: entryIndex <= index ? theme.colors.primary : theme.colors.surface2,
             }}
           />
         ))}

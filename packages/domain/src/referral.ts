@@ -17,7 +17,10 @@ export function isValidReferralCode(code: string): boolean {
 }
 
 export function normalizeReferralCode(code: string): string {
-  return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
 }
 
 /**
@@ -61,8 +64,7 @@ export const REFEREE_ELIGIBILITY_DAYS = 7
 export const MAX_REDEMPTIONS_PER_REFERRER = 25
 
 export type ReferralDecision =
-  | { ok: true; bonusDays: number; expiresAt: IsoInstant }
-  | { ok: false; reason: ReferralRejection }
+  { ok: true; bonusDays: number; expiresAt: IsoInstant } | { ok: false; reason: ReferralRejection }
 
 export function evaluateReferralRedemption(input: ReferralRedeemInput): ReferralDecision {
   const code = normalizeReferralCode(input.code)

@@ -254,9 +254,7 @@ export default function CaptureScreen() {
                   {formatTime(new Date(extraction.startsAt), locale, timeZone)}
                 </Text>
               ) : null}
-              {extraction.location ? (
-                <Text variant="secondary">{extraction.location}</Text>
-              ) : null}
+              {extraction.location ? <Text variant="secondary">{extraction.location}</Text> : null}
               {extraction.amount ? (
                 <Text variant="secondary" tabular>
                   {formatMoney(extraction.amount.value, extraction.amount.currency, locale)}

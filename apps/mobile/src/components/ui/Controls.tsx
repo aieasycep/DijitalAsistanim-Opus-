@@ -192,9 +192,7 @@ export function ProgressBar({ progress, label, tone = 'primary', testID }: Progr
           overflow: 'hidden',
         }}
       >
-        <View
-          style={{ width: `${clamped * 100}%`, height: '100%', backgroundColor: fill }}
-        />
+        <View style={{ width: `${clamped * 100}%`, height: '100%', backgroundColor: fill }} />
       </View>
     </View>
   )

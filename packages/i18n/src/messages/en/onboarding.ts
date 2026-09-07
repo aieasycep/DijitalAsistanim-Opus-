@@ -61,7 +61,8 @@ export const onboarding = {
     title: 'A couple of permissions',
     body: 'All optional, and you can turn them on later.',
     notificationsTitle: 'Notifications',
-    notificationsBody: 'So we can tell you when something critical happens, and when the briefing is ready.',
+    notificationsBody:
+      'So we can tell you when something critical happens, and when the briefing is ready.',
     notificationsAllow: 'Allow notifications',
     micTitle: 'Microphone',
     micBody: 'So you can ask by voice.',
@@ -107,7 +108,11 @@ export const onboarding = {
     body: 'Everything from your VIPs is surfaced first, and notified even during quiet hours.',
     searchPlaceholder: 'Search people',
     suggestedTitle: 'People you write to most',
-    selected: { zero: 'Nobody selected', one: '1 person selected', other: '{count} people selected' },
+    selected: {
+      zero: 'Nobody selected',
+      one: '1 person selected',
+      other: '{count} people selected',
+    },
     primary: 'Continue',
     skip: 'Skip for now',
   },

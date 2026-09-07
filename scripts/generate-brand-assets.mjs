@@ -1,22 +1,23 @@
 #!/usr/bin/env node
 /**
- * Generate the app's raster assets from the design tokens.
+ * Generate the raster brand assets for both apps from the design tokens.
  *
  * The mark is a sunrise: a disc breaking a horizon line, which is the same
  * idea the morning briefing is built on. Drawing it here rather than checking
  * in a binary from a design tool means the icon can never drift from the brand
- * colours — it is regenerated from `@da/design-tokens` — and the shapes are
+ * colours — the values below mirror `@da/design-tokens` — and the shapes stay
  * reviewable as code.
  *
- * Usage: node scripts/generate-icons.mjs
+ * Usage: node scripts/generate-brand-assets.mjs
  */
 import { deflateSync } from 'node:zlib'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const here = path.dirname(fileURLToPath(import.meta.url))
-const assets = path.join(here, '..', 'assets')
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const mobileAssets = path.join(root, 'apps', 'mobile', 'assets')
+const webApp = path.join(root, 'apps', 'web', 'src', 'app')
 
 /** Brand values, mirrored from packages/design-tokens/src/palette.ts. */
 const INDIGO = [0x5b, 0x5c, 0xe2]
@@ -47,7 +48,7 @@ function chunk(type, data) {
   return Buffer.concat([length, body, crc])
 }
 
-/** Encode RGBA pixel data (Uint8Array, 4 bytes per pixel) as a PNG. */
+/** Encode RGBA pixel data (Buffer, 4 bytes per pixel) as a PNG. */
 function encodePng(width, height, rgba) {
   const header = Buffer.alloc(13)
   header.writeUInt32BE(width, 0)
@@ -88,22 +89,34 @@ function mixColor(a, b, t) {
 
 /** The dawn gradient sampled at `t` (0 = top, 1 = bottom). */
 function dawnAt(t) {
-  return t < 0.58 ? mixColor(DAWN_TOP, DAWN_MID, t / 0.58) : mixColor(DAWN_MID, DAWN_BOTTOM, (t - 0.58) / 0.42)
+  return t < 0.58
+    ? mixColor(DAWN_TOP, DAWN_MID, t / 0.58)
+    : mixColor(DAWN_MID, DAWN_BOTTOM, (t - 0.58) / 0.42)
 }
 
 /**
- * Render the mark.
+ * Render the mark on a `width` × `height` canvas.
  *
  * `background` is either a solid colour, 'dawn', or null for transparent;
  * `foreground` is the colour of the disc and horizon. `scale` shrinks the mark
- * inside the canvas, which is how the Android adaptive icon's safe zone and
- * the splash logo are produced from the same geometry.
+ * relative to the shorter canvas edge, which is how the Android adaptive
+ * icon's safe zone and the splash logo come from the same geometry. `offsetX`
+ * shifts the mark sideways, in units of the shorter edge, for wide canvases.
  */
-function render({ size, background, foreground, scale = 1, radius = 0 }) {
-  const rgba = Buffer.alloc(size * size * 4)
+function render({
+  width,
+  height = width,
+  background,
+  foreground,
+  scale = 1,
+  radius = 0,
+  offsetX = 0,
+}) {
+  const rgba = Buffer.alloc(width * height * 4)
+  const short = Math.min(width, height)
 
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
       let r = 0
       let g = 0
       let b = 0
@@ -116,13 +129,13 @@ function render({ size, background, foreground, scale = 1, radius = 0 }) {
 
           // Background, with an optional rounded-rect mask.
           let bg = null
-          if (background === 'dawn') bg = dawnAt(py / size)
+          if (background === 'dawn') bg = dawnAt(py / height)
           else if (Array.isArray(background)) bg = background
 
           let inBackground = bg !== null
           if (inBackground && radius > 0) {
-            const rx = Math.max(radius - px, px - (size - radius), 0)
-            const ry = Math.max(radius - py, py - (size - radius), 0)
+            const rx = Math.max(radius - px, px - (width - radius), 0)
+            const ry = Math.max(radius - py, py - (height - radius), 0)
             if (Math.hypot(rx, ry) > radius) inBackground = false
           }
 
@@ -138,11 +151,11 @@ function render({ size, background, foreground, scale = 1, radius = 0 }) {
           }
 
           // The mark, in a normalised square centred on the canvas.
-          const half = (size * scale) / 2
-          const nx = (px - size / 2) / half
+          const half = (short * scale) / 2
+          const nx = (px - width / 2 - offsetX * short) / half
           // The mark's own centre of mass sits below its geometric origin, so
           // it is shifted up to sit optically centred in the canvas.
-          const ny = (py - size / 2) / half + 0.4
+          const ny = (py - height / 2) / half + 0.4
 
           const horizonY = 0.42
           const discRadius = 0.52
@@ -177,7 +190,7 @@ function render({ size, background, foreground, scale = 1, radius = 0 }) {
       }
 
       const samples = SS * SS
-      const index = (y * size + x) * 4
+      const index = (y * width + x) * 4
       const alpha = a / samples
       // Un-premultiply so partially covered edge pixels keep their colour.
       rgba[index] = alpha === 0 ? 0 : Math.round(r / samples / (alpha / 255))
@@ -187,28 +200,53 @@ function render({ size, background, foreground, scale = 1, radius = 0 }) {
     }
   }
 
-  return encodePng(size, size, rgba)
+  return encodePng(width, height, rgba)
 }
 
-mkdirSync(assets, { recursive: true })
-
 const outputs = [
+  // ── Mobile ───────────────────────────────────────────────────────────────
   // Store icon: full bleed, no rounding (the platforms mask it themselves).
-  ['icon.png', render({ size: 1024, background: 'dawn', foreground: WHITE, scale: 0.62 })],
+  [mobileAssets, 'icon.png', { width: 1024, background: 'dawn', foreground: WHITE, scale: 0.62 }],
   // Android adaptive foreground: the mark inside the 66% safe zone.
-  ['adaptive-icon.png', render({ size: 1024, background: null, foreground: WHITE, scale: 0.42 })],
+  [
+    mobileAssets,
+    'adaptive-icon.png',
+    { width: 1024, background: null, foreground: WHITE, scale: 0.42 },
+  ],
   // Android monochrome (themed icons): single colour, transparent ground.
-  ['monochrome-icon.png', render({ size: 1024, background: null, foreground: WHITE, scale: 0.42 })],
+  [
+    mobileAssets,
+    'monochrome-icon.png',
+    { width: 1024, background: null, foreground: WHITE, scale: 0.42 },
+  ],
   // Splash: the mark alone; the plugin paints the background colour.
-  ['splash-icon.png', render({ size: 512, background: null, foreground: INDIGO, scale: 0.8 })],
+  [
+    mobileAssets,
+    'splash-icon.png',
+    { width: 512, background: null, foreground: INDIGO, scale: 0.8 },
+  ],
   // Notification icon: Android renders it as a silhouette, so it must be
   // white-on-transparent with no background at all.
-  ['notification-icon.png', render({ size: 96, background: null, foreground: WHITE, scale: 0.86 })],
-  // Web favicon, used by the marketing site's app links.
-  ['favicon.png', render({ size: 64, background: 'dawn', foreground: WHITE, scale: 0.62, radius: 12 })],
+  [
+    mobileAssets,
+    'notification-icon.png',
+    { width: 96, background: null, foreground: WHITE, scale: 0.86 },
+  ],
+
+  // ── Marketing site ───────────────────────────────────────────────────────
+  // Next.js file conventions: these are picked up automatically from app/.
+  [
+    webApp,
+    'icon.png',
+    { width: 256, background: 'dawn', foreground: WHITE, scale: 0.62, radius: 48 },
+  ],
+  // Apple touch icon: iOS masks it itself, so it is square and full bleed.
+  [webApp, 'apple-icon.png', { width: 180, background: 'dawn', foreground: WHITE, scale: 0.62 }],
 ]
 
-for (const [name, buffer] of outputs) {
-  writeFileSync(path.join(assets, name), buffer)
-  console.log(`wrote assets/${name} (${buffer.length} bytes)`)
+for (const [dir, name, options] of outputs) {
+  mkdirSync(dir, { recursive: true })
+  const buffer = render(options)
+  writeFileSync(path.join(dir, name), buffer)
+  console.log(`wrote ${path.relative(root, path.join(dir, name))} (${buffer.length} bytes)`)
 }

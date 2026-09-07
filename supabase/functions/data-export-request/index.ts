@@ -63,8 +63,7 @@ serveFunction('data-export-request', async ({ request, origin }) => {
     const payload: Record<string, unknown> = {
       exportedAt: now.toISOString(),
       userId: user.id,
-      note:
-        'Bu dosya hesabına ait verilerin dışa aktarımıdır. Sağlayıcı erişim anahtarları (OAuth token) güvenlik nedeniyle dahil edilmez.',
+      note: 'Bu dosya hesabına ait verilerin dışa aktarımıdır. Sağlayıcı erişim anahtarları (OAuth token) güvenlik nedeniyle dahil edilmez.',
     }
 
     for (const table of EXPORTED_TABLES) {

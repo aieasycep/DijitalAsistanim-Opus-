@@ -106,7 +106,9 @@ export default function EventScreen() {
           </Text>
           <Text variant="body" tone="secondary">
             {formatWeekdayDate(start, locale, timeZone)} ·{' '}
-            {event.isAllDay ? t('calendar.event.allDay') : formatTimeRange(start, end, locale, timeZone)}
+            {event.isAllDay
+              ? t('calendar.event.allDay')
+              : formatTimeRange(start, end, locale, timeZone)}
           </Text>
           {!isPast && minutesUntil >= 0 && minutesUntil <= 120 ? (
             <Text variant="secondary" tone="primary">

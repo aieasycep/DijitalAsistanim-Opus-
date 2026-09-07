@@ -101,9 +101,7 @@ export async function requestPushPermission(): Promise<{
 
   try {
     const projectId = getProjectId()
-    const token = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    )
+    const token = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)
     return { state: 'granted', token: token.data }
   } catch (error) {
     reportError(error, { scope: 'notifications:requestPushPermission' })

@@ -203,7 +203,11 @@ serveFunction('capture-create', async ({ request, origin }) => {
       .update({ status: 'failed', failure_reason: reason })
       .eq('id', captureId)
       .eq('user_id', user.id)
-    return jsonResponse({ capture: { id: captureId, status: 'failed', failureReason: reason } }, 200, origin)
+    return jsonResponse(
+      { capture: { id: captureId, status: 'failed', failureReason: reason } },
+      200,
+      origin,
+    )
   }
 
   try {

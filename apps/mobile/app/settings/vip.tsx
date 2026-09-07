@@ -91,7 +91,11 @@ export default function VipSettingsScreen() {
           {query.isLoading && contacts.length === 0 ? (
             <SkeletonCard />
           ) : vips.length === 0 ? (
-            <EmptyState icon="star-outline" title={t('empty.vip.title')} description={t('empty.vip.hint')} />
+            <EmptyState
+              icon="star-outline"
+              title={t('empty.vip.title')}
+              description={t('empty.vip.hint')}
+            />
           ) : (
             <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
               {vips.map((contact, index) => (
@@ -142,7 +146,11 @@ export default function VipSettingsScreen() {
                 key={contact.id}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
               >
-                <Avatar name={contact.name ?? contact.email} imageUrl={contact.avatarUrl} size={32} />
+                <Avatar
+                  name={contact.name ?? contact.email}
+                  imageUrl={contact.avatarUrl}
+                  size={32}
+                />
                 <View style={{ flex: 1 }}>
                   <Text variant="body" numberOfLines={1}>
                     {contact.name ?? contact.email}

@@ -28,7 +28,10 @@ serveFunction('subscription-refresh', async ({ request, origin }) => {
       if (response.ok) {
         const parsed = JSON.parse(body) as {
           subscriber?: {
-            entitlements?: Record<string, { expires_date?: string | null; product_identifier?: string }>
+            entitlements?: Record<
+              string,
+              { expires_date?: string | null; product_identifier?: string }
+            >
             original_app_user_id?: string
           }
         }

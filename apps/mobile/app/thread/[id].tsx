@@ -167,9 +167,7 @@ export default function ThreadScreen() {
           </Text>
           <Text variant="micro" tone="tertiary">
             {thread.participantEmails.slice(0, 3).join(', ')}
-            {thread.participantEmails.length > 3
-              ? ` +${thread.participantEmails.length - 3}`
-              : ''}
+            {thread.participantEmails.length > 3 ? ` +${thread.participantEmails.length - 3}` : ''}
           </Text>
         </View>
 
@@ -289,9 +287,7 @@ export default function ThreadScreen() {
         ) : null}
 
         <View>
-          <SectionHeader
-            title={t('mail.thread.messages', { count: messages.length })}
-          />
+          <SectionHeader title={t('mail.thread.messages', { count: messages.length })} />
           <View style={{ gap: spacing.sm }}>
             {messages.map((message) => {
               const isOpen = expanded.includes(message.id)
@@ -306,10 +302,7 @@ export default function ThreadScreen() {
                     style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
                     testID={`message-${message.id}`}
                   >
-                    <Avatar
-                      name={message.fromName ?? message.fromEmail}
-                      size={32}
-                    />
+                    <Avatar name={message.fromName ?? message.fromEmail} size={32} />
                     <View style={{ flex: 1 }}>
                       <Text variant="bodyStrong" numberOfLines={1}>
                         {message.fromName ?? message.fromEmail}

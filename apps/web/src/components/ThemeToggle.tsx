@@ -84,7 +84,14 @@ export function ThemeToggle() {
 
 function SunIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+    >
       <circle cx="12" cy="12" r="4.2" />
       <path
         strokeLinecap="round"
@@ -96,18 +103,29 @@ function SunIcon() {
 
 function MoonIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-      <path
-        strokeLinejoin="round"
-        d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2Z"
-      />
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+    >
+      <path strokeLinejoin="round" d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2Z" />
     </svg>
   )
 }
 
 function AutoIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+    >
       <circle cx="12" cy="12" r="8.4" />
       <path d="M12 3.6a8.4 8.4 0 0 1 0 16.8Z" fill="currentColor" stroke="none" />
     </svg>

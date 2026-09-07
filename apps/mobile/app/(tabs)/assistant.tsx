@@ -100,7 +100,10 @@ export default function AssistantScreen() {
             {t('common.tab.assistant')}
           </Text>
           <View style={{ flexDirection: 'row' }}>
-            <IconButton onPress={() => router.push('/voice')} accessibilityLabel={t('a11y.button.voice')}>
+            <IconButton
+              onPress={() => router.push('/voice')}
+              accessibilityLabel={t('a11y.button.voice')}
+            >
               <MaterialIcons name="mic" size={22} color={theme.colors.textSecondary} />
             </IconButton>
             {messages.length > 0 ? (
@@ -149,11 +152,7 @@ export default function AssistantScreen() {
                     pressedStyle={{ backgroundColor: theme.colors.surface2 }}
                     testID={`assistant-suggestion-${key}`}
                   >
-                    <MaterialIcons
-                      name="north-east"
-                      size={15}
-                      color={theme.colors.textTertiary}
-                    />
+                    <MaterialIcons name="north-east" size={15} color={theme.colors.textTertiary} />
                     <Text variant="body" style={{ flex: 1 }}>
                       {t(key)}
                     </Text>

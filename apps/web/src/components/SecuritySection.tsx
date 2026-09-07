@@ -3,7 +3,11 @@ import { securityPoints } from '@/lib/content'
 
 export function SecuritySection() {
   return (
-    <section id="guvenlik" aria-labelledby="guvenlik-baslik" className="border-b border-hairline bg-surface">
+    <section
+      id="guvenlik"
+      aria-labelledby="guvenlik-baslik"
+      className="border-b border-hairline bg-surface"
+    >
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
         <div className="max-w-2xl">
           <p className="text-[13px] font-semibold tracking-wide text-primary uppercase">Güven</p>

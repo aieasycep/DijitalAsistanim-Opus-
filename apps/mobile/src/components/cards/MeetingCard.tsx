@@ -86,7 +86,9 @@ export function MeetingCard({
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}
+      >
         {inProgress ? (
           <Badge label={t('calendar.event.inProgress')} tone="primary" icon="play-circle" />
         ) : null}

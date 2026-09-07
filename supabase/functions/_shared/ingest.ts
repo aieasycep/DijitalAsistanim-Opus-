@@ -227,16 +227,15 @@ export async function ingestMessages(
             connected_account_id: context.connectedAccountId,
             external_thread_id: message.externalThreadId,
             subject: message.subject,
-            participant_emails: [
-              message.fromEmail,
-              ...message.to,
-              ...message.cc,
-            ].filter(Boolean),
+            participant_emails: [message.fromEmail, ...message.to, ...message.cc].filter(Boolean),
             last_message_at: message.sentAt,
             message_count: 1,
             is_read: isFromUser,
           },
-          { onConflict: 'user_id,connected_account_id,external_thread_id', ignoreDuplicates: false },
+          {
+            onConflict: 'user_id,connected_account_id,external_thread_id',
+            ignoreDuplicates: false,
+          },
         )
         .select('id')
         .single()
@@ -417,12 +416,7 @@ async function analyzeOne(
   // extractor cannot find it.
   let deadline = verified.deadline
   if (deadline) {
-    const found = verifyDateAgainstSource(
-      deadline,
-      message.bodyText,
-      context.now,
-      context.timeZone,
-    )
+    const found = verifyDateAgainstSource(deadline, message.bodyText, context.now, context.timeZone)
     if (!found) deadline = null
   }
 

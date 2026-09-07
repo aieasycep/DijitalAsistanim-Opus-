@@ -21,7 +21,15 @@ const BLOCKED_HOSTNAMES = new Set([
   'instance-data',
 ])
 
-const BLOCKED_SUFFIXES = ['.localhost', '.local', '.internal', '.lan', '.home', '.corp', '.intranet']
+const BLOCKED_SUFFIXES = [
+  '.localhost',
+  '.local',
+  '.internal',
+  '.lan',
+  '.home',
+  '.corp',
+  '.intranet',
+]
 
 /** Only these two schemes are ever fetched. */
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:'])
@@ -31,7 +39,12 @@ export const FETCH_TIMEOUT_MS = 10_000
 export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 function ipv4ToInt(parts: number[]): number {
-  return ((parts[0] ?? 0) << 24) >>> 0 | ((parts[1] ?? 0) << 16) | ((parts[2] ?? 0) << 8) | (parts[3] ?? 0)
+  return (
+    (((parts[0] ?? 0) << 24) >>> 0) |
+    ((parts[1] ?? 0) << 16) |
+    ((parts[2] ?? 0) << 8) |
+    (parts[3] ?? 0)
+  )
 }
 
 function parseIpv4(host: string): number[] | null {
@@ -76,6 +89,19 @@ export function isPrivateIpv6(host: string): boolean {
   // IPv4-mapped (::ffff:169.254.169.254) tunnels straight past an IPv4 check.
   const mapped = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(h)
   if (mapped?.[1]) return isPrivateIpv4(mapped[1])
+
+  // The same address after WHATWG canonicalisation: `new URL()` rewrites
+  // `[::ffff:169.254.169.254]` as `[::ffff:a9fe:a9fe]`, so the dotted form
+  // above never survives to be checked. `64:ff9b::/96` (NAT64) embeds an IPv4
+  // address the same way and reaches the same host.
+  const hex = /^(?:::ffff|64:ff9b::?):([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h)
+  if (hex?.[1] && hex[2]) {
+    const high = Number.parseInt(hex[1], 16)
+    const low = Number.parseInt(hex[2], 16)
+    const dotted = [high >> 8, high & 0xff, low >> 8, low & 0xff].join('.')
+    return isPrivateIpv4(dotted)
+  }
+
   return false
 }
 

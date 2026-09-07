@@ -259,7 +259,13 @@ KURALLAR:
 }
 
 export function assistantContextBlock(
-  chunks: Array<{ id: string; type: string; label: string; occurredAt: string | null; content: string }>,
+  chunks: Array<{
+    id: string
+    type: string
+    label: string
+    occurredAt: string | null
+    content: string
+  }>,
 ): string {
   if (chunks.length === 0) {
     return 'KAYNAKLAR: (boş — kullanıcının verisinde bu soruyla ilgili bir şey bulunamadı)'

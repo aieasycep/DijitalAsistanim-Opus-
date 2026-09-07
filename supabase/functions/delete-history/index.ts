@@ -47,10 +47,7 @@ serveFunction('delete-history', async ({ request, origin }) => {
   const deleted: Record<string, number> = {}
 
   for (const target of targets) {
-    let query = client
-      .from(target.table)
-      .delete({ count: 'exact' })
-      .eq('user_id', user.id)
+    let query = client.from(target.table).delete({ count: 'exact' }).eq('user_id', user.id)
     if (body.before) query = query.lt(target.column, body.before)
 
     const { count, error } = await query

@@ -86,7 +86,8 @@ export const paywall = {
     alreadySubscribed: 'Zaten Pro kullanıyorsun.',
   },
 
-  legal: 'Abonelik dönem sonunda otomatik yenilenir. Mağaza hesabından istediğin an iptal edebilirsin.',
+  legal:
+    'Abonelik dönem sonunda otomatik yenilenir. Mağaza hesabından istediğin an iptal edebilirsin.',
   terms: 'Kullanım Koşulları',
   privacy: 'Gizlilik Politikası',
 } satisfies MessageTree

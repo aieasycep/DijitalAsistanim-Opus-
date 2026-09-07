@@ -95,6 +95,7 @@ export const notifications = {
     opened: 'Opened',
   },
 
-  permissionDenied: 'Notification permission was not granted. You can turn it on in device settings.',
+  permissionDenied:
+    'Notification permission was not granted. You can turn it on in device settings.',
   saved: 'Your notification settings were saved.',
 } satisfies MessageTree

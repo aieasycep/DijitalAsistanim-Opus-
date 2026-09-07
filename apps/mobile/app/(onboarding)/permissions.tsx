@@ -15,7 +15,11 @@ import { useTheme } from '../../src/theme/ThemeProvider'
 
 /** The optional permissions, each with the feature it unlocks. */
 const OPTIONAL = [
-  { icon: 'mic', titleKey: 'onboarding.permissions.micTitle', bodyKey: 'onboarding.permissions.micBody' },
+  {
+    icon: 'mic',
+    titleKey: 'onboarding.permissions.micTitle',
+    bodyKey: 'onboarding.permissions.micBody',
+  },
   {
     icon: 'photo-camera',
     titleKey: 'onboarding.permissions.cameraTitle',

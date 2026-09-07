@@ -61,7 +61,10 @@ export default function BriefingSettingsScreen() {
 
   return (
     <Screen scroll bottomInset={spacing.xxl}>
-      <ScreenHeader title={t('settings.briefing.title')} subtitle={t('settings.briefing.subtitle')} />
+      <ScreenHeader
+        title={t('settings.briefing.title')}
+        subtitle={t('settings.briefing.subtitle')}
+      />
 
       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
         <Card padded={false} style={{ paddingHorizontal: spacing.md }}>

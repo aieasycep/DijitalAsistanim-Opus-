@@ -149,7 +149,13 @@ export default function AnalysisStep() {
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
             >
               <MaterialIcons
-                name={complete ? 'check-circle' : reached ? 'radio-button-checked' : 'radio-button-unchecked'}
+                name={
+                  complete
+                    ? 'check-circle'
+                    : reached
+                      ? 'radio-button-checked'
+                      : 'radio-button-unchecked'
+                }
                 size={20}
                 color={
                   complete
@@ -159,11 +165,7 @@ export default function AnalysisStep() {
                       : theme.colors.textDisabled
                 }
               />
-              <Text
-                variant="body"
-                tone={reached ? 'default' : 'tertiary'}
-                style={{ flex: 1 }}
-              >
+              <Text variant="body" tone={reached ? 'default' : 'tertiary'} style={{ flex: 1 }}>
                 {t(entry.labelKey)}
               </Text>
               {progress && reached ? (

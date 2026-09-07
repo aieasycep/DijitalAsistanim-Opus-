@@ -88,7 +88,11 @@ function Mark() {
       className="da-dawn flex h-8 w-8 items-center justify-center rounded-[10px]"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5 14.6 9.4 20.5 12l-5.9 2.6L12 20.5 9.4 14.6 3.5 12l5.9-2.6z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 3.5 14.6 9.4 20.5 12l-5.9 2.6L12 20.5 9.4 14.6 3.5 12l5.9-2.6z"
+        />
       </svg>
     </span>
   )

@@ -118,7 +118,12 @@ export default function SettingsScreen() {
       <Card
         onPress={() => router.push('/settings/profile')}
         accessibilityLabel={t('settings.menu.profile')}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          marginTop: spacing.sm,
+        }}
         testID="settings-profile-card"
       >
         <Avatar

@@ -21,7 +21,6 @@ export interface SharedCapture {
   receivedAt: number
 }
 
-
 export function shareIntakeAvailable(): boolean {
   return DaShareIntakeNative !== null
 }

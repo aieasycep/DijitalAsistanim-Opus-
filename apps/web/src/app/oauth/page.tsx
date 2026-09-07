@@ -65,8 +65,8 @@ export default function OAuthPage() {
           Google izinleri ve gerekçeleri
         </h2>
         <p className="mt-3 text-[16px] leading-8 text-muted">
-          Aşağıdaki kapsamlar yalnızca ilgili özelliği kullandığında istenir. Bir kapsamı
-          vermezsen uygulama çalışmaya devam eder, sadece o özellik kapalı kalır.
+          Aşağıdaki kapsamlar yalnızca ilgili özelliği kullandığında istenir. Bir kapsamı vermezsen
+          uygulama çalışmaya devam eder, sadece o özellik kapalı kalır.
         </p>
 
         <ul className="mt-6 space-y-3">
@@ -106,8 +106,8 @@ export default function OAuthPage() {
         </h2>
         <ul className="mt-4 space-y-3 pl-5 text-[16px] leading-8 text-muted list-disc">
           <li>
-            Mail ve takvim içeriği yalnızca senin hesabına bağlı olarak işlenir; öncelik,
-            kategori, özet ve hatırlatma üretmek için kullanılır.
+            Mail ve takvim içeriği yalnızca senin hesabına bağlı olarak işlenir; öncelik, kategori,
+            özet ve hatırlatma üretmek için kullanılır.
           </li>
           <li>
             Veriler aktarım sırasında ve saklanırken şifrelenir. Verilerin reklamverenlere satılmaz.
@@ -118,8 +118,8 @@ export default function OAuthPage() {
             kullanılmaz, satılmaz ve genel amaçlı yapay zekâ modellerinin eğitiminde kullanılmaz.
           </li>
           <li>
-            Erişim ve yenileme anahtarları sunucu tarafında şifreli saklanır, cihazına ya da
-            üçüncü taraflara hiçbir zaman gönderilmez.
+            Erişim ve yenileme anahtarları sunucu tarafında şifreli saklanır, cihazına ya da üçüncü
+            taraflara hiçbir zaman gönderilmez.
           </li>
           <li>
             Saklama süresini sen seçersin: 30 gün, 90 gün, 1 yıl veya sen silene kadar. Varsayılan

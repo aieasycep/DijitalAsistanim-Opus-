@@ -32,9 +32,5 @@ serveFunction('oauth-complete', async ({ request, origin }) => {
   const { data, error } = await query.maybeSingle()
   if (error) throw dbError(error)
 
-  return jsonResponse(
-    { account: data, connected: data?.status === 'connected' },
-    200,
-    origin,
-  )
+  return jsonResponse({ account: data, connected: data?.status === 'connected' }, 200, origin)
 })

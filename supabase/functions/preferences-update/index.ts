@@ -46,10 +46,7 @@ serveFunction('preferences-update', async ({ request, origin }) => {
   }
 
   if (Object.keys(patch).length > 0) {
-    const { error } = await client
-      .from('user_preferences')
-      .update(patch)
-      .eq('user_id', user.id)
+    const { error } = await client.from('user_preferences').update(patch).eq('user_id', user.id)
     if (error) throw dbError(error)
   }
 
@@ -68,11 +65,7 @@ serveFunction('preferences-update', async ({ request, origin }) => {
     .maybeSingle()
   if (error) throw dbError(error)
 
-  const profile = await client
-    .from('profiles')
-    .select('time_zone')
-    .eq('id', user.id)
-    .maybeSingle()
+  const profile = await client.from('profiles').select('time_zone').eq('id', user.id).maybeSingle()
 
   return jsonResponse(
     { preferences: { ...(data ?? {}), time_zone: profile.data?.time_zone ?? null } },

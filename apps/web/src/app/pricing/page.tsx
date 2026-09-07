@@ -19,9 +19,11 @@ export const metadata: Metadata = {
 }
 
 const billingQuestions = faqItems.filter((item) =>
-  ['Aboneliğimi nasıl iptal ederim?', 'Hangi platformlarda çalışıyor?', 'Verilerim güvende mi?'].includes(
-    item.question,
-  ),
+  [
+    'Aboneliğimi nasıl iptal ederim?',
+    'Hangi platformlarda çalışıyor?',
+    'Verilerim güvende mi?',
+  ].includes(item.question),
 )
 
 export default function PricingPage() {

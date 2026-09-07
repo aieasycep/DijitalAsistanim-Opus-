@@ -147,11 +147,7 @@ export default function PreferencesStep() {
         </Text>
       </View>
 
-      <ListRow
-        title={t('onboarding.preferences.timeZoneLabel')}
-        value={timeZone}
-        icon="public"
-      />
+      <ListRow title={t('onboarding.preferences.timeZoneLabel')} value={timeZone} icon="public" />
 
       {save.isError ? (
         <Card tone="critical">

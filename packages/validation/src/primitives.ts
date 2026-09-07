@@ -9,13 +9,9 @@ export const isoInstantSchema = z
   .string()
   .refine((v) => !Number.isNaN(Date.parse(v)), { message: 'Expected an ISO-8601 instant' })
 
-export const isoDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
 
-export const localTimeSchema = z
-  .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:mm')
+export const localTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:mm')
 
 export const uuidSchema = z.string().uuid()
 

@@ -16,7 +16,8 @@ function call<T>(
   url: string,
   accessToken: string,
   init: RequestInit = {},
-  errorCode: 'mail_provider_unavailable' | 'calendar_provider_unavailable' = 'mail_provider_unavailable',
+  errorCode:
+    'mail_provider_unavailable' | 'calendar_provider_unavailable' = 'mail_provider_unavailable',
 ): Promise<T> {
   return withRetry(async () => {
     const { response, body } = await fetchWithLimits(
@@ -423,10 +424,7 @@ export async function listTodoLists(
   return data.value ?? []
 }
 
-export async function listTodoTasks(
-  accessToken: string,
-  listId: string,
-): Promise<GraphTodoTask[]> {
+export async function listTodoTasks(accessToken: string, listId: string): Promise<GraphTodoTask[]> {
   const data = await call<{ value?: GraphTodoTask[] }>(
     `/me/todo/lists/${encodeURIComponent(listId)}/tasks?$top=100`,
     accessToken,
@@ -439,20 +437,16 @@ export function createTodoTask(
   listId: string,
   input: { title: string; notes: string | null; dueAt: string | null; timeZone: string },
 ): Promise<GraphTodoTask> {
-  return call<GraphTodoTask>(
-    `/me/todo/lists/${encodeURIComponent(listId)}/tasks`,
-    accessToken,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        title: input.title,
-        body: input.notes ? { contentType: 'text', content: input.notes } : undefined,
-        dueDateTime: input.dueAt
-          ? { dateTime: input.dueAt.replace(/Z$/, ''), timeZone: input.timeZone }
-          : undefined,
-      }),
-    },
-  )
+  return call<GraphTodoTask>(`/me/todo/lists/${encodeURIComponent(listId)}/tasks`, accessToken, {
+    method: 'POST',
+    body: JSON.stringify({
+      title: input.title,
+      body: input.notes ? { contentType: 'text', content: input.notes } : undefined,
+      dueDateTime: input.dueAt
+        ? { dateTime: input.dueAt.replace(/Z$/, ''), timeZone: input.timeZone }
+        : undefined,
+    }),
+  })
 }
 
 // ── Change notifications ─────────────────────────────────────────────────────

@@ -7,10 +7,7 @@ type PricingTableProps = {
   readonly withSectionChrome?: boolean
 }
 
-export function PricingTable({
-  headingLevel = 'h2',
-  withSectionChrome = true,
-}: PricingTableProps) {
+export function PricingTable({ headingLevel = 'h2', withSectionChrome = true }: PricingTableProps) {
   const Heading = headingLevel
 
   return (
@@ -64,7 +61,9 @@ export function PricingTable({
                   <li key={feature} className="flex gap-3 text-[15px] leading-6 text-ink">
                     <svg
                       aria-hidden="true"
-                      className={plan.featured ? 'mt-1 shrink-0 text-primary' : 'mt-1 shrink-0 text-success'}
+                      className={
+                        plan.featured ? 'mt-1 shrink-0 text-primary' : 'mt-1 shrink-0 text-success'
+                      }
                       width="16"
                       height="16"
                       viewBox="0 0 24 24"
@@ -96,9 +95,9 @@ export function PricingTable({
         </div>
 
         <p className="mt-6 max-w-3xl text-[13px] leading-6 text-faint">
-          Abonelik App Store veya Google Play üzerinden yönetilir ve dönem bitmeden iptal
-          edilmezse otomatik yenilenir. Fiyatlara KDV dahildir. Arkadaşını davet edersen ikinize de
-          ek Pro günü verilir.
+          Abonelik App Store veya Google Play üzerinden yönetilir ve dönem bitmeden iptal edilmezse
+          otomatik yenilenir. Fiyatlara KDV dahildir. Arkadaşını davet edersen ikinize de ek Pro
+          günü verilir.
         </p>
       </div>
     </section>

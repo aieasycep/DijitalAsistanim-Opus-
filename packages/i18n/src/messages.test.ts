@@ -144,6 +144,7 @@ describe('message hygiene', () => {
   })
 
   it('contains no unfinished-work markers', () => {
+    // verifier-allow: the rule has to name the markers in order to find them.
     const markers = /\b(TODO|FIXME|coming soon|yakında gelecek|placeholder|lorem ipsum)\b/i
     const offenders = allStrings.filter(([, , value]) => markers.test(value))
     expect(offenders).toEqual([])

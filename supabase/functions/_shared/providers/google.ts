@@ -17,7 +17,8 @@ function call<T>(
   url: string,
   accessToken: string,
   init: RequestInit = {},
-  errorCode: 'mail_provider_unavailable' | 'calendar_provider_unavailable' = 'mail_provider_unavailable',
+  errorCode:
+    'mail_provider_unavailable' | 'calendar_provider_unavailable' = 'mail_provider_unavailable',
 ): Promise<T> {
   return withRetry(async () => {
     const { response, body } = await fetchWithLimits(
@@ -37,7 +38,8 @@ function call<T>(
     if (response.status === 403) {
       // Google returns 403 both for a missing scope and for a rate limit; the
       // body distinguishes them, and the two need very different handling.
-      const isRateLimit = body.includes('rateLimitExceeded') || body.includes('userRateLimitExceeded')
+      const isRateLimit =
+        body.includes('rateLimitExceeded') || body.includes('userRateLimitExceeded')
       throw isRateLimit
         ? new AppError('rate_limited', { detail: 'google_quota' })
         : new AppError('oauth_scope_missing', { detail: 'google_403' })
@@ -281,10 +283,7 @@ function collectBody(part: GmailPart | undefined, acc: { plain: string[]; html: 
   for (const child of part.parts ?? []) collectBody(child, acc)
 }
 
-function collectAttachments(
-  part: GmailPart | undefined,
-  acc: DecodedMessage['attachments'],
-): void {
+function collectAttachments(part: GmailPart | undefined, acc: DecodedMessage['attachments']): void {
   if (!part) return
   if (part.filename && part.body?.attachmentId) {
     acc.push({

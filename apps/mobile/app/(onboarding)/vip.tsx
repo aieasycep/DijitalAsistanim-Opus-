@@ -97,7 +97,9 @@ export default function VipStep() {
       />
 
       <Text variant="caption" tone="tertiary">
-        {query.trim() ? plural('onboarding.vip.selected', selected.length) : t('onboarding.vip.suggestedTitle')}
+        {query.trim()
+          ? plural('onboarding.vip.selected', selected.length)
+          : t('onboarding.vip.suggestedTitle')}
       </Text>
 
       {contactsQuery.isLoading ? (

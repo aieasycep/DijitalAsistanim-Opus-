@@ -35,21 +35,21 @@ export default function DataDeletionPage() {
       <h2 id="uygulama-ici">1. Uygulamadan silme (önerilen yol)</h2>
       <p>Uygulamaya girebiliyorsan en hızlı yol budur ve silme anında başlar.</p>
       <ol>
-        <li>Uygulamayı aç ve alt menüden <strong>Profil</strong> sekmesine geç.</li>
+        <li>
+          Uygulamayı aç ve alt menüden <strong>Profil</strong> sekmesine geç.
+        </li>
         <li>
           <strong>Gizlilik ve Güvenlik</strong> bölümünü aç.
         </li>
         <li>
           <strong>Hesabı Sil</strong> seçeneğine dokun.
         </li>
-        <li>
-          Onay ekranında ne silineceğini gözden geçir ve talebi doğrula. İşlem geri alınamaz.
-        </li>
+        <li>Onay ekranında ne silineceğini gözden geçir ve talebi doğrula. İşlem geri alınamaz.</li>
       </ol>
       <p>
-        Yalnızca geçmişi temizlemek istiyorsan aynı ekrandaki{' '}
-        <strong>Geçmişi Sil</strong> seçeneğini kullanabilirsin; hesabın açık kalır, işlenmiş mail,
-        etkinlik ve yakalama kayıtların silinir.
+        Yalnızca geçmişi temizlemek istiyorsan aynı ekrandaki <strong>Geçmişi Sil</strong>{' '}
+        seçeneğini kullanabilirsin; hesabın açık kalır, işlenmiş mail, etkinlik ve yakalama
+        kayıtların silinir.
       </p>
 
       <h2 id="eposta">2. E-posta ile silme</h2>
@@ -140,8 +140,8 @@ export default function DataDeletionPage() {
       <p>
         Silme süreciyle ilgili her soru için{' '}
         <a href={`mailto:${siteConfig.email.privacy}`}>{siteConfig.email.privacy}</a> adresine
-        yazabilirsin. Verilerin nasıl işlendiğini{' '}
-        <Link href="/privacy">Gizlilik Politikası</Link> sayfasında bulabilirsin.
+        yazabilirsin. Verilerin nasıl işlendiğini <Link href="/privacy">Gizlilik Politikası</Link>{' '}
+        sayfasında bulabilirsin.
       </p>
     </LegalPage>
   )

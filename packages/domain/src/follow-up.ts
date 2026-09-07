@@ -46,10 +46,7 @@ export function followUpWaitHours(candidate: FollowUpCandidate): number {
  * When the follow-up becomes due. Weekends do not count as silence: a mail
  * sent on Friday afternoon is not overdue on Sunday.
  */
-export function followUpDueAt(
-  candidate: FollowUpCandidate,
-  timeZone: string,
-): IsoInstant | null {
+export function followUpDueAt(candidate: FollowUpCandidate, timeZone: string): IsoInstant | null {
   if (!candidate.expectsReply) return null
   const sent = new Date(candidate.sentAt)
   if (Number.isNaN(sent.getTime())) return null
@@ -68,7 +65,10 @@ export function followUpDueAt(
 }
 
 export type FollowUpVerdict =
-  | { shouldSurface: false; reason: 'replied' | 'closed' | 'no_reply_expected' | 'too_soon' | 'dismissed_enough' }
+  | {
+      shouldSurface: false
+      reason: 'replied' | 'closed' | 'no_reply_expected' | 'too_soon' | 'dismissed_enough'
+    }
   | { shouldSurface: true; silentHours: number; dueAt: IsoInstant }
 
 export function evaluateFollowUp(
@@ -89,9 +89,7 @@ export function evaluateFollowUp(
     return { shouldSurface: false, reason: 'too_soon' }
   }
 
-  const silentHours = Math.floor(
-    (now.getTime() - new Date(candidate.sentAt).getTime()) / HOUR_MS,
-  )
+  const silentHours = Math.floor((now.getTime() - new Date(candidate.sentAt).getTime()) / HOUR_MS)
   return { shouldSurface: true, silentHours, dueAt }
 }
 

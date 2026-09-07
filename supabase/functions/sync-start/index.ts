@@ -45,7 +45,8 @@ serveFunction('sync-start', async ({ request, origin }) => {
         failures.push({
           accountId: account.id,
           resource,
-          code: error instanceof Error ? (error as { code?: string }).code ?? 'unknown' : 'unknown',
+          code:
+            error instanceof Error ? ((error as { code?: string }).code ?? 'unknown') : 'unknown',
         })
       }
     }

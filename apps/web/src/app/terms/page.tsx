@@ -67,18 +67,20 @@ export default function TermsPage() {
         tıbbi tavsiye değildir. Kararların sorumluluğu sana aittir.
       </p>
       <p>
-        Onayın olmadan hiçbir mail gönderilmez, hiçbir etkinlik veya görev oluşturulmaz. Onaya sunulan
-        her öneri arayüzde açıkça işaretlenir ve belirli bir süre içinde onaylanmazsa düşer.
+        Onayın olmadan hiçbir mail gönderilmez, hiçbir etkinlik veya görev oluşturulmaz. Onaya
+        sunulan her öneri arayüzde açıkça işaretlenir ve belirli bir süre içinde onaylanmazsa düşer.
         Kaynakta doğrulanamayan tarih, tutar veya isim asla üretilmez.
       </p>
 
       <h2 id="kullanim">5. Kabul edilebilir kullanım</h2>
       <ul>
-        <li>Hizmeti hukuka aykırı bir amaçla ya da başkalarının haklarını ihlal ederek kullanamazsın.</li>
+        <li>
+          Hizmeti hukuka aykırı bir amaçla ya da başkalarının haklarını ihlal ederek kullanamazsın.
+        </li>
         <li>Toplu istenmeyen mesaj göndermek için kullanamazsın.</li>
         <li>
-          Sistemi tersine mühendislikle çözmeye, güvenlik önlemlerini aşmaya veya altyapıya aşırı yük
-          bindirmeye çalışamazsın.
+          Sistemi tersine mühendislikle çözmeye, güvenlik önlemlerini aşmaya veya altyapıya aşırı
+          yük bindirmeye çalışamazsın.
         </li>
         <li>Yetkin olmayan bir kişinin hesabını bağlayamazsın.</li>
       </ul>
@@ -106,46 +108,45 @@ export default function TermsPage() {
           Fiyat değişikliklerini yürürlüğe girmeden önce uygulama içinden ve e-posta ile bildiririz.
         </li>
         <li>
-          Davet programıyla kazanılan ek Pro günleri nakde çevrilemez ve kötüye kullanım hâlinde geri
-          alınabilir.
+          Davet programıyla kazanılan ek Pro günleri nakde çevrilemez ve kötüye kullanım hâlinde
+          geri alınabilir.
         </li>
       </ul>
 
       <h2 id="mulkiyet">7. Fikri mülkiyet</h2>
       <p>
-        Uygulama, tasarım, marka ve içerik {siteConfig.company} şirketine aittir. Hesabınla
-        işlenen mail, takvim ve belge içerikleri ise sana aittir; bu içerikleri yalnızca hizmeti
-        sağlamak için işleriz.
+        Uygulama, tasarım, marka ve içerik {siteConfig.company} şirketine aittir. Hesabınla işlenen
+        mail, takvim ve belge içerikleri ise sana aittir; bu içerikleri yalnızca hizmeti sağlamak
+        için işleriz.
       </p>
 
       <h2 id="kullanilabilirlik">8. Hizmetin kullanılabilirliği</h2>
       <p>
-        Hizmeti kesintisiz sunmak için çalışırız; ancak bakım, sağlayıcı arızası veya bağlı olduğumuz
-        üçüncü taraf servislerdeki kesintiler nedeniyle geçici duraksamalar olabilir. Özellikleri
-        geliştirmek, değiştirmek veya makul bildirimle sonlandırmak hakkımız saklıdır.
+        Hizmeti kesintisiz sunmak için çalışırız; ancak bakım, sağlayıcı arızası veya bağlı
+        olduğumuz üçüncü taraf servislerdeki kesintiler nedeniyle geçici duraksamalar olabilir.
+        Özellikleri geliştirmek, değiştirmek veya makul bildirimle sonlandırmak hakkımız saklıdır.
       </p>
 
       <h2 id="sorumluluk">9. Sorumluluğun sınırı</h2>
       <p>
         Hizmet “olduğu gibi” sunulur. Yürürlükteki mevzuatın izin verdiği ölçüde; dolaylı zararlar,
         kâr kaybı ve veri kaybı bakımından sorumluluğumuz sınırlıdır. Toplam sorumluluğumuz, talebin
-        doğduğu tarihten önceki 12 ayda ödediğin abonelik bedelini aşmaz. Tüketici mevzuatından doğan
-        haklarına bu madde hâlel getirmez.
+        doğduğu tarihten önceki 12 ayda ödediğin abonelik bedelini aşmaz. Tüketici mevzuatından
+        doğan haklarına bu madde hâlel getirmez.
       </p>
 
       <h2 id="fesih">10. Sona erme</h2>
       <p>
-        Hesabını istediğin an silebilirsin; adımlar{' '}
-        <Link href="/data-deletion">Veri Silme</Link> sayfasında yer alır. Bu koşulların ağır
-        ihlali hâlinde hesabını askıya alabilir veya kapatabiliriz; bu durumda kullanılmamış dönem
-        için orantılı iade değerlendirilir.
+        Hesabını istediğin an silebilirsin; adımlar <Link href="/data-deletion">Veri Silme</Link>{' '}
+        sayfasında yer alır. Bu koşulların ağır ihlali hâlinde hesabını askıya alabilir veya
+        kapatabiliriz; bu durumda kullanılmamış dönem için orantılı iade değerlendirilir.
       </p>
 
       <h2 id="uygulanacak-hukuk">11. Uygulanacak hukuk ve uyuşmazlık</h2>
       <p>
         Bu koşullara Türkiye Cumhuriyeti hukuku uygulanır. Uyuşmazlıklarda İstanbul Merkez
-        (Çağlayan) Mahkemeleri ve İcra Daireleri yetkilidir. Tüketici sıfatını taşıyorsan
-        Tüketici Hakem Heyetleri ve Tüketici Mahkemeleri’ne başvurma hakkın saklıdır.
+        (Çağlayan) Mahkemeleri ve İcra Daireleri yetkilidir. Tüketici sıfatını taşıyorsan Tüketici
+        Hakem Heyetleri ve Tüketici Mahkemeleri’ne başvurma hakkın saklıdır.
       </p>
 
       <h2 id="iletisim">12. İletişim</h2>

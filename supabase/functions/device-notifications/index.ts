@@ -100,15 +100,18 @@ serveFunction('device-notifications', async ({ request, origin }) => {
       text,
       posted_at: item.postedAt,
       importance: decision.sendToModel ? 'normal' : decision.importance,
-      category: decision.sendToModel ? (decision.presumedCategory ?? 'information') : decision.category,
+      category: decision.sendToModel
+        ? (decision.presumedCategory ?? 'information')
+        : decision.category,
       processed_at: now.toISOString(),
     })
   }
 
   if (accepted.length > 0) {
-    const { error } = await client
-      .from('device_notifications')
-      .upsert(accepted, { onConflict: 'user_id,package_name,posted_at,title', ignoreDuplicates: true })
+    const { error } = await client.from('device_notifications').upsert(accepted, {
+      onConflict: 'user_id,package_name,posted_at,title',
+      ignoreDuplicates: true,
+    })
     if (error) throw dbError(error)
   }
 

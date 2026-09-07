@@ -1,8 +1,4 @@
-import {
-  type Locale,
-  type NotificationCategory,
-  toZonedParts,
-} from './domain.ts'
+import { type Locale, type NotificationCategory, toZonedParts } from './domain.ts'
 import { dbError, serviceClient } from './db.ts'
 import { fetchWithLimits } from './http.ts'
 import { audit } from './audit.ts'
@@ -54,7 +50,9 @@ async function loadSettings(userId: string): Promise<NotificationSettings | null
   const [prefs, profile] = await Promise.all([
     client
       .from('notification_preferences')
-      .select('categories, only_if_important, lock_screen_privacy, quiet_hours_start, quiet_hours_end')
+      .select(
+        'categories, only_if_important, lock_screen_privacy, quiet_hours_start, quiet_hours_end',
+      )
       .eq('user_id', userId)
       .maybeSingle(),
     client.from('profiles').select('time_zone, locale').eq('id', userId).maybeSingle(),
@@ -111,7 +109,10 @@ const ALWAYS_IMPORTANT: ReadonlySet<NotificationCategory> = new Set([
 
 export type PushOutcome =
   | { sent: true; deviceCount: number }
-  | { sent: false; reason: 'no_tokens' | 'category_off' | 'quiet_hours' | 'duplicate' | 'not_important' }
+  | {
+      sent: false
+      reason: 'no_tokens' | 'category_off' | 'quiet_hours' | 'duplicate' | 'not_important'
+    }
 
 /**
  * Send a push, or explain why it was suppressed.
@@ -211,7 +212,9 @@ export async function sendPush(payload: PushPayload, now: Date): Promise<PushOut
   // Expo reports per-token errors in the receipt array; a token the device has
   // discarded must be disabled or every later send wastes a request.
   try {
-    const parsed = JSON.parse(body) as { data?: Array<{ status?: string; details?: { error?: string } }> }
+    const parsed = JSON.parse(body) as {
+      data?: Array<{ status?: string; details?: { error?: string } }>
+    }
     const results = parsed.data ?? []
     for (let i = 0; i < results.length; i++) {
       const result = results[i]

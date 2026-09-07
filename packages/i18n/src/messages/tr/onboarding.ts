@@ -131,7 +131,10 @@ export const onboarding = {
   aha: {
     title: 'İşte bugün bilmen gerekenler.',
     body: 'Bunları sen aramadan bulduk. Her sabah aynısını yapacağız.',
-    highlight: { one: '1 konu senden bir şey bekliyor.', other: '{count} konu senden bir şey bekliyor.' },
+    highlight: {
+      one: '1 konu senden bir şey bekliyor.',
+      other: '{count} konu senden bir şey bekliyor.',
+    },
     timeSaved: 'Bu tarama sana yaklaşık {minutes} dakika kazandırdı.',
     primary: 'Günümü gör',
   },

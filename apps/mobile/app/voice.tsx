@@ -53,8 +53,7 @@ export default function VoiceScreen() {
     router.replace({ pathname: '/(tabs)/assistant', params: { q: text } })
   }, [router, voice])
 
-  const permissionDenied =
-    isAppError(voice.error) && voice.error.code === 'permission_denied'
+  const permissionDenied = isAppError(voice.error) && voice.error.code === 'permission_denied'
   const tooShort = voice.durationMs > 0 && voice.durationMs < MIN_RECORDING_MS
 
   return (
@@ -104,9 +103,7 @@ export default function VoiceScreen() {
               </Card>
             ) : (
               <Text variant="body" style={{ color: theme.colors.onPrimary, opacity: 0.8 }} center>
-                {voice.state === 'recording'
-                  ? t('voice.releaseToSend')
-                  : t('voice.holdToTalk')}
+                {voice.state === 'recording' ? t('voice.releaseToSend') : t('voice.holdToTalk')}
               </Text>
             )}
 
@@ -141,9 +138,11 @@ export default function VoiceScreen() {
           <View style={{ alignItems: 'center', gap: spacing.md }}>
             <Animated.View style={pulseStyle}>
               <Pressable
+                // Push to talk: the recording starts on press and stops on
+                // release, so there is no `onPress` — the wrapper still fires
+                // the haptic on the completed press.
                 onPressIn={() => void voice.start()}
                 onPressOut={() => void finish()}
-                onPress={() => undefined}
                 haptic="medium"
                 accessibilityLabel={t('voice.tapToSpeak')}
                 accessibilityHint={t('voice.listeningHint')}
@@ -188,11 +187,7 @@ export default function VoiceScreen() {
               </View>
             ) : null}
 
-            <Text
-              variant="micro"
-              style={{ color: theme.colors.onPrimary, opacity: 0.7 }}
-              center
-            >
+            <Text variant="micro" style={{ color: theme.colors.onPrimary, opacity: 0.7 }} center>
               {t('voice.privacy')}
             </Text>
           </View>

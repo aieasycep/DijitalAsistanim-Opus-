@@ -73,7 +73,8 @@ export default function PaywallScreen() {
   })
 
   const packages = packagesQuery.data ?? []
-  const chosen = selected ?? packages.find((pkg) => pkg.period === 'annual')?.id ?? packages[0]?.id ?? null
+  const chosen =
+    selected ?? packages.find((pkg) => pkg.period === 'annual')?.id ?? packages[0]?.id ?? null
 
   const syncEntitlement = useCallback(
     async (customerId: string | null) => {

@@ -82,7 +82,9 @@ export function CommitmentCard({
         ) : due ? (
           <Badge label={due} tone="warning" icon="schedule" />
         ) : null}
-        {isDone ? <Badge label={t('common.action.done')} tone="success" icon="check-circle" /> : null}
+        {isDone ? (
+          <Badge label={t('common.action.done')} tone="success" icon="check-circle" />
+        ) : null}
       </View>
 
       <Text variant="h3" numberOfLines={3}>
@@ -104,7 +106,12 @@ export function CommitmentCard({
           paddingLeft: spacing.xs,
         }}
       >
-        <Text variant="editorial" tone="secondary" numberOfLines={3} style={{ fontSize: 15, lineHeight: 23 }}>
+        <Text
+          variant="editorial"
+          tone="secondary"
+          numberOfLines={3}
+          style={{ fontSize: 15, lineHeight: 23 }}
+        >
           {`“${commitment.quote}”`}
         </Text>
       </View>
@@ -112,7 +119,12 @@ export function CommitmentCard({
       <SourceChip source={commitment.source} onPress={onOpenSource} />
 
       {needsConfirmation && onConfirm ? (
-        <Button label={t('commitment.detected.confirm')} onPress={onConfirm} variant="tonal" size="sm" />
+        <Button
+          label={t('commitment.detected.confirm')}
+          onPress={onConfirm}
+          variant="tonal"
+          size="sm"
+        />
       ) : null}
 
       {!isDone && commitment.status !== 'cancelled' ? (

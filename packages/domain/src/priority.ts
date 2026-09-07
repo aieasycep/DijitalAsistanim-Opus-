@@ -274,7 +274,12 @@ export function evaluatePriority(
       importance: 'low',
       topTier: 'promotion_penalty',
       reasons: [
-        { tier: 'promotion_penalty', messageKey, values: { category: candidate.category }, contribution: 0 },
+        {
+          tier: 'promotion_penalty',
+          messageKey,
+          values: { category: candidate.category },
+          contribution: 0,
+        },
       ],
       muted: false,
     }

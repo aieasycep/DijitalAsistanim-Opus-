@@ -53,7 +53,9 @@ export function providerConfig(provider: OAuthProvider): ProviderConfig {
     clientId,
     clientSecret,
     redirectUri,
-    authorizeUrl: tenant ? endpoints.authorize.replace('/common/', `/${tenant}/`) : endpoints.authorize,
+    authorizeUrl: tenant
+      ? endpoints.authorize.replace('/common/', `/${tenant}/`)
+      : endpoints.authorize,
     tokenUrl: tenant ? endpoints.token.replace('/common/', `/${tenant}/`) : endpoints.token,
     revokeUrl: endpoints.revoke,
   }
@@ -102,15 +104,17 @@ export async function buildAuthorizeUrl(request: AuthorizeRequest): Promise<Auth
       ? scopesFor(request.provider, ['identity', ...request.additionalScopeGroups])
       : initialScopes(request.provider)
 
-  const { error } = await serviceClient().from('oauth_states').insert({
-    state,
-    user_id: request.userId,
-    provider: request.provider,
-    scopes,
-    redirect_to: request.redirectTo,
-    connected_account_id: request.connectedAccountId,
-    expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
-  })
+  const { error } = await serviceClient()
+    .from('oauth_states')
+    .insert({
+      state,
+      user_id: request.userId,
+      provider: request.provider,
+      scopes,
+      redirect_to: request.redirectTo,
+      connected_account_id: request.connectedAccountId,
+      expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+    })
   if (error) throw dbError(error)
 
   const params = new URLSearchParams({
@@ -168,10 +172,7 @@ export interface TokenSet {
   idToken: string | null
 }
 
-async function postToken(
-  provider: OAuthProvider,
-  body: Record<string, string>,
-): Promise<TokenSet> {
+async function postToken(provider: OAuthProvider, body: Record<string, string>): Promise<TokenSet> {
   const config = providerConfig(provider)
   const { response, body: text } = await fetchWithLimits(
     config.tokenUrl,
@@ -428,7 +429,10 @@ export async function revokeAndDelete(
     // outage must not block deleting our own copy of their credentials.
   }
 
-  await serviceClient().from('oauth_credentials').delete().eq('connected_account_id', connectedAccountId)
+  await serviceClient()
+    .from('oauth_credentials')
+    .delete()
+    .eq('connected_account_id', connectedAccountId)
   await markAccountStatus(connectedAccountId, 'disconnected', null)
 
   return { providerRevoked }

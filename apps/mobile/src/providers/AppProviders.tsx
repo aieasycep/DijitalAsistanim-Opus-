@@ -2,7 +2,15 @@ import { type ColorSchemePreference } from '@da/design-tokens'
 import { type Locale, systemClock } from '@da/domain'
 import { type ApiClient, createApiClient } from '@da/api-client'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { env } from '../lib/env'
@@ -32,7 +40,11 @@ export function useApi(): ApiClient {
   return client
 }
 
-function readStoredPreference<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+function readStoredPreference<T extends string>(
+  key: string,
+  allowed: readonly T[],
+  fallback: T,
+): T {
   const stored = plainCache.getString(key)
   return stored && (allowed as readonly string[]).includes(stored) ? (stored as T) : fallback
 }
@@ -103,9 +115,7 @@ export function AppProviders({ children }: AppProvidersProps) {
             onPreferenceChange={(next) => plainCache.set(STORAGE_KEYS.language, next)}
           >
             <QueryClientProvider client={queryClient}>
-              <ApiContext.Provider value={api}>
-                {ready ? children : null}
-              </ApiContext.Provider>
+              <ApiContext.Provider value={api}>{ready ? children : null}</ApiContext.Provider>
             </QueryClientProvider>
           </I18nProvider>
         </ThemeProvider>

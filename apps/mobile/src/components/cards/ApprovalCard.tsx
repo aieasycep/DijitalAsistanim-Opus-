@@ -1,5 +1,10 @@
 import { spacing } from '@da/design-tokens'
-import type { ApprovalAction, ApprovalActionType, ApprovalPayload, ApprovalStatus } from '@da/domain'
+import type {
+  ApprovalAction,
+  ApprovalActionType,
+  ApprovalPayload,
+  ApprovalStatus,
+} from '@da/domain'
 import { formatFullDate, formatTime } from '@da/i18n'
 import { type MaterialIcons } from '@expo/vector-icons'
 import { View } from 'react-native'
@@ -38,13 +43,7 @@ const STATUS_TONE: Record<ApprovalStatus, BadgeTone> = {
  * precisely what will happen — the recipient, the subject, the times — before
  * anything leaves the app. A summary sentence is not enough.
  */
-function PayloadPreview({
-  payload,
-  timeZone,
-}: {
-  payload: ApprovalPayload
-  timeZone: string
-}) {
+function PayloadPreview({ payload, timeZone }: { payload: ApprovalPayload; timeZone: string }) {
   const t = useT()
   const { locale } = useI18n()
   const theme = useTheme()
@@ -92,7 +91,9 @@ function PayloadPreview({
         const c = payload.changes
         return [
           ...(c.title ? [{ label: t('approval.preview.title'), value: c.title }] : []),
-          ...(c.startsAt ? [{ label: t('approval.preview.when'), value: instant(c.startsAt) }] : []),
+          ...(c.startsAt
+            ? [{ label: t('approval.preview.when'), value: instant(c.startsAt) }]
+            : []),
           ...(c.endsAt ? [{ label: t('approval.preview.until'), value: instant(c.endsAt) }] : []),
           ...(c.location !== undefined
             ? [{ label: t('approval.preview.where'), value: c.location ?? '—' }]
@@ -102,7 +103,9 @@ function PayloadPreview({
       case 'task_create':
         return [
           { label: t('approval.preview.title'), value: payload.title },
-          ...(payload.dueAt ? [{ label: t('approval.preview.dueDate'), value: instant(payload.dueAt) }] : []),
+          ...(payload.dueAt
+            ? [{ label: t('approval.preview.dueDate'), value: instant(payload.dueAt) }]
+            : []),
           ...(payload.notes ? [{ label: t('approval.preview.notes'), value: payload.notes }] : []),
         ]
       case 'reminder_create':
@@ -116,7 +119,9 @@ function PayloadPreview({
           ...(payload.personName
             ? [{ label: t('approval.preview.person'), value: payload.personName }]
             : []),
-          ...(payload.dueAt ? [{ label: t('approval.preview.dueDate'), value: instant(payload.dueAt) }] : []),
+          ...(payload.dueAt
+            ? [{ label: t('approval.preview.dueDate'), value: instant(payload.dueAt) }]
+            : []),
         ]
     }
   })()

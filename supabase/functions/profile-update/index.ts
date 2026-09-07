@@ -37,11 +37,7 @@ serveFunction('profile-update', async ({ request, origin }) => {
     if (error) throw dbError(error)
   }
 
-  const { data, error } = await client
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle()
+  const { data, error } = await client.from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (error) throw dbError(error)
 
   return jsonResponse({ profile: data }, 200, origin)

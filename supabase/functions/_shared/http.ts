@@ -109,7 +109,9 @@ export function serveFunction(name: string, handler: Handler): void {
 /** Parse and validate a JSON body with a Zod schema, or fail with 422. */
 export async function parseBody<T>(
   request: Request,
-  schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false; error: unknown } },
+  schema: {
+    safeParse: (value: unknown) => { success: true; data: T } | { success: false; error: unknown }
+  },
 ): Promise<T> {
   let raw: unknown
   try {

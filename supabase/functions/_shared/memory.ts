@@ -40,21 +40,23 @@ export async function upsertMemoryChunk(input: MemoryChunkInput): Promise<void> 
 
   const embedding = await embedText(content)
 
-  const { error } = await serviceClient().from('memory_chunks').upsert(
-    {
-      user_id: input.userId,
-      content,
-      source_type: input.sourceType,
-      source_id: input.sourceId,
-      source_label: input.sourceLabel,
-      occurred_at: input.occurredAt,
-      person_ids: input.personIds ?? [],
-      topic: input.topic ?? null,
-      embedding,
-      token_count: estimateTokens(content),
-    },
-    { onConflict: 'user_id,source_type,source_id' },
-  )
+  const { error } = await serviceClient()
+    .from('memory_chunks')
+    .upsert(
+      {
+        user_id: input.userId,
+        content,
+        source_type: input.sourceType,
+        source_id: input.sourceId,
+        source_label: input.sourceLabel,
+        occurred_at: input.occurredAt,
+        person_ids: input.personIds ?? [],
+        topic: input.topic ?? null,
+        embedding,
+        token_count: estimateTokens(content),
+      },
+      { onConflict: 'user_id,source_type,source_id' },
+    )
 
   if (error) throw dbError(error)
 }

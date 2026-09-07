@@ -17,26 +17,35 @@ export const errors = {
   oauth_failed: 'The account could not be connected. It is worth one more try.',
   oauth_denied: 'Permission was not granted. We need it to continue.',
   oauth_expired: 'The connection to your account has expired. Reconnecting is enough.',
-  oauth_scope_missing: 'A permission this feature needs was not granted. You can reconnect the account.',
+  oauth_scope_missing:
+    'A permission this feature needs was not granted. You can reconnect the account.',
   oauth_revoked: 'Access to your account was revoked. We cannot read anything until you reconnect.',
   provider_unavailable: 'The connected service is not responding. We will sync once it is back.',
-  mail_provider_unavailable: 'Your mail provider cannot be reached right now. You can still read what we already have.',
-  calendar_provider_unavailable: 'Your calendar provider cannot be reached right now. Your schedule is shown as of the last sync.',
+  mail_provider_unavailable:
+    'Your mail provider cannot be reached right now. You can still read what we already have.',
+  calendar_provider_unavailable:
+    'Your calendar provider cannot be reached right now. Your schedule is shown as of the last sync.',
   sync_delayed: 'Syncing is taking longer than usual. New items may arrive a little late.',
-  sync_conflict: 'This was changed somewhere else too. Let us fetch the latest version and try again.',
+  sync_conflict:
+    'This was changed somewhere else too. Let us fetch the latest version and try again.',
   ai_unavailable: 'The assistant cannot answer right now. Try again in a moment.',
-  ai_invalid_output: 'We were not confident about that result, so we are not showing it. Try again?',
+  ai_invalid_output:
+    'We were not confident about that result, so we are not showing it. Try again?',
   ai_quota_exceeded: 'You have reached today’s assistant limit. It resets tomorrow.',
   capture_failed: 'We could not read that. A clearer photo or a different file usually works.',
   upload_failed: 'The file could not be uploaded. Check your connection and try again.',
   file_too_large: 'That file is too large. The limit is {limit}.',
   unsupported_file_type: 'We cannot read this file type. Try a photo, a PDF or a text file.',
-  url_not_allowed: 'We cannot open that link. For safety we only read publicly reachable addresses.',
+  url_not_allowed:
+    'We cannot open that link. For safety we only read publicly reachable addresses.',
   approval_expired: 'This approval has expired. For safety you will need to prepare it again.',
   approval_already_executed: 'This action already happened. We did not send it twice.',
-  approval_illegal_edit: 'This field cannot be changed at the approval stage. Try preparing it again.',
-  approval_execution_failed: 'The action could not be completed. Nothing was sent — you can try again.',
-  subscription_error: 'We could not read your subscription. Your purchases are safe; we will check again shortly.',
+  approval_illegal_edit:
+    'This field cannot be changed at the approval stage. Try preparing it again.',
+  approval_execution_failed:
+    'The action could not be completed. Nothing was sent — you can try again.',
+  subscription_error:
+    'We could not read your subscription. Your purchases are safe; we will check again shortly.',
   entitlement_required: 'This feature is part of Pro. Want to see what is included?',
   plan_limit_reached: 'You have reached the limit on this plan. Pro removes it.',
   referral_invalid: 'That invite code is not valid. Could you check it?',

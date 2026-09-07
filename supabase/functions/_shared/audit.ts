@@ -66,13 +66,15 @@ export interface AuditEntry {
  */
 export async function audit(entry: AuditEntry): Promise<void> {
   try {
-    const { error } = await serviceClient().from('audit_logs').insert({
-      user_id: entry.userId,
-      action: entry.action,
-      entity_type: entry.entityType ?? null,
-      entity_id: entry.entityId ?? null,
-      metadata: entry.metadata ?? {},
-    })
+    const { error } = await serviceClient()
+      .from('audit_logs')
+      .insert({
+        user_id: entry.userId,
+        action: entry.action,
+        entity_type: entry.entityType ?? null,
+        entity_id: entry.entityId ?? null,
+        metadata: entry.metadata ?? {},
+      })
     if (error) {
       console.error(JSON.stringify({ audit_failed: entry.action, code: error.code }))
     }

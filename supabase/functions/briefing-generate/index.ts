@@ -3,7 +3,12 @@ import { systemClock, toZonedParts } from '../_shared/domain.ts'
 import { audit } from '../_shared/audit.ts'
 import { dbError, loadUserContext, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
-import { checkAiBudget, consumeRateLimit, loadEntitlements, requireFeature } from '../_shared/limits.ts'
+import {
+  checkAiBudget,
+  consumeRateLimit,
+  loadEntitlements,
+  requireFeature,
+} from '../_shared/limits.ts'
 import {
   briefingDateFor,
   briefingStats,
@@ -52,8 +57,7 @@ serveFunction('briefing-generate', async ({ request, origin }) => {
   const isWeekend = weekday === 0 || weekday === 6
   const suppressed =
     !body.force &&
-    (quietDays.includes(weekday) ||
-      (isWeekend && prefs.data?.briefing_on_weekends === false))
+    (quietDays.includes(weekday) || (isWeekend && prefs.data?.briefing_on_weekends === false))
 
   if (suppressed) {
     await audit({
@@ -74,21 +78,11 @@ serveFunction('briefing-generate', async ({ request, origin }) => {
   if (existing.error) throw dbError(existing.error)
 
   if (existing.data?.status === 'ready' && !body.force) {
-    const full = await client
-      .from('briefings')
-      .select('*')
-      .eq('id', existing.data.id)
-      .single()
+    const full = await client.from('briefings').select('*').eq('id', existing.data.id).single()
     return jsonResponse({ status: 'ready', reason: 'cached', briefing: full.data }, 200, origin)
   }
 
-  const collected = await collectBriefingInputs(
-    user.id,
-    body.kind,
-    forDate,
-    profile.timeZone,
-    now,
-  )
+  const collected = await collectBriefingInputs(user.id, body.kind, forDate, profile.timeZone, now)
 
   // The midday pulse exists to report change. No change, no pulse.
   if (body.kind === 'midday' && !body.force) {

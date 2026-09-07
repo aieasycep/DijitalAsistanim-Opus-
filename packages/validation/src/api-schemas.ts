@@ -92,7 +92,16 @@ export const initialAnalysisRequestSchema = z.object({
 })
 
 export const initialAnalysisProgressSchema = z.object({
-  phase: z.enum(['queued', 'mail', 'analysis', 'calendar', 'follow_ups', 'briefing', 'done', 'failed']),
+  phase: z.enum([
+    'queued',
+    'mail',
+    'analysis',
+    'calendar',
+    'follow_ups',
+    'briefing',
+    'done',
+    'failed',
+  ]),
   emailsFound: z.number().int().min(0),
   importantFound: z.number().int().min(0),
   meetingsFound: z.number().int().min(0),
@@ -216,7 +225,16 @@ export const createApprovalRequestSchema = z.object({
   why: z.string().min(1).max(300),
   payload: approvalPayloadSchema,
   sourceType: z
-    .enum(['email', 'calendar_event', 'task', 'capture', 'commitment', 'notification', 'contact', 'user_input'])
+    .enum([
+      'email',
+      'calendar_event',
+      'task',
+      'capture',
+      'commitment',
+      'notification',
+      'contact',
+      'user_input',
+    ])
     .nullable()
     .default(null),
   sourceId: z.string().max(100).nullable().default(null),
@@ -287,7 +305,9 @@ export const transcribeResponseSchema = z.object({
 export const searchRequestSchema = paginationSchema.extend({
   query: z.string().min(1).max(300),
   types: z
-    .array(z.enum(['email', 'calendar_event', 'task', 'commitment', 'capture', 'contact', 'life_event']))
+    .array(
+      z.enum(['email', 'calendar_event', 'task', 'commitment', 'capture', 'contact', 'life_event']),
+    )
     .default([]),
 })
 
@@ -318,13 +338,22 @@ export const createCaptureRequestSchema = z.object({
   sourceUrl: safeUrlSchema.nullable(),
   rawText: z.string().max(50_000).nullable(),
   mimeType: z.string().max(100).nullable(),
-  sizeBytes: z.number().int().min(0).max(25 * 1024 * 1024).nullable(),
+  sizeBytes: z
+    .number()
+    .int()
+    .min(0)
+    .max(25 * 1024 * 1024)
+    .nullable(),
 })
 
 export const captureUploadUrlRequestSchema = z.object({
   filename: z.string().min(1).max(200),
   mimeType: z.string().min(1).max(100),
-  sizeBytes: z.number().int().min(1).max(25 * 1024 * 1024),
+  sizeBytes: z
+    .number()
+    .int()
+    .min(1)
+    .max(25 * 1024 * 1024),
 })
 
 export const captureUploadUrlResponseSchema = z.object({

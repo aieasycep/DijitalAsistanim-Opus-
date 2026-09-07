@@ -52,9 +52,5 @@ serveFunction('transcribe', async ({ request, origin }) => {
   }
 
   const parsed = (await response.json()) as { text?: string }
-  return jsonResponse(
-    { text: parsed.text ?? '', provider, confidence: null },
-    200,
-    origin,
-  )
+  return jsonResponse({ text: parsed.text ?? '', provider, confidence: null }, 200, origin)
 })

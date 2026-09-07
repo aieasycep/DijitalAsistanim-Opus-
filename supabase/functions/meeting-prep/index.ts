@@ -106,14 +106,22 @@ serveFunction('meeting-prep', async ({ request, origin }) => {
       .eq('user_id', user.id)
       .in('status', ['open', 'overdue'])
       .limit(20),
-    searchMemory(user.id, `${event.data.title ?? ''} ${attendees.map((a) => a.name ?? '').join(' ')}`, 6),
+    searchMemory(
+      user.id,
+      `${event.data.title ?? ''} ${attendees.map((a) => a.name ?? '').join(' ')}`,
+      6,
+    ),
   ])
 
   const relevantCommitments = (commitments.data ?? []).filter((row) => {
     const name = ((row.person_name as string | null) ?? '').toLowerCase()
     return (
       name === '' ||
-      attendees.some((a) => (a.name ?? '').toLowerCase().includes(name) || name.includes((a.name ?? '').toLowerCase()))
+      attendees.some(
+        (a) =>
+          (a.name ?? '').toLowerCase().includes(name) ||
+          name.includes((a.name ?? '').toLowerCase()),
+      )
     )
   })
 

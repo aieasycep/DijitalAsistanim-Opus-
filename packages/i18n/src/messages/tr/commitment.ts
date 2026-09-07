@@ -67,7 +67,11 @@ export const commitment = {
   count: {
     open: { zero: 'Açık söz yok', one: '1 açık söz', other: '{count} açık söz' },
     overdue: { one: '1 söz gecikti', other: '{count} söz gecikti' },
-    dueToday: { zero: 'Bugün için söz yok', one: 'Bugün 1 söz var', other: 'Bugün {count} söz var' },
+    dueToday: {
+      zero: 'Bugün için söz yok',
+      one: 'Bugün 1 söz var',
+      other: 'Bugün {count} söz var',
+    },
   },
 
   done: 'Söz kapatıldı.',

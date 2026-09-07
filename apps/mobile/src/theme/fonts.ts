@@ -48,7 +48,10 @@ const SYSTEM_SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default
  * platform picks its own UI font and honours the weight, instead of naming a
  * font that does not exist (which iOS silently renders as Helvetica).
  */
-export function resolveFont(role: FontRole, weight: FontWeight): Pick<TextStyle, 'fontFamily' | 'fontWeight'> {
+export function resolveFont(
+  role: FontRole,
+  weight: FontWeight,
+): Pick<TextStyle, 'fontFamily' | 'fontWeight'> {
   if (!fontsLoaded) {
     return role === 'serif'
       ? { fontFamily: SYSTEM_SERIF, fontWeight: weight }

@@ -19,7 +19,12 @@ import { Screen } from '../../src/components/ui/Screen'
 import { Text } from '../../src/components/ui/Text'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
 import { useApprovalFlow } from '../../src/hooks/useApprovalFlow'
-import { useCommitments, usePlanDay, usePlanSuggestions, usePlanWeek } from '../../src/hooks/queries'
+import {
+  useCommitments,
+  usePlanDay,
+  usePlanSuggestions,
+  usePlanWeek,
+} from '../../src/hooks/queries'
 import { useEntitlements, useFeatureGate } from '../../src/hooks/useEntitlements'
 import { useUserContext } from '../../src/hooks/useUserContext'
 import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
@@ -277,7 +282,9 @@ export default function PlanScreen() {
             {suggestions.map((suggestion) => {
               const minutes = durationMinutes(suggestion.startsAt, suggestion.endsAt)
               const schedulable =
-                suggestion.kind === 'focus_block' && suggestion.startsAt !== null && suggestion.endsAt !== null
+                suggestion.kind === 'focus_block' &&
+                suggestion.startsAt !== null &&
+                suggestion.endsAt !== null
               return (
                 <Card
                   key={suggestion.id}
@@ -295,7 +302,9 @@ export default function PlanScreen() {
                         locale,
                         timeZone,
                       )}
-                      {minutes === null ? '' : ` · ${plural('calendar.freeBlock.minutes', minutes)}`}
+                      {minutes === null
+                        ? ''
+                        : ` · ${plural('calendar.freeBlock.minutes', minutes)}`}
                     </Text>
                   ) : null}
                   <Text variant="secondary" tone="secondary">

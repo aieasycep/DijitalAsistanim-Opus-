@@ -34,9 +34,12 @@ export interface InstalledApp {
   appName: string
 }
 
-
 export function isSupported(): boolean {
-  return Platform.OS === 'android' && DaNotificationListenerNative !== null && DaNotificationListenerNative.isSupported()
+  return (
+    Platform.OS === 'android' &&
+    DaNotificationListenerNative !== null &&
+    DaNotificationListenerNative.isSupported()
+  )
 }
 
 /** Whether the OS-level "notification access" permission has been granted. */

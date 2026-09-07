@@ -128,10 +128,14 @@ export default function PersonScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
-          {contact.isVip ? <Badge label={t('person.header.vip')} tone="warning" icon="star" /> : null}
+          {contact.isVip ? (
+            <Badge label={t('person.header.vip')} tone="warning" icon="star" />
+          ) : null}
           {lastContact ? (
             <Badge
-              label={t('person.header.lastContact', { time: plural(lastContact.key, lastContact.count) })}
+              label={t('person.header.lastContact', {
+                time: plural(lastContact.key, lastContact.count),
+              })}
               tone="neutral"
             />
           ) : (
@@ -161,9 +165,7 @@ export default function PersonScreen() {
           <Text variant="caption" tone="tertiary">
             {t('person.stats.title')}
           </Text>
-          <Text variant="body">
-            {plural('person.stats.threads', contact.interactionCount)}
-          </Text>
+          <Text variant="body">{plural('person.stats.threads', contact.interactionCount)}</Text>
           <Text variant="micro" tone="tertiary">
             {t('person.privacyNote')}
           </Text>

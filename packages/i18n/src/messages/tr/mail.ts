@@ -40,8 +40,16 @@ export const mail = {
 
   summary: {
     scanned: { one: 'Bugün 1 mail okundu', other: 'Bugün {count} mail okundu' },
-    surfaced: { zero: 'Öne çıkan yok', one: '1 tanesi öne çıktı', other: '{count} tanesi öne çıktı' },
-    silenced: { zero: 'Sessize alınan yok', one: '1 tanesi sessize alındı', other: '{count} tanesi sessize alındı' },
+    surfaced: {
+      zero: 'Öne çıkan yok',
+      one: '1 tanesi öne çıktı',
+      other: '{count} tanesi öne çıktı',
+    },
+    silenced: {
+      zero: 'Sessize alınan yok',
+      one: '1 tanesi sessize alındı',
+      other: '{count} tanesi sessize alındı',
+    },
     unread: { zero: 'Okunmamış yok', one: '1 okunmamış', other: '{count} okunmamış' },
     line: '{scanned} mail tarandı, {surfaced} tanesi senin için önemliydi.',
   },

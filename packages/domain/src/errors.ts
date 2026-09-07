@@ -79,7 +79,10 @@ export class AppError extends Error {
   readonly status: number
 
   constructor(code: ErrorCode, options: AppErrorOptions = {}) {
-    super(options.detail ?? code, options.cause !== undefined ? { cause: options.cause } : undefined)
+    super(
+      options.detail ?? code,
+      options.cause !== undefined ? { cause: options.cause } : undefined,
+    )
     this.name = 'AppError'
     this.code = code
     if (options.detail !== undefined) this.detail = options.detail

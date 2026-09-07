@@ -116,9 +116,7 @@ export default function MeetingPrepScreen() {
         </View>
 
         <View>
-          <SectionHeader
-            title={`${t('meeting.attendees.title')} · ${prep.attendees.length}`}
-          />
+          <SectionHeader title={`${t('meeting.attendees.title')} · ${prep.attendees.length}`} />
           <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
             {prep.attendees.map((attendee, index) => (
               <View key={attendee.email}>

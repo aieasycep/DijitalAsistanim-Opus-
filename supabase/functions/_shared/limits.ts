@@ -71,11 +71,7 @@ export async function loadEntitlements(userId: string, now: Date): Promise<Entit
   const client = serviceClient()
 
   const [subscription, credits] = await Promise.all([
-    client
-      .from('subscriptions')
-      .select('status, entitlement')
-      .eq('user_id', userId)
-      .maybeSingle(),
+    client.from('subscriptions').select('status, entitlement').eq('user_id', userId).maybeSingle(),
     client
       .from('referral_credits')
       .select('expires_at')

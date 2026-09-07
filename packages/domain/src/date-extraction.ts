@@ -1,9 +1,4 @@
-import {
-  addLocalDays,
-  type IsoInstant,
-  toZonedParts,
-  zonedTimeToUtc,
-} from './clock.ts'
+import { addLocalDays, type IsoInstant, toZonedParts, zonedTimeToUtc } from './clock.ts'
 
 /**
  * Turkish and English date/time extraction from free text.
@@ -140,8 +135,7 @@ export function extractDates(text: string, now: Date, timeZone: string): Extract
   const timeSuffix = String.raw`(?:\s*(?:saat\s*)?(?:at\s*)?(\d{1,2})[:.](\d{2}))?`
 
   // ── Explicit numeric dates: 12/09/2026, 12.09.2026, 2026-09-12 ──────────
-  const numeric =
-    /\b(\d{4})-(\d{1,2})-(\d{1,2})\b|\b(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\b/g
+  const numeric = /\b(\d{4})-(\d{1,2})-(\d{1,2})\b|\b(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\b/g
   for (const m of text.matchAll(numeric)) {
     let year: number, month: number, day: number
     if (m[1]) {
@@ -162,9 +156,7 @@ export function extractDates(text: string, now: Date, timeZone: string): Extract
 
     const after = text.slice(m.index + m[0].length, m.index + m[0].length + 12)
     const t = /^\s*(?:saat\s*)?(\d{1,2})[:.](\d{2})/.exec(after)
-    const time = t
-      ? clampTime(Number(t[1]), Number(t[2]))
-      : { hour: DEFAULT_HOUR, minute: 0 }
+    const time = t ? clampTime(Number(t[1]), Number(t[2])) : { hour: DEFAULT_HOUR, minute: 0 }
 
     push({
       at: makeInstant(year, month, day, time.hour, time.minute, timeZone),
@@ -226,9 +218,7 @@ export function extractDates(text: string, now: Date, timeZone: string): Extract
       const p = toZonedParts(target, timeZone)
       const after = text.slice(m.index + m[0].length, m.index + m[0].length + 16)
       const t = /^\s*(?:saat\s*)?(\d{1,2})[:.](\d{2})/.exec(after)
-      const time = t
-        ? clampTime(Number(t[1]), Number(t[2]))
-        : { hour: DEFAULT_HOUR, minute: 0 }
+      const time = t ? clampTime(Number(t[1]), Number(t[2])) : { hour: DEFAULT_HOUR, minute: 0 }
       push({
         at: makeInstant(p.year, p.month, p.day, time.hour, time.minute, timeZone),
         quote: m[0] + (t ? t[0] : ''),

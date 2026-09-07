@@ -61,7 +61,11 @@ export const assistant = {
   },
 
   limits: {
-    dailyLeft: { zero: 'Bugünlük soru hakkın bitti.', one: 'Bugün 1 soru hakkın kaldı.', other: 'Bugün {count} soru hakkın kaldı.' },
+    dailyLeft: {
+      zero: 'Bugünlük soru hakkın bitti.',
+      one: 'Bugün 1 soru hakkın kaldı.',
+      other: 'Bugün {count} soru hakkın kaldı.',
+    },
     upgrade: 'Sınırsız sorma Pro planında.',
   },
 

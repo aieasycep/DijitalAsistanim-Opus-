@@ -99,7 +99,10 @@ export default function AccountsSettingsScreen() {
 
   return (
     <Screen scroll bottomInset={spacing.xxl}>
-      <ScreenHeader title={t('settings.integrations.title')} subtitle={t('settings.integrations.subtitle')} />
+      <ScreenHeader
+        title={t('settings.integrations.title')}
+        subtitle={t('settings.integrations.subtitle')}
+      />
 
       <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
         {query.isLoading && accounts.length === 0 ? (
@@ -123,7 +126,9 @@ export default function AccountsSettingsScreen() {
                   />
                   <View style={{ flex: 1 }}>
                     <Text variant="bodyStrong" numberOfLines={1}>
-                      {account.email ?? account.displayName ?? t(`common.provider.${account.provider}`)}
+                      {account.email ??
+                        account.displayName ??
+                        t(`common.provider.${account.provider}`)}
                     </Text>
                     <Text variant="micro" tone="tertiary">
                       {account.kinds
@@ -190,9 +195,7 @@ export default function AccountsSettingsScreen() {
 
         <Button
           label={t('settings.integrations.addAccount')}
-          onPress={() =>
-            void connect({ provider: 'google', kinds: KINDS }).catch(() => undefined)
-          }
+          onPress={() => void connect({ provider: 'google', kinds: KINDS }).catch(() => undefined)}
           variant="tonal"
           fullWidth
           loading={isConnecting}

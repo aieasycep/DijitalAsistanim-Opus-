@@ -89,7 +89,8 @@ export default function BriefingScreen() {
         router.push(`/event/${item.relatedEntityId}`)
       } else if (item.relatedEntityType === 'commitment') {
         router.push(`/commitment/${item.relatedEntityId}`)
-      } else if (item.relatedEntityType === 'contact') router.push(`/person/${item.relatedEntityId}`)
+      } else if (item.relatedEntityType === 'contact')
+        router.push(`/person/${item.relatedEntityId}`)
     },
     [router],
   )
@@ -161,7 +162,8 @@ export default function BriefingScreen() {
           </View>
 
           <Text variant="caption" style={{ color: theme.colors.onPrimary, opacity: 0.85 }}>
-            {t(`briefing.kind.${kind}`)} · {formatWeekdayDate(new Date(`${forDate}T12:00:00Z`), locale, timeZone)}
+            {t(`briefing.kind.${kind}`)} ·{' '}
+            {formatWeekdayDate(new Date(`${forDate}T12:00:00Z`), locale, timeZone)}
           </Text>
           <Text
             variant="editorialDisplay"
@@ -172,16 +174,16 @@ export default function BriefingScreen() {
           </Text>
           {briefing.durationSeconds ? (
             <Text variant="micro" style={{ color: theme.colors.onPrimary, opacity: 0.8 }}>
-              {t('briefing.readingTime', { minutes: Math.max(1, Math.round(briefing.durationSeconds / 60)) })}
+              {t('briefing.readingTime', {
+                minutes: Math.max(1, Math.round(briefing.durationSeconds / 60)),
+              })}
             </Text>
           ) : null}
         </View>
       </GradientHeader>
 
       <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
-        {briefing.narrative ? (
-          <Text variant="editorial">{briefing.narrative}</Text>
-        ) : null}
+        {briefing.narrative ? <Text variant="editorial">{briefing.narrative}</Text> : null}
 
         {audio.error ? (
           <Text variant="micro" tone="tertiary">

@@ -1,8 +1,4 @@
-import {
-  type AnalyticsEvent,
-  type AnalyticsProperties,
-  findAnalyticsViolations,
-} from '@da/domain'
+import { type AnalyticsEvent, type AnalyticsProperties, findAnalyticsViolations } from '@da/domain'
 import { env } from './env'
 
 /**

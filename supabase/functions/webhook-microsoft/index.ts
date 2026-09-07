@@ -22,7 +22,8 @@ serveFunction('webhook-microsoft', async ({ request, origin }) => {
 
   const expected = Deno.env.get('MICROSOFT_WEBHOOK_SECRET')?.trim()
 
-  let notifications: Array<{ clientState?: string; subscriptionId?: string; resource?: string }> = []
+  let notifications: Array<{ clientState?: string; subscriptionId?: string; resource?: string }> =
+    []
   try {
     const body = (await request.json()) as { value?: typeof notifications }
     notifications = body.value ?? []

@@ -70,7 +70,9 @@ export default function LanguageSettingsScreen() {
               {index > 0 ? <Divider /> : null}
               <ListRow
                 title={t(option.labelKey)}
-                icon={preference === option.value ? 'radio-button-checked' : 'radio-button-unchecked'}
+                icon={
+                  preference === option.value ? 'radio-button-checked' : 'radio-button-unchecked'
+                }
                 onPress={() => choose(option.value)}
                 testID={`language-${option.value}`}
               />

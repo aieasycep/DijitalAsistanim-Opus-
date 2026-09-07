@@ -69,7 +69,11 @@ export const priority = {
     categoryLabel: 'Category',
     enabled: 'On',
     disabled: 'Off',
-    matches: { zero: 'No matches yet', one: 'Matched 1 message', other: 'Matched {count} messages' },
+    matches: {
+      zero: 'No matches yet',
+      one: 'Matched 1 message',
+      other: 'Matched {count} messages',
+    },
     created: 'Rule added.',
     updated: 'Rule updated.',
     deleted: 'Rule deleted.',

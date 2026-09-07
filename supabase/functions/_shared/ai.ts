@@ -243,7 +243,10 @@ export async function completeJson<T>(options: CompleteJsonOptions<T>): Promise<
   const primary = getAiProvider()
   if (!primary) throw new AppError('ai_unavailable', { detail: 'no_provider_configured' })
 
-  const attempt = async (provider: AiProvider, messages: AiMessage[]): Promise<{ value: T; usage: AiResponse }> => {
+  const attempt = async (
+    provider: AiProvider,
+    messages: AiMessage[],
+  ): Promise<{ value: T; usage: AiResponse }> => {
     const response = await provider.complete({ ...options.request, messages })
     const result = options.parse(response.json)
     if (!result.success) {
@@ -302,13 +305,15 @@ interface UsageRecord {
 
 async function recordUsage(record: UsageRecord): Promise<void> {
   try {
-    await serviceClient().from('ai_usage_events').insert({
-      user_id: record.userId,
-      model: `${record.provider}:${record.model}`,
-      operation: record.operation,
-      tokens_in: record.tokensIn,
-      tokens_out: record.tokensOut,
-    })
+    await serviceClient()
+      .from('ai_usage_events')
+      .insert({
+        user_id: record.userId,
+        model: `${record.provider}:${record.model}`,
+        operation: record.operation,
+        tokens_in: record.tokensIn,
+        tokens_out: record.tokensOut,
+      })
   } catch {
     // Telemetry must never fail the operation it is measuring.
   }

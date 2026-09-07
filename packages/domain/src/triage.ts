@@ -32,11 +32,23 @@ export interface TriageInput {
 
 export type TriageDecision =
   /** Stage 1 settled it — bulk mail, no model call. */
-  | { stage: 1; sendToModel: false; category: EmailCategory; importance: Importance; reason: string }
+  | {
+      stage: 1
+      sendToModel: false
+      category: EmailCategory
+      importance: Importance
+      reason: string
+    }
   /** Stage 2 settled it — a rule or signal made it important without a model call. */
   | { stage: 2; sendToModel: true; presumedCategory: EmailCategory | null; reason: string }
   /** Ambiguous — the model decides. */
-  | { stage: 2; sendToModel: false; category: EmailCategory; importance: Importance; reason: string }
+  | {
+      stage: 2
+      sendToModel: false
+      category: EmailCategory
+      importance: Importance
+      reason: string
+    }
   | { stage: 3; sendToModel: true; presumedCategory: EmailCategory | null; reason: string }
 
 const AUTOMATED_LOCAL_PARTS = [

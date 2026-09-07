@@ -29,7 +29,11 @@ export const referral = {
 
   stats: {
     title: 'Your invites',
-    invited: { zero: 'Nobody has joined yet', one: '1 person joined', other: '{count} people joined' },
+    invited: {
+      zero: 'Nobody has joined yet',
+      one: '1 person joined',
+      other: '{count} people joined',
+    },
     earned: {
       zero: 'No days earned yet',
       one: '1 day of Pro earned',

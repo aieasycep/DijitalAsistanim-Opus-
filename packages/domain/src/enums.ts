@@ -108,13 +108,7 @@ export type PriorityRuleKind = (typeof PRIORITY_RULE_KINDS)[number]
 export const CAPTURE_KINDS = ['camera', 'photo', 'pdf', 'file', 'link', 'text'] as const
 export type CaptureKind = (typeof CAPTURE_KINDS)[number]
 
-export const CAPTURE_STATUSES = [
-  'uploading',
-  'queued',
-  'analyzing',
-  'ready',
-  'failed',
-] as const
+export const CAPTURE_STATUSES = ['uploading', 'queued', 'analyzing', 'ready', 'failed'] as const
 export type CaptureStatus = (typeof CAPTURE_STATUSES)[number]
 
 export const CAPTURE_INTENTS = [
@@ -175,13 +169,7 @@ export const SUBSCRIPTION_STATUSES = [
 ] as const
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
 
-export const EXPORT_STATUSES = [
-  'requested',
-  'processing',
-  'ready',
-  'failed',
-  'expired',
-] as const
+export const EXPORT_STATUSES = ['requested', 'processing', 'ready', 'failed', 'expired'] as const
 export type ExportStatus = (typeof EXPORT_STATUSES)[number]
 
 export const SYNC_STATUSES = ['idle', 'syncing', 'backfilling', 'error'] as const

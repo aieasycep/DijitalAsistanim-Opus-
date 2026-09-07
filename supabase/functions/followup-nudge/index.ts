@@ -4,7 +4,12 @@ import { AppError, HOUR_MS, systemClock } from '../_shared/domain.ts'
 import { completeJson, isAiConfigured } from '../_shared/ai.ts'
 import { dbError, loadUserContext, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
-import { checkAiBudget, consumeRateLimit, loadEntitlements, requireFeature } from '../_shared/limits.ts'
+import {
+  checkAiBudget,
+  consumeRateLimit,
+  loadEntitlements,
+  requireFeature,
+} from '../_shared/limits.ts'
 import { followUpNudgeSystem } from '../_shared/prompts.ts'
 
 const requestSchema = z.object({
@@ -87,7 +92,9 @@ serveFunction('followup-nudge', async ({ request, origin }) => {
 
   const daysSilent = Math.max(
     1,
-    Math.floor((now.getTime() - new Date(followUp.data.sent_at as string).getTime()) / (24 * HOUR_MS)),
+    Math.floor(
+      (now.getTime() - new Date(followUp.data.sent_at as string).getTime()) / (24 * HOUR_MS),
+    ),
   )
 
   const draft = await completeJson({

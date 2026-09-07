@@ -2,7 +2,10 @@ import { integrations } from '@/lib/content'
 
 export function IntegrationsStrip() {
   return (
-    <section aria-labelledby="entegrasyonlar-baslik" className="border-b border-hairline bg-surface">
+    <section
+      aria-labelledby="entegrasyonlar-baslik"
+      className="border-b border-hairline bg-surface"
+    >
       <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
         <h2
           id="entegrasyonlar-baslik"

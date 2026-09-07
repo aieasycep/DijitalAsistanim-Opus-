@@ -69,7 +69,11 @@ export const priority = {
     categoryLabel: 'Kategori',
     enabled: 'Etkin',
     disabled: 'Kapalı',
-    matches: { zero: 'Henüz eşleşme yok', one: '1 mailde eşleşti', other: '{count} mailde eşleşti' },
+    matches: {
+      zero: 'Henüz eşleşme yok',
+      one: '1 mailde eşleşti',
+      other: '{count} mailde eşleşti',
+    },
     created: 'Kural eklendi.',
     updated: 'Kural güncellendi.',
     deleted: 'Kural silindi.',

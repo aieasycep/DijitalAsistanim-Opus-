@@ -115,7 +115,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // other app land in Universal Capture.
       {
         action: 'SEND',
-        data: [{ mimeType: 'text/plain' }, { mimeType: 'image/*' }, { mimeType: 'application/pdf' }],
+        data: [
+          { mimeType: 'text/plain' },
+          { mimeType: 'image/*' },
+          { mimeType: 'application/pdf' },
+        ],
         category: ['DEFAULT'],
       },
       {
@@ -164,7 +168,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-image-picker',
       {
         photosPermission: 'Seçtiğin ekran görüntüsünü analiz edebilmek için erişmesi gerekiyor.',
-        cameraPermission: 'Bir belgeyi yakalayıp içindekileri çıkarabilmek için erişmesi gerekiyor.',
+        cameraPermission:
+          'Bir belgeyi yakalayıp içindekileri çıkarabilmek için erişmesi gerekiyor.',
       },
     ],
     [

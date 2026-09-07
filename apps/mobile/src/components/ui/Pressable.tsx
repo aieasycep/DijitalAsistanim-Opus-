@@ -89,7 +89,9 @@ export function Pressable({
         { minHeight: minTouchTarget, justifyContent: 'center' },
         style,
         pressed && !disabled ? pressedStyle : null,
-        pressed && !disabled && scaleOnPress && !reduceMotion ? { transform: [{ scale: 0.982 }] } : null,
+        pressed && !disabled && scaleOnPress && !reduceMotion
+          ? { transform: [{ scale: 0.982 }] }
+          : null,
         disabled ? { opacity: 0.45 } : null,
       ]}
     >

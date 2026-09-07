@@ -87,7 +87,10 @@ export async function collectBriefingInputs(
       .select('id, title, starts_at, location')
       .eq('user_id', userId)
       .neq('status', 'cancelled')
-      .gte('ends_at', (kind === 'evening' ? endOfLocalDay(anchor, timeZone) : windowStart).toISOString())
+      .gte(
+        'ends_at',
+        (kind === 'evening' ? endOfLocalDay(anchor, timeZone) : windowStart).toISOString(),
+      )
       .lte('starts_at', windowEnd.toISOString())
       .order('starts_at', { ascending: true })
       .limit(10),
@@ -434,7 +437,10 @@ function buildDeterministicBriefing(
 
 export function briefingStats(inputs: BriefingInputs): Record<string, number> {
   const saved = estimateTimeSaved({
-    emailsTriagedWithoutOpening: Math.max(0, inputs.stats.emailsAnalyzed - inputs.stats.importantCount),
+    emailsTriagedWithoutOpening: Math.max(
+      0,
+      inputs.stats.emailsAnalyzed - inputs.stats.importantCount,
+    ),
     threadsReadAsSummary: inputs.stats.threadsSummarized,
     draftsUsed: inputs.stats.draftsUsed,
     meetingPrepsOpened: inputs.stats.meetingPreps,
@@ -489,7 +495,15 @@ export const BRIEFING_JSON_SCHEMA: Record<string, unknown> = {
           sourceId: { type: ['string', 'null'], maxLength: 100 },
           sourceType: {
             type: ['string', 'null'],
-            enum: ['email', 'calendar_event', 'task', 'commitment', 'capture', 'notification', null],
+            enum: [
+              'email',
+              'calendar_event',
+              'task',
+              'commitment',
+              'capture',
+              'notification',
+              null,
+            ],
           },
         },
       },

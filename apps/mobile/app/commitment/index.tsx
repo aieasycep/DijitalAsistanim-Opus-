@@ -82,7 +82,9 @@ export default function CommitmentsScreen() {
         ) : commitments.length === 0 ? (
           <EmptyState
             icon="handshake"
-            title={filter === 'theirs' ? t('empty.commitment.othersOwe') : t('empty.commitment.title')}
+            title={
+              filter === 'theirs' ? t('empty.commitment.othersOwe') : t('empty.commitment.title')
+            }
             description={t('empty.commitment.hint')}
           />
         ) : (

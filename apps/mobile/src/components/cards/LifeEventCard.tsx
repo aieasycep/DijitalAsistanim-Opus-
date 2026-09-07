@@ -85,7 +85,9 @@ export function LifeEventCard({
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}
+      >
         {when ? <Badge label={when} tone="neutral" icon="schedule" /> : null}
         {event.amount ? (
           <Badge

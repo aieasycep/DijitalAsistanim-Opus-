@@ -32,11 +32,7 @@ export const MICROSOFT_SCOPES = {
 export type ScopeGroup = keyof typeof GOOGLE_SCOPES
 
 /** Groups requested at first connect. Everything else is progressive. */
-export const INITIAL_SCOPE_GROUPS: readonly ScopeGroup[] = [
-  'identity',
-  'mailRead',
-  'calendarRead',
-]
+export const INITIAL_SCOPE_GROUPS: readonly ScopeGroup[] = ['identity', 'mailRead', 'calendarRead']
 
 /** Which scope group an action needs before it may run. */
 export const ACTION_SCOPE_REQUIREMENTS = {

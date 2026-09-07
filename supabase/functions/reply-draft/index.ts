@@ -58,7 +58,9 @@ serveFunction('reply-draft', async ({ request, origin }) => {
 
   const messages = await client
     .from('email_messages')
-    .select('from_email, from_name, to_emails, body_text, snippet, sent_at, is_from_user, external_message_id')
+    .select(
+      'from_email, from_name, to_emails, body_text, snippet, sent_at, is_from_user, external_message_id',
+    )
     .eq('thread_id', body.threadId)
     .eq('user_id', user.id)
     .order('sent_at', { ascending: false })

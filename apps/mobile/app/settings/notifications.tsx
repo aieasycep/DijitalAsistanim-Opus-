@@ -35,17 +35,15 @@ export default function NotificationSettingsScreen() {
   const { state, register } = usePushRegistration()
 
   const update = useMutation({
-    mutationFn: (patch: NotificationPreferencesPatch) => api.settings.updateNotificationPrefs(patch),
+    mutationFn: (patch: NotificationPreferencesPatch) =>
+      api.settings.updateNotificationPrefs(patch),
     onSuccess: async () => {
       track('settings_changed')
       await queryClient.invalidateQueries({ queryKey: qk.notificationPrefs() })
     },
   })
 
-  const apply = useCallback(
-    (patch: NotificationPreferencesPatch) => update.mutate(patch),
-    [update],
-  )
+  const apply = useCallback((patch: NotificationPreferencesPatch) => update.mutate(patch), [update])
 
   const prefs = query.data
 
@@ -77,9 +75,7 @@ export default function NotificationSettingsScreen() {
                   ? t('notifications.master.openSystemSettings')
                   : t('onboarding.notification.allow')
               }
-              onPress={() =>
-                state === 'denied' ? void Linking.openSettings() : void register()
-              }
+              onPress={() => (state === 'denied' ? void Linking.openSettings() : void register())}
               variant="tonal"
               size="sm"
               testID="notifications-enable"

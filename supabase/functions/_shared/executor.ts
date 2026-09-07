@@ -178,11 +178,7 @@ interface DispatchOutcome {
   resultRef: string | null
 }
 
-function dispatch(
-  approval: ApprovalRow,
-  userId: string,
-  now: Date,
-): Promise<DispatchOutcome> {
+function dispatch(approval: ApprovalRow, userId: string, now: Date): Promise<DispatchOutcome> {
   const payload = approval.payload
 
   switch (payload.kind) {
@@ -354,31 +350,33 @@ async function createEvent(
         ).id
 
   // Mirror it locally so the plan updates without waiting for the next sync.
-  await serviceClient().from('calendar_events').upsert(
-    {
-      user_id: userId,
-      connected_account_id: payload.connectedAccountId,
-      external_event_id: externalId,
-      provider: account.provider,
-      title: payload.title,
-      description: payload.description,
-      location: payload.location,
-      starts_at: payload.startsAt,
-      ends_at: payload.endsAt,
-      is_all_day: false,
-      time_zone: payload.timeZone,
-      attendees: payload.attendees.map((email) => ({
-        email,
-        name: null,
-        responseStatus: 'needs_action',
-        isOrganizer: false,
-        isSelf: false,
-      })),
-      organizer_email: account.email,
-      status: 'confirmed',
-    },
-    { onConflict: 'user_id,connected_account_id,external_event_id' },
-  )
+  await serviceClient()
+    .from('calendar_events')
+    .upsert(
+      {
+        user_id: userId,
+        connected_account_id: payload.connectedAccountId,
+        external_event_id: externalId,
+        provider: account.provider,
+        title: payload.title,
+        description: payload.description,
+        location: payload.location,
+        starts_at: payload.startsAt,
+        ends_at: payload.endsAt,
+        is_all_day: false,
+        time_zone: payload.timeZone,
+        attendees: payload.attendees.map((email) => ({
+          email,
+          name: null,
+          responseStatus: 'needs_action',
+          isOrganizer: false,
+          isSelf: false,
+        })),
+        organizer_email: account.email,
+        status: 'confirmed',
+      },
+      { onConflict: 'user_id,connected_account_id,external_event_id' },
+    )
 
   return { resultRef: externalId }
 }

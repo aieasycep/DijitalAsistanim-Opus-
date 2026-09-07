@@ -107,7 +107,10 @@ export function dbError(error: { code?: string; message?: string } | null): AppE
 }
 
 /** Throw on a PostgREST error, otherwise return the data. */
-export function unwrap<T>(result: { data: T | null; error: { code?: string; message?: string } | null }): T {
+export function unwrap<T>(result: {
+  data: T | null
+  error: { code?: string; message?: string } | null
+}): T {
   if (result.error) throw dbError(result.error)
   if (result.data === null) throw new AppError('not_found')
   return result.data

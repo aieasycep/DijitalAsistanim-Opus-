@@ -96,7 +96,8 @@ export const settings = {
     reconnect: 'Yeniden bağlan',
     disconnect: 'Bağlantıyı kaldır',
     disconnectConfirmTitle: 'Bağlantı kaldırılsın mı?',
-    disconnectConfirmBody: '{email} hesabından yeni veri almayı bırakırız. İstersen bu hesaba ait kayıtları da silebilirsin.',
+    disconnectConfirmBody:
+      '{email} hesabından yeni veri almayı bırakırız. İstersen bu hesaba ait kayıtları da silebilirsin.',
     disconnectDeleteData: 'Bu hesaptan gelen verileri de sil',
     disconnected_toast: 'Bağlantı kaldırıldı.',
     lastSync: 'Son eşitleme: {time}',

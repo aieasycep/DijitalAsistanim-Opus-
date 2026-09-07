@@ -29,13 +29,7 @@ function pad(value: number): string {
  * with no date attached, and the platform pickers all insist on a `Date`, which
  * is how a "07:30 briefing" quietly becomes 06:30 after a DST change.
  */
-export function TimeField({
-  label,
-  value,
-  onChange,
-  minuteStep = 15,
-  testID,
-}: TimeFieldProps) {
+export function TimeField({ label, value, onChange, minuteStep = 15, testID }: TimeFieldProps) {
   const t = useT()
   const theme = useTheme()
   const [open, setOpen] = useState(false)
@@ -128,12 +122,7 @@ export function TimeField({
       >
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
           {column(hours, hour, (next) => onChange(`${pad(next)}:${pad(minute)}`), 'time-hours')}
-          {column(
-            minutes,
-            minute,
-            (next) => onChange(`${pad(hour)}:${pad(next)}`),
-            'time-minutes',
-          )}
+          {column(minutes, minute, (next) => onChange(`${pad(hour)}:${pad(next)}`), 'time-minutes')}
         </View>
       </Sheet>
     </View>
