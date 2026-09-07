@@ -152,6 +152,8 @@ for (const [locale, messages] of [
 
 // ── 4. Usage ───────────────────────────────────────────────────────────────
 const KEY_LITERAL = /'([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)+)'/g
+/** Filenames look like keys; a trailing known extension rules them out. */
+const FILE_LIKE = /\.(jpg|jpeg|png|gif|webp|svg|pdf|json|ts|tsx|js|mjs|cjs|md|html|css|m4a|mp3|mp4|zip|sql)$/i
 const used = new Map()
 
 for (const dir of SOURCE_DIRS) {
@@ -161,6 +163,7 @@ for (const dir of SOURCE_DIRS) {
       const key = match[1]
       const [namespace] = key.split('.')
       if (!namespaces.has(namespace)) continue
+      if (FILE_LIKE.test(key)) continue
       if (!used.has(key)) used.set(key, path.relative(root, file))
     }
   }

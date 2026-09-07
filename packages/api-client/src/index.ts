@@ -92,6 +92,19 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
 
 export { qk, type QueryKey } from './query-keys'
 export type { SearchType, SearchInput } from './endpoints/search'
+export type { HistoryScope } from './endpoints/privacy'
+export type {
+  NotificationPreferencesPatch,
+  PreferencesPatch,
+  ProfilePatch,
+} from './endpoints/settings'
+export type { PriorityRuleInput, PriorityRulePatch } from './endpoints/rules'
+export type { StartOAuthInput, RequestScopesInput } from './endpoints/accounts'
+export type { CreateCommitmentInput } from './endpoints/commitments'
+export type { CreateReminderInput } from './endpoints/reminders'
+export type { CreateCaptureInput } from './endpoints/captures'
+export type { AssistantAskInput, Transcription } from './endpoints/assistant'
+export type { CreateApprovalInput, DecideApprovalInput } from './endpoints/approvals'
 export { DEFAULT_TIMEOUT_MS, type ApiClientConfig } from './config'
 export {
   createHttp,

@@ -73,6 +73,9 @@ function RootNavigator() {
       <Stack.Screen name="approvals" />
       <Stack.Screen name="approval" />
       <Stack.Screen name="followups" />
+      <Stack.Screen name="reply" />
+      <Stack.Screen name="plan" />
+      <Stack.Screen name="reminder" options={{ presentation: 'modal' }} />
       <Stack.Screen name="settings" />
       <Stack.Screen name="capture" options={{ presentation: 'modal' }} />
       <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
