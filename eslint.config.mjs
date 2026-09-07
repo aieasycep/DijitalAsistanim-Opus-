@@ -94,6 +94,15 @@ export default tseslint.config(
     },
   },
   {
+    // The mobile app runs on Jest (jest-expo owns the React Native transform),
+    // so its tests and setup file use Jest's globals and its `jest.mock`
+    // factories, which must be `require` — the factory is hoisted above the
+    // imports and cannot reference an imported binding.
+    files: ['apps/mobile/jest.setup.js', 'apps/mobile/src/**/*.test.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.jest } },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
     files: ['**/*.tsx'],
     languageOptions: {
       globals: { ...globals.browser },

@@ -1,0 +1,15 @@
+# Maestro configuration for the Dijital Asistan end-to-end suite.
+#
+# Every flow runs against demo mode: the app boots with deterministic local
+# fixtures and no network, so the suite needs no Supabase project, no OAuth
+# client and no test mailbox. That is also what makes it safe to run in CI —
+# nothing here can send an email to a real person.
+#
+# Run the whole suite:      pnpm --filter @da/mobile run e2e
+# Run one flow:             maestro test apps/mobile/.maestro/A-first-run.yaml
+flows:
+  - '*.yaml'
+excludeTags:
+  # Flows that need a real signed-in account and a connected provider. They
+  # are written and kept current, but they cannot pass in CI.
+  - requires-account

@@ -1,0 +1,59 @@
+# Flow D — read a thread, draft a reply, and stop short of sending.
+#
+# The draft is written by the assistant and edited by the person. Nothing is
+# sent from here: the send is an approval, which is flow E.
+appId: ${APP_ID}
+name: D · Thread and reply draft
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+- tapOn: 'Akış'
+- assertVisible:
+    id: 'flow-list'
+
+# The filters narrow the list without emptying the screen.
+- tapOn:
+    id: 'flow-filter-.*'
+- assertVisible:
+    id: 'flow-list'
+
+- tapOn:
+    id: 'thread-.*'
+- assertVisible:
+    id: 'thread-reply'
+
+# The summary carries a feedback control, and pressing it is acknowledged.
+- assertVisible:
+    id: 'summary-good'
+- tapOn:
+    id: 'summary-good'
+
+- tapOn:
+    id: 'thread-reply'
+- assertVisible:
+    id: 'reply-body'
+
+# The tone is selectable and the draft can be regenerated on an instruction.
+- tapOn:
+    id: 'reply-tone-.*'
+- tapOn:
+    id: 'reply-instruction'
+- inputText: 'Daha kısa olsun'
+- hideKeyboard
+- tapOn:
+    id: 'reply-regenerate'
+- assertVisible:
+    id: 'reply-body'
+
+# The body is editable by hand.
+- tapOn:
+    id: 'reply-body'
+- inputText: ' Teşekkürler.'
+- hideKeyboard
+
+# Discarding leaves without sending anything.
+- tapOn:
+    id: 'reply-discard'
+- assertVisible:
+    id: 'thread-reply'

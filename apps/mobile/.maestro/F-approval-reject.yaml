@@ -1,0 +1,33 @@
+# Flow F — the approval gate, refused.
+#
+# Refusing has to be as easy as approving, and a refused proposal must not come
+# back. The reason is optional on purpose: making it mandatory only trains
+# people to type anything to make the dialog go away.
+appId: ${APP_ID}
+name: F · Reject an outbound action
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+- tapOn:
+    id: 'approval-banner'
+- assertVisible:
+    id: 'approvals-tabs'
+- tapOn:
+    id: 'approval-.*'
+- assertVisible:
+    id: 'approval-detail-card'
+
+- tapOn: 'Reddet'
+- assertVisible:
+    id: 'approvals-tabs'
+
+# The history keeps the record, and offers no way to approve after the fact.
+- tapOn: 'Geçmiş'
+- assertVisible:
+    id: 'approval-.*'
+- tapOn:
+    id: 'approval-.*'
+- assertVisible:
+    id: 'approval-detail-card'
+- assertNotVisible: 'Onayla'

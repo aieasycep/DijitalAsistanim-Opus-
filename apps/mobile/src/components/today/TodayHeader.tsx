@@ -55,13 +55,25 @@ export function TodayHeader({
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <IconButton onPress={onOpenCapture} accessibilityLabel={t('a11y.button.capture')}>
+          <IconButton
+            onPress={onOpenCapture}
+            accessibilityLabel={t('a11y.button.capture')}
+            testID="today-capture"
+          >
             <MaterialIcons name="add-a-photo" size={21} color={theme.colors.textSecondary} />
           </IconButton>
-          <IconButton onPress={onOpenSearch} accessibilityLabel={t('a11y.button.search')}>
+          <IconButton
+            onPress={onOpenSearch}
+            accessibilityLabel={t('a11y.button.search')}
+            testID="today-search"
+          >
             <MaterialIcons name="search" size={22} color={theme.colors.textSecondary} />
           </IconButton>
-          <IconButton onPress={onOpenProfile} accessibilityLabel={t('a11y.button.profile')}>
+          <IconButton
+            onPress={onOpenProfile}
+            accessibilityLabel={t('a11y.button.profile')}
+            testID="today-settings"
+          >
             <MaterialIcons name="account-circle" size={26} color={theme.colors.textSecondary} />
           </IconButton>
         </View>

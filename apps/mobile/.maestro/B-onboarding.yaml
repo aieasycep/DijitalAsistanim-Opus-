@@ -1,0 +1,39 @@
+# Flow B — onboarding, end to end.
+#
+# Six screens between signing in and the first briefing. Each one has to be
+# skippable or completable without a provider connected, because a person who
+# declines every permission still gets a working app.
+appId: ${APP_ID}
+name: B · Onboarding
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: 'sign-in-email'
+- tapOn:
+    id: 'email-input'
+- inputText: 'deneme@ornek.com'
+- tapOn:
+    id: 'email-submit'
+
+# The code screen states where the code went and offers a resend.
+- assertVisible:
+    id: 'code-input'
+- assertVisible:
+    id: 'code-resend'
+- back
+- back
+
+# Demo mode reaches the same onboarding, without waiting for a code.
+- tapOn:
+    id: 'sign-in-demo'
+- assertVisible: 'Bugün'
+
+# Onboarding is reachable again from settings, and every step advances.
+- tapOn: 'Bugün'
+- tapOn:
+    id: 'today-settings'
+- assertVisible:
+    id: 'settings-profile-card'

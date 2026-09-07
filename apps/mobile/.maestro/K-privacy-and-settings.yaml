@@ -1,0 +1,56 @@
+# Flow K — settings: language, appearance, and the privacy controls.
+#
+# The privacy screen is a promise in the App Store listing, so each control on
+# it has to lead somewhere real: an export that can be requested, a history
+# that can be deleted, an account that can be closed.
+appId: ${APP_ID}
+name: K · Settings and privacy
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+- tapOn:
+    id: 'today-settings'
+- assertVisible:
+    id: 'settings-profile-card'
+
+# The whole app switches language, and switches back.
+- tapOn:
+    id: 'settings-language'
+- tapOn:
+    id: 'language-en'
+- assertVisible: 'Settings'
+- tapOn:
+    id: 'language-tr'
+- assertVisible: 'Ayarlar'
+- back
+
+# Appearance.
+- tapOn:
+    id: 'settings-appearance'
+- tapOn:
+    id: 'appearance-theme'
+- tapOn:
+    id: 'appearance-reduce-motion'
+- back
+
+# Privacy: export, delete history, delete account — each reachable, and the
+# destructive two behind a confirmation.
+- tapOn:
+    id: 'settings-privacy'
+- assertVisible:
+    id: 'privacy-export-request'
+- tapOn:
+    id: 'privacy-delete-history'
+- assertVisible:
+    id: 'privacy-delete-history-sheet'
+- back
+- tapOn:
+    id: 'privacy-delete-account'
+- assertVisible:
+    id: 'privacy-delete-account-sheet'
+- back
+
+# The policy is one tap away from the screen that describes it.
+- assertVisible:
+    id: 'privacy-policy'

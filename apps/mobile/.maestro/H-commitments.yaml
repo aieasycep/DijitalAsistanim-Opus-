@@ -1,0 +1,54 @@
+# Flow H — promises: open one, add one by hand, then close it.
+#
+# Most commitments are read out of mail automatically. Adding one by hand is
+# the escape hatch for a promise made on the phone, and it has to work with no
+# provider connected at all.
+appId: ${APP_ID}
+name: H · Commitments
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+- tapOn: 'Planla'
+
+# A promise on the plan opens its own screen.
+- scrollUntilVisible:
+    element:
+      id: 'plan-commitment-.*'
+    direction: DOWN
+- tapOn:
+    id: 'plan-commitment-.*'
+- assertVisible:
+    id: 'commitment-complete'
+- back
+
+# "See all" reaches the full list.
+- tapOn: 'Tümünü gör'
+- assertVisible:
+    id: 'commitment-add'
+
+# Add one by hand.
+- tapOn:
+    id: 'commitment-add'
+- assertVisible:
+    id: 'commitment-text'
+- tapOn:
+    id: 'commitment-text'
+- inputText: 'Sözleşmeyi cuma günü göndereceğim'
+- hideKeyboard
+- tapOn:
+    id: 'commitment-person'
+- inputText: 'Ahmet Kaya'
+- hideKeyboard
+- tapOn:
+    id: 'commitment-direction'
+- tapOn:
+    id: 'commitment-due-3'
+- tapOn:
+    id: 'commitment-save'
+
+# It is in the list, and it can be closed.
+- assertVisible: 'Sözleşmeyi cuma günü göndereceğim'
+- tapOn: 'Sözleşmeyi cuma günü göndereceğim'
+- tapOn:
+    id: 'commitment-complete'

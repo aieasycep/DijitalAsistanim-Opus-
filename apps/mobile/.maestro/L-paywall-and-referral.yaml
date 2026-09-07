@@ -1,0 +1,51 @@
+# Flow L — the paywall and the referral loop.
+#
+# Two rules: a locked feature must say what it unlocks rather than just
+# refusing, and "continue on free" must always be present. A paywall with no
+# way past it is a dead end, not a business model.
+appId: ${APP_ID}
+name: L · Paywall and referral
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+- tapOn:
+    id: 'today-settings'
+- tapOn:
+    id: 'settings-upgrade'
+
+# Both plans are offered, with a way out.
+- assertVisible:
+    id: 'paywall-plan-.*'
+- assertVisible:
+    id: 'paywall-subscribe'
+- assertVisible:
+    id: 'paywall-restore'
+- assertVisible:
+    id: 'paywall-continue-free'
+
+# Restoring purchases is honest about finding nothing.
+- tapOn:
+    id: 'paywall-restore'
+
+# Continuing on free returns to the app rather than trapping the person.
+- tapOn:
+    id: 'paywall-continue-free'
+- assertVisible:
+    id: 'settings-profile-card'
+
+# The referral screen offers a code to share and a code to enter.
+- tapOn:
+    id: 'settings-subscription'
+- tapOn:
+    id: 'subscription-referral'
+- assertVisible:
+    id: 'referral-copy'
+- assertVisible:
+    id: 'referral-share'
+- tapOn:
+    id: 'referral-code-input'
+- inputText: 'ABCD2345'
+- hideKeyboard
+- tapOn:
+    id: 'referral-redeem'

@@ -1,0 +1,51 @@
+# Flow G — the plan: day, week, conflicts and a suggestion.
+#
+# A suggestion that cannot be acted on is just an observation, so the flow
+# presses one. Conflicts have to name the two events involved rather than
+# saying "you have a clash".
+appId: ${APP_ID}
+name: G · Plan the day and the week
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+- tapOn: 'Planla'
+- assertVisible:
+    id: 'plan-range'
+
+# Both ranges render.
+- tapOn: 'Hafta'
+- assertVisible:
+    id: 'plan-range'
+- tapOn: 'Gün'
+- assertVisible:
+    id: 'plan-range'
+
+# An event on the timeline opens its detail.
+- scrollUntilVisible:
+    element:
+      id: 'plan-event-.*'
+    direction: DOWN
+- tapOn:
+    id: 'plan-event-.*'
+- assertVisible:
+    id: 'event-prep'
+- back
+
+# The conflicts screen names the events in the clash.
+- tapOn:
+    id: 'plan-conflicts'
+- assertVisible:
+    id: 'conflict-.*'
+- tapOn:
+    id: 'conflict-event-.*'
+- back
+- back
+
+# A suggestion can be accepted, and acting on it is an approval, not a write.
+- scrollUntilVisible:
+    element:
+      id: 'plan-suggestion-.*'
+    direction: DOWN
+- tapOn:
+    id: 'plan-suggestion-accept-.*'

@@ -1,0 +1,63 @@
+# Flow C — Today: the briefing and the five things that matter.
+#
+# This is the screen the product is named for. Every card on it must open
+# something; a card that only decorates is the failure this flow catches.
+appId: ${APP_ID}
+name: C · Today
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+
+# The briefing hero opens the full briefing and comes back.
+- assertVisible:
+    id: 'briefing-hero'
+- tapOn:
+    id: 'briefing-hero'
+- assertVisible:
+    id: 'briefing-regenerate'
+- back
+
+# An event on Today opens its own detail, with the prep action on it.
+- scrollUntilVisible:
+    element:
+      id: 'event-.*'
+    direction: DOWN
+- tapOn:
+    id: 'event-.*'
+- assertVisible:
+    id: 'event-prep'
+- back
+
+# A commitment opens its detail.
+- scrollUntilVisible:
+    element:
+      id: 'commitment-.*'
+    direction: DOWN
+- tapOn:
+    id: 'commitment-.*'
+- assertVisible:
+    id: 'commitment-complete'
+- back
+
+# The header leads to capture, search and settings.
+- tapOn:
+    id: 'today-search'
+- assertVisible:
+    id: 'search-input'
+- back
+- tapOn:
+    id: 'today-capture'
+- assertVisible:
+    id: 'capture-mode'
+- back
+- tapOn:
+    id: 'today-settings'
+- assertVisible:
+    id: 'settings-profile-card'
+- back
+
+# Pull to refresh leaves a rendered screen, not an empty one.
+- swipe:
+    direction: DOWN
+- assertVisible: 'Bugün'

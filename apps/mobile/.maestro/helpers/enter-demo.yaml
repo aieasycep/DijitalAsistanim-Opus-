@@ -1,0 +1,10 @@
+# Launch the app fresh and land on Today with demo data loaded.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: 'sign-in-demo'
+- tapOn:
+    id: 'sign-in-demo'
+- assertVisible: 'Bugün'

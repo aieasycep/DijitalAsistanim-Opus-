@@ -1,0 +1,41 @@
+# Flow I — capture: a link and a note, analysed on arrival.
+#
+# Capture is the one place the app takes something in from outside a connected
+# account. Both entry points must work, and neither may leave the person on a
+# spinner with no way back.
+appId: ${APP_ID}
+name: I · Capture a link and a note
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+- tapOn:
+    id: 'today-capture'
+- assertVisible:
+    id: 'capture-mode'
+
+# A pasted link.
+- tapOn:
+    id: 'capture-link'
+- inputText: 'https://ornek.com/rapor'
+- hideKeyboard
+- tapOn:
+    id: 'capture-submit-link'
+- assertVisible:
+    id: 'capture-done'
+- tapOn:
+    id: 'capture-done'
+
+# A typed note.
+- tapOn:
+    id: 'today-capture'
+- tapOn:
+    id: 'capture-mode'
+- tapOn:
+    id: 'capture-text'
+- inputText: 'Ahmet ile fiyat görüşmesi cuma 14:00'
+- hideKeyboard
+- tapOn:
+    id: 'capture-submit-text'
+- assertVisible:
+    id: 'capture-done'

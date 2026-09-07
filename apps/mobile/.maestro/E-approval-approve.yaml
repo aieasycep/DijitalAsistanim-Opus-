@@ -1,0 +1,45 @@
+# Flow E — the approval gate, approved.
+#
+# The single most important behaviour in the product: nothing reaches a real
+# mailbox or calendar until a person has seen exactly what it says and pressed
+# approve. This flow walks that path; flow F walks the refusal.
+appId: ${APP_ID}
+name: E · Approve an outbound action
+tags:
+  - smoke
+---
+- runFlow: helpers/enter-demo.yaml
+
+# The queue is reachable from the Today banner.
+- assertVisible:
+    id: 'approval-banner'
+- tapOn:
+    id: 'approval-banner'
+- assertVisible:
+    id: 'approvals-tabs'
+
+- tapOn:
+    id: 'approval-.*'
+- assertVisible:
+    id: 'approval-detail-card'
+
+# The card states the exact change, and all three decisions are offered.
+- assertVisible: 'Onayla'
+- assertVisible: 'Reddet'
+- assertVisible: 'Düzenle'
+
+# Editing opens the fields that may be changed, and saves.
+- tapOn: 'Düzenle'
+- assertVisible:
+    id: 'approval-edit-sheet'
+- tapOn:
+    id: 'approval-edit-save'
+
+# Approving is the only thing that sends.
+- tapOn: 'Onayla'
+- assertVisible:
+    id: 'approvals-tabs'
+
+# It has left the pending queue and is in the history with no approve button.
+- tapOn: 'Geçmiş'
+- assertNotVisible: 'Onayla'

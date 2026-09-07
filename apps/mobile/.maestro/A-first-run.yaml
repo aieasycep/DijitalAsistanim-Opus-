@@ -1,0 +1,46 @@
+# Flow A — first run: sign-in choices, demo mode, and the four tabs.
+#
+# The first screen a new person sees. What matters is that every route off it
+# leads somewhere real, and that demo mode is reachable without an account.
+appId: ${APP_ID}
+name: A · First run and demo mode
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+
+# Every sign-in route is offered and none of them is decorative.
+- assertVisible:
+    id: 'sign-in-google'
+- assertVisible:
+    id: 'sign-in-apple'
+- assertVisible:
+    id: 'sign-in-email'
+- assertVisible:
+    id: 'sign-in-demo'
+
+# Email sign-in opens a real form and comes back.
+- tapOn:
+    id: 'sign-in-email'
+- assertVisible:
+    id: 'email-input'
+- back
+
+# Demo mode needs no account and no network.
+- tapOn:
+    id: 'sign-in-demo'
+- assertVisible: 'Bugün'
+
+# The four tabs each render their own screen.
+- tapOn: 'Akış'
+- assertVisible:
+    id: 'flow-list'
+- tapOn: 'Planla'
+- assertVisible:
+    id: 'plan-range'
+- tapOn: 'Asistan'
+- assertVisible:
+    id: 'assistant-input'
+- tapOn: 'Bugün'
+- assertVisible: 'Bugün'
