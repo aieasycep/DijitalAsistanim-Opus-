@@ -1,0 +1,14 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'expo.modules.danative'
+version = '1.0.0'
+
+android {
+  namespace 'expo.modules.danative'
+  defaultConfig {
+    // The notification listener and monochrome widget both need API 26+.
+    minSdkVersion 26
+  }
+}

@@ -31,7 +31,7 @@ export const calendar = {
     recurring: 'Tekrarlayan etkinlik',
     description: 'Açıklama',
     duration: '{minutes} dakika',
-    startsIn: '{minutes} dakika sonra',
+    startsIn: '{duration} dakika sonra',
     inProgress: 'Devam ediyor',
     ended: 'Sona erdi',
   },

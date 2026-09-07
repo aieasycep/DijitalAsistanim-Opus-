@@ -7,7 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, View } from 'react-native'
 import { Badge } from '../src/components/ui/Badge'
 import { Button } from '../src/components/ui/Button'
@@ -18,23 +18,18 @@ import { ScreenHeader } from '../src/components/ui/ScreenHeader'
 import { Text } from '../src/components/ui/Text'
 import { TextField } from '../src/components/ui/TextField'
 import { useCapture, useInvalidateAfterWrite } from '../src/hooks/queries'
+import { drainSharedCaptures, stageSharedFile } from '../src/lib/native/shared-captures'
 import { useEntitlements } from '../src/hooks/useEntitlements'
 import { useUserContext } from '../src/hooks/useUserContext'
 import { useI18n, useT } from '../src/i18n/I18nProvider'
 import { track } from '../src/lib/analytics'
+import { reportError } from '../src/lib/error-reporting'
 import { uploadCaptureFile } from '../src/lib/upload'
 import { errorMessageKey } from '../src/lib/query-client'
 import { useApi } from '../src/providers/AppProviders'
 import { useTheme } from '../src/theme/ThemeProvider'
 
 type Mode = 'photo' | 'file' | 'link' | 'text'
-
-const MODE_KIND: Record<Mode, CaptureKind> = {
-  photo: 'photo',
-  file: 'pdf',
-  link: 'link',
-  text: 'text',
-}
 
 /**
  * Capture — a photo, a file, a link or a note.
@@ -55,6 +50,7 @@ export default function CaptureScreen() {
   const { can } = useEntitlements()
   const params = useLocalSearchParams<{ id?: string; url?: string; text?: string }>()
 
+  const shareIntake = useRef(false)
   const [mode, setMode] = useState<Mode>(params.url ? 'link' : 'text')
   const [link, setLink] = useState(params.url ?? '')
   const [note, setNote] = useState(params.text ?? '')
@@ -158,6 +154,44 @@ export default function CaptureScreen() {
       kind: asset.mimeType === 'application/pdf' ? 'pdf' : 'file',
     })
   }, [createFile])
+
+  // Anything the share extension queued while the app was closed is picked up
+  // once, on the first open of this screen. Draining is destructive on the
+  // native side, so the guard matters: a re-render must not lose a capture.
+  useEffect(() => {
+    if (shareIntake.current || params.id) return
+    shareIntake.current = true
+
+    const pending = drainSharedCaptures()
+    const first = pending[0]
+    if (!first) return
+
+    if (first.url) {
+      setMode('link')
+      setLink(first.url)
+      return
+    }
+    if (first.text) {
+      setMode('text')
+      setNote(first.text)
+      return
+    }
+    const fileUri = first.fileUris[0]
+    if (fileUri) {
+      try {
+        const staged = stageSharedFile(fileUri)
+        createFile.mutate({
+          uri: staged,
+          name: staged.split('/').pop() ?? 'capture',
+          mimeType: staged.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+          size: 0,
+          kind: staged.toLowerCase().endsWith('.pdf') ? 'pdf' : 'photo',
+        })
+      } catch (caught) {
+        reportError(caught, { scope: 'capture:shareIntake' })
+      }
+    }
+  }, [createFile, params.id])
 
   const busy = createText.isPending || createLink.isPending || createFile.isPending
   const error = createText.error ?? createLink.error ?? createFile.error

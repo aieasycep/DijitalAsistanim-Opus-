@@ -1,0 +1,12 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["DaWidgetModule", "DaShareIntakeModule"]
+  },
+  "android": {
+    "modules": [
+      "expo.modules.danative.DaWidgetModule",
+      "expo.modules.danative.DaNotificationListenerModule"
+    ]
+  }
+}

@@ -1,33 +1,44 @@
 import type { MessageTree } from '../../engine.ts'
 
 export const vip = {
-  title: 'VIP people',
-  subtitle: 'Mail from these people always reaches you.',
-  add: 'Add VIP',
-  addTitle: 'Add a VIP',
-  searchPlaceholder: 'Search by name or email',
-  suggested: {
-    title: 'Suggested',
-    body: 'People you talk to most and reply to fastest.',
-    reason: {
-      frequent: 'You exchange mail often.',
-      fastReply: 'You reply to them quickly.',
-      manager: 'They appear in your meetings regularly.',
-      family: 'Personal, not work.',
-    },
-  },
-  added: '{name} is now a VIP',
-  removed: '{name} is no longer a VIP',
+  title: 'VIPs',
+  subtitle: 'The people whose messages you cannot miss.',
+  explain: 'Anything from your VIPs is surfaced first and notified even during quiet hours.',
+
+  add: 'Add a VIP',
+  addPlaceholder: 'Search by name or email',
   remove: 'Remove from VIP',
   removeConfirm: 'Remove {name} from your VIP list?',
-  count: {
-    one: '1 VIP',
-    other: '{count} VIPs',
+
+  list: {
+    title: 'Your list',
+    count: { zero: 'No VIPs yet', one: '1 VIP', other: '{count} VIPs' },
+    limit: 'This plan allows up to {limit} VIPs.',
+    limitReached: 'You have reached the VIP limit. Pro removes it.',
   },
-  notifyAlways: 'Always notify',
-  notifyAlwaysHint: 'Break through quiet hours for this person.',
-  breakthroughQuietHours: 'Break through quiet hours',
-  limitReached: 'You have reached the VIP limit for your plan.',
-  empty: 'You have not marked anyone as VIP yet.',
-  emptyHint: 'Start with the people you never want to miss.',
+
+  suggestion: {
+    title: 'Suggested',
+    hint: 'The people you write to most, and fastest.',
+    reasonFrequent: 'You write to them often.',
+    reasonFast: 'You usually reply to them quickly.',
+    reasonManager: 'The pattern looks like a manager.',
+    reasonMeeting: 'You meet regularly.',
+    accept: 'Add',
+    dismiss: 'No need',
+  },
+
+  behaviour: {
+    title: 'How VIPs behave',
+    alwaysNotify: 'Always notify',
+    alwaysNotifyHint: 'Even during quiet hours.',
+    alwaysTop: 'Always at the top of the flow',
+    fastReplyReminder: 'Remind me if I have not replied',
+    fastReplyHint: 'We will tell you if you have not replied within {hours} hours.',
+  },
+
+  added: '{name} was added to your VIP list.',
+  removed: '{name} was removed from the list.',
+  empty: 'Nobody is on your VIP list.',
+  emptyHint: 'Your boss, your closest client, or your family.',
 } satisfies MessageTree

@@ -3,51 +3,56 @@ import type { MessageTree } from '../../engine.ts'
 export const referral = {
   title: 'Invite a friend',
   subtitle: 'You both get {days} days of Pro.',
-  yourCode: 'Your code',
-  copyCode: 'Copy code',
-  codeCopied: 'Code copied',
-  shareTitle: 'Share',
-  shareMessage: 'I use Digital Assistant to run my day. Use my code {code} and get {days} days of Pro.',
-  share: 'Share',
-  howItWorks: {
-    title: 'How it works',
-    stepOne: 'Share your code.',
-    stepTwo: 'Your friend uses it when they sign up.',
-    stepThree: 'You both get {days} days of Pro.',
+  explain: 'Share your code. When your friend signs up, you both get {days} days of Pro.',
+
+  code: {
+    label: 'Your invite code',
+    copy: 'Copy the code',
+    copied: 'Code copied.',
+    share: 'Share',
+    shareMessage:
+      'Try Dijital Asistan — it keeps track of your mail and calendar for you. With code {code} we both get {days} days of Pro.',
+    regenerate: 'Generate a new code',
   },
+
   redeem: {
-    title: 'Have a code?',
-    label: 'Invite code',
-    placeholder: 'ABCD1234',
+    title: 'Enter an invite code',
+    label: 'Code',
+    placeholder: '8-character code',
     action: 'Redeem',
-    redeeming: 'Checking',
-    success: 'Done. {days} days of Pro added.',
+    success: 'Code accepted. {days} days of Pro have been added.',
     invalid: 'That code is not valid.',
     self: 'You cannot use your own code.',
-    alreadyUsed: 'You have already used an invite code.',
-    notEligible: 'This code is not eligible for your account.',
+    alreadyUsed: 'You have already used this code.',
+    notEligible: 'Invite rewards only apply to new accounts.',
   },
+
   stats: {
     title: 'Your invites',
-    joined: {
-      one: '1 person joined',
-      other: '{count} people joined',
-    },
+    invited: { zero: 'Nobody has joined yet', one: '1 person joined', other: '{count} people joined' },
     earned: {
-      one: '1 bonus day earned',
-      other: '{count} bonus days earned',
+      zero: 'No days earned yet',
+      one: '1 day of Pro earned',
+      other: '{count} days of Pro earned',
     },
-    pending: {
-      one: '1 invite pending',
-      other: '{count} invites pending',
-    },
+    pending: { one: '1 invite pending', other: '{count} invites pending' },
+    remaining: { one: '1 invite left', other: '{count} invites left' },
     limitReached: 'You have reached the invite limit.',
   },
+
   list: {
     title: 'Who joined',
-    empty: 'No one has joined with your code yet.',
-    joinedAt: 'Joined {date}',
-    creditPending: 'Bonus pending',
-    creditGranted: 'Bonus added',
+    joinedOn: 'Joined on {date}',
+    creditGranted: '{days} days added',
+    creditPending: 'Pending',
+    empty: 'You have not invited anyone yet.',
   },
+
+  banner: {
+    title: '{days} days of Pro, free',
+    body: 'Invite a friend and you both get it.',
+    action: 'Invite',
+  },
+
+  terms: 'Rewards apply to new accounts only, and each account can be rewarded once.',
 } satisfies MessageTree

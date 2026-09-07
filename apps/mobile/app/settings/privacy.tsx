@@ -21,6 +21,7 @@ import { useUserContext } from '../../src/hooks/useUserContext'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
 import { track } from '../../src/lib/analytics'
 import { env } from '../../src/lib/env'
+import { clearSnapshot } from '../../src/lib/native/widget'
 import { cancelAllLocalNotifications } from '../../src/lib/notifications'
 import { errorMessageKey } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
@@ -92,6 +93,7 @@ export default function PrivacySettingsScreen() {
     onSuccess: async () => {
       track('account_deleted')
       await cancelAllLocalNotifications()
+      clearSnapshot()
       await signOut()
       router.replace('/(auth)')
     },
@@ -197,7 +199,7 @@ export default function PrivacySettingsScreen() {
           <ListRow
             title={t('privacy.policyLink')}
             icon="policy"
-            onPress={() => void WebBrowser.openBrowserAsync(`${env.webUrl}/gizlilik`)}
+            onPress={() => void WebBrowser.openBrowserAsync(`${env.webUrl}/privacy`)}
             testID="privacy-policy"
           />
           <Divider />

@@ -1,0 +1,7 @@
+{
+  "name": "da-native",
+  "version": "1.0.0",
+  "description": "Widget snapshots, share-extension intake and Android notification intelligence.",
+  "main": "index.ts",
+  "private": true
+}

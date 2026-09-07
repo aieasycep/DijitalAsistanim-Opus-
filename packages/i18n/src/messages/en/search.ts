@@ -2,42 +2,65 @@ import type { MessageTree } from '../../engine.ts'
 
 export const search = {
   title: 'Search',
-  placeholder: 'Search mail, calendar, people, captures',
+  placeholder: 'Search mail, meetings, people and notes',
   cancel: 'Cancel',
   clear: 'Clear',
-  recent: 'Recent searches',
-  clearRecent: 'Clear history',
-  suggestions: 'Suggestions',
-  filters: {
+
+  scope: {
     all: 'All',
     email: 'Mail',
-    event: 'Calendar',
-    person: 'People',
+    calendar_event: 'Events',
     task: 'Tasks',
-    commitment: 'Commitments',
     capture: 'Captures',
+    commitment: 'Promises',
+    contact: 'People',
+    notification: 'Notifications',
+    user_input: 'Notes',
   },
-  dateRange: {
-    label: 'Date range',
-    anyTime: 'Any time',
-    lastWeek: 'Last 7 days',
-    lastMonth: 'Last 30 days',
-    lastYear: 'Last year',
-    custom: 'Custom range',
-  },
+
   results: {
-    count: {
-      one: '1 result',
-      other: '{count} results',
-    },
-    none: 'No results for “{query}”.',
-    tip: 'Try fewer words or a wider date range.',
-    semanticNote: 'Results are ranked by meaning, not just exact words.',
-    inSection: 'in {section}',
+    count: { zero: 'No results', one: '1 result', other: '{count} results' },
+    in: 'in {scope}',
+    took: '{ms} ms',
+    showAll: 'See all results',
+    loadMore: 'More results',
   },
-  askAssistant: 'Ask the assistant instead',
-  askAssistantHint: 'Get an answer instead of a list.',
-  loadMore: 'Load more',
-  searching: 'Searching',
-  failed: 'Search failed. Try again.',
+
+  recent: {
+    title: 'Recent searches',
+    clear: 'Clear history',
+    cleared: 'Search history cleared.',
+  },
+
+  suggestion: {
+    title: 'Quick searches',
+    unanswered: 'Mail waiting on a reply',
+    thisWeekMeetings: 'This week’s meetings',
+    deadlines: 'Deadlines coming up',
+    fromVip: 'From your VIPs',
+    withAttachments: 'With attachments',
+  },
+
+  filter: {
+    title: 'Filters',
+    from: 'From',
+    to: 'To',
+    dateRange: 'Date range',
+    hasAttachment: 'Has an attachment',
+    importance: 'Importance',
+    unreadOnly: 'Unread only',
+    apply: 'Apply',
+    reset: 'Reset',
+    active: { one: '1 filter on', other: '{count} filters on' },
+  },
+
+  semantic: {
+    hint: 'Plain language works too: "the proposal we discussed last month".',
+    matchedOn: 'Matched by meaning',
+  },
+
+  noResults: 'No results.',
+  noResultsHint: 'Try a different word, or clear the filters.',
+  offline: 'Offline, we can only search what is already downloaded.',
+  error: 'The search could not be completed.',
 } satisfies MessageTree

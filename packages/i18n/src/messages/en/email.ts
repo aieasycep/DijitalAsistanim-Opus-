@@ -1,80 +1,90 @@
 import type { MessageTree } from '../../engine.ts'
 
 export const email = {
-  title: 'Email',
+  title: 'Mail',
   actions: {
-    draftReply: 'Draft reply',
-    createTask: 'Create task',
+    draftReply: 'Draft a reply',
+    createTask: 'Create a task',
     addToCalendar: 'Add to calendar',
     remind: 'Remind me',
-    openOriginal: 'Open original',
+    openOriginal: 'Open the original',
   },
   summary: {
     title: 'Summary',
-    oneLine: 'In one line',
-    generating: 'Summarizing',
-    unavailable: 'We could not summarize this message.',
-    aiMark: 'Written by the assistant',
-  },
-  asks: {
-    title: 'What this asks of you',
-    none: 'Nothing is asked of you.',
+    hint: 'A long thread, down to three sentences.',
+    regenerate: 'Summarise again',
+    good: 'Good summary',
+    bad: 'Poor summary',
+    thanks: 'Thanks — noted.',
   },
   keyPoints: 'Key points',
-  dates: {
-    title: 'Dates in this message',
-    unverified: 'Not confirmed by the source.',
-    addToCalendar: 'Add to calendar',
-    setReminder: 'Set a reminder',
-  },
-  amounts: {
-    title: 'Amounts',
-    unverified: 'Not confirmed by the source.',
-  },
-  people: {
-    title: 'People',
+  askedOfYou: 'Asked of you',
+  nothingAskedOfYou: 'Nothing is being asked of you.',
+  deadlineFound: 'Deadline: {date}',
+  amountFound: 'Amount: {amount}',
+  peopleMentioned: 'People mentioned',
+  linksFound: 'Links',
+  attachments: 'Attachments',
+  attachmentSize: '{size}',
+
+  header: {
     from: 'From',
     to: 'To',
     cc: 'Cc',
-    bcc: 'Bcc',
-    andOthers: 'and {count} others',
+    date: 'Date',
+    subject: 'Subject',
+    showDetails: 'Show details',
+    hideDetails: 'Hide details',
   },
-  meta: {
-    receivedAt: 'Received {time}',
-    sentAt: 'Sent {time}',
-    account: 'Account',
-    labels: 'Labels',
-    thread: 'Conversation',
+
+  thread: {
+    expand: 'Show the whole thread',
+    collapse: 'Hide the thread',
+    olderMessages: { one: '1 older message', other: '{count} older messages' },
+    quotedText: 'Quoted text',
   },
+
   body: {
-    showFull: 'Show full message',
-    hideFull: 'Hide full message',
-    showQuoted: 'Show quoted text',
-    hideQuoted: 'Hide quoted text',
-    externalImagesBlocked: 'Remote images are blocked.',
+    showOriginal: 'Show the original text',
+    showSummary: 'Back to the summary',
+    externalImagesBlocked: 'Remote images were blocked for safety.',
     loadImages: 'Load images',
-    linksWarning: 'Check links before opening them.',
+    truncated: 'This message was shortened.',
   },
-  markImportant: 'Mark important',
-  markNotImportant: 'Not important',
-  muteSender: 'Mute this sender',
-  unmuteSender: 'Unmute this sender',
-  markVip: 'Mark as VIP',
-  stopFollowing: 'Stop following this conversation',
-  archive: 'Archive',
-  attachments: {
-    title: 'Attachments',
-    analyze: 'Have the assistant read it',
-    openInApp: 'Open',
-    sizeLabel: '{size}',
+
+  importance: {
+    label: 'Importance',
+    critical: 'Critical',
+    high: 'High',
+    normal: 'Normal',
+    low: 'Low',
+    change: 'Change importance',
   },
-  why: {
-    title: 'Why this reached you',
-    close: 'Got it',
-  },
+
   feedback: {
-    good: 'Good summary',
-    bad: 'Off the mark',
-    thanks: 'Thanks. We will adjust.',
+    notImportant: 'Not important',
+    moreLikeThis: 'Show me more like this',
+    markVip: 'Make this person a VIP',
+    muteSender: 'Mute this sender',
+    stopFollowing: 'Stop following this thread',
+    saved: 'Your preference was saved.',
+  },
+
+  taskCreated: 'Task created',
+  reminderCreated: 'Reminder set',
+  eventProposed: 'Event proposal prepared',
+  markedDone: 'Closed',
+  snoozed: 'Snoozed until {time}',
+
+  unsubscribe: {
+    title: 'Want off this list?',
+    body: 'The sender offers an unsubscribe link.',
+    action: 'Open the unsubscribe link',
+  },
+
+  security: {
+    warning: 'This message contains a security alert.',
+    phishingHint: 'Check the sender’s address before clicking any link.',
+    externalSender: 'This sender is outside your organisation.',
   },
 } satisfies MessageTree

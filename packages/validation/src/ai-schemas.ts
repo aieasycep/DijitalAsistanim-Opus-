@@ -257,7 +257,7 @@ export interface QuoteViolation {
 function normalizeForQuoteMatch(s: string): string {
   return s
     .toLocaleLowerCase('tr')
-    .replace(/[\s ]+/g, ' ')
+    .replace(/[\s\u00a0]+/g, ' ')
     .replace(/[“”„‟"']/g, '"')
     .replace(/[–—]/g, '-')
     .trim()

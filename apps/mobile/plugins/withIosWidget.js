@@ -182,7 +182,7 @@ struct MediumWidgetView: View {
             Text(entry.snapshot?.headline ?? "Dijital Asistan")
                 .font(.system(size: 13, weight: .semibold)).lineLimit(1)
             if let snapshot = entry.snapshot, !snapshot.items.isEmpty {
-                ForEach(snapshot.items.prefix(3)) { ItemRow(item: \$0) }
+                ForEach(snapshot.items.prefix(3)) { ItemRow(item: $0) }
             } else {
                 EmptyView_(label: entry.snapshot?.emptyLabel ?? "—")
             }
@@ -201,7 +201,7 @@ struct LargeWidgetView: View {
             Text(entry.snapshot?.headline ?? "").font(.system(size: 12)).foregroundStyle(.secondary)
             Divider()
             if let snapshot = entry.snapshot, !snapshot.items.isEmpty {
-                ForEach(snapshot.items.prefix(4)) { ItemRow(item: \$0) }
+                ForEach(snapshot.items.prefix(4)) { ItemRow(item: $0) }
             } else {
                 EmptyView_(label: entry.snapshot?.emptyLabel ?? "—")
             }

@@ -12,10 +12,14 @@ export function GET(): Response {
         {
           appID: appId,
           appIDs: [appId],
-          paths: ['/oauth/*', '/support', '/privacy', '/terms', '/data-deletion'],
+          // Only paths the app can actually handle. The legal and support
+          // pages are deliberately absent: claiming them would open the app
+          // when someone taps "Gizlilik Politikası" in a browser, which is the
+          // opposite of what they asked for.
+          paths: ['/l/*', '/davet/*'],
           components: [
-            { '/': '/oauth/*', comment: 'OAuth dönüş ve bağlantı ekranları' },
-            { '/': '/support', comment: 'Destek sayfası' },
+            { '/': '/l/*', comment: 'Uygulama içi derin bağlantılar' },
+            { '/': '/davet/*', comment: 'Davet kodu bağlantıları' },
           ],
         },
       ],

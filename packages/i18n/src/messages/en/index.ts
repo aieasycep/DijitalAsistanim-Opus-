@@ -2,7 +2,7 @@ import type { MessageTree } from '../../engine.ts'
 import { a11y } from './a11y.ts'
 import { approval } from './approval.ts'
 import { assistant } from './assistant.ts'
-import { briefing } from './briefing.ts'
+import { briefing, evening } from './briefing.ts'
 import { calendar } from './calendar.ts'
 import { capture } from './capture.ts'
 import { commitment } from './commitment.ts'
@@ -40,6 +40,7 @@ export const en = {
   onboarding,
   today,
   briefing,
+  evening,
   flow,
   mail,
   email,

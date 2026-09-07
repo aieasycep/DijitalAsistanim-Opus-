@@ -2,49 +2,101 @@ import type { MessageTree } from '../../engine.ts'
 
 export const empty = {
   noImportantEmail: 'Everything is under control.',
+  noImportantEmailHint: 'Nothing in your mail is waiting on you today.',
   noMeeting: 'Your calendar is quiet today.',
-  noFollowUp: 'Nothing waiting on a reply.',
-  noCommitment: 'You have no open commitments.',
-  noTask: 'No open tasks.',
-  noReminder: 'No reminders set.',
-  noDeadline: 'No deadlines ahead.',
-  noLifeEvent: 'No shipments, flights or payments tracked right now.',
-  noCapture: 'Nothing captured yet.',
-  noApproval: 'Nothing waiting for your approval.',
-  noSearchResult: 'No results for “{query}”.',
-  noSearchQuery: 'Search across your mail, calendar, people and captures.',
-  noNotification: 'No notifications yet.',
-  noBriefing: 'No briefing has been prepared yet.',
-  noVip: 'You have not marked anyone as VIP yet.',
-  noPriorityRule: 'No priority rules yet.',
-  noContact: 'No people to show yet.',
-  noThread: 'No conversation with this person yet.',
-  noHistory: 'No history yet.',
-  noReferral: 'No one has joined with your code yet.',
-  noAccount: 'No accounts connected yet.',
-  noFlowItem: 'Your flow is clear.',
-  noAssistantThread: 'You have not asked anything yet.',
-  hint: {
-    noImportantEmail: 'Nothing in your inbox needs you right now.',
-    noMeeting: 'A good day for focused work.',
-    noFollowUp: 'No one is waiting on you.',
-    noCommitment: 'Anything you promise will show up here.',
-    noDeadline: 'We will flag deadlines as they appear.',
-    noCapture: 'Take a photo of a document or share a link, and we will read it.',
-    noApproval: 'Actions the assistant proposes wait for you here.',
-    noSearchResult: 'Try different words or a wider date range.',
-    noVip: 'Mail from VIP people always reaches you.',
-    noPriorityRule: 'Rules teach the assistant what matters to you.',
-    noAccount: 'Connect an account to start.',
-    noFlowItem: 'New items appear here as they arrive.',
+  noMeetingHint: 'A good day for deep work.',
+  noFollowUp: 'Nothing is waiting on a reply.',
+  noFollowUpHint: 'Everything you sent has been answered.',
+
+  today: {
+    allClear: 'You are set for today.',
+    allClearHint: 'We will tell you if something comes up.',
   },
-  action: {
-    connectAccount: 'Connect account',
-    addRule: 'Add rule',
-    addVip: 'Add VIP',
-    newCapture: 'New capture',
-    askAssistant: 'Ask the assistant',
-    clearFilters: 'Clear filters',
-    goToToday: 'Go to Today',
+  flow: {
+    title: 'Nothing to show in the flow.',
+    hint: 'Try another filter, or sync your accounts.',
+    filtered: 'Nothing matches this filter.',
+  },
+  mail: {
+    title: 'No mail in this category.',
+    hint: 'New messages will collect here.',
+    inboxZero: 'Nothing new left to read.',
+  },
+  calendar: {
+    title: 'No events on this day.',
+    hint: 'Your calendar looks clear.',
+    week: 'No meetings scheduled this week.',
+  },
+  commitment: {
+    title: 'You have no open promises.',
+    hint: 'Say "I will handle it" in a message and we will track it here.',
+    othersOwe: 'You are not waiting on anything.',
+  },
+  task: {
+    title: 'Your task list is empty.',
+    hint: 'You can create a task from a message or a note.',
+  },
+  reminder: {
+    title: 'No reminders set.',
+    hint: 'Set one so an important thing does not slip.',
+  },
+  search: {
+    title: 'No results.',
+    hint: 'Try another word, or a person’s name.',
+    start: 'Search mail, meetings, people and notes.',
+  },
+  capture: {
+    title: 'You have not captured anything yet.',
+    hint: 'Add a photo, a PDF, a link or a note and we will take it from there.',
+  },
+  approval: {
+    title: 'Nothing waiting for approval.',
+    hint: 'When an action is prepared, you get asked first.',
+    history: 'No completed actions yet.',
+  },
+  assistant: {
+    title: 'What would you like to know?',
+    hint: 'One of the questions below is a good start.',
+  },
+  briefing: {
+    title: 'No briefing yet.',
+    hint: 'Your first one will be ready in the morning.',
+    skipped: 'This briefing was skipped: there was nothing new to say.',
+  },
+  person: {
+    title: 'No history with this person.',
+    hint: 'It will build up as you write to each other.',
+  },
+  vip: {
+    title: 'Nobody is on your VIP list.',
+    hint: 'Add the people whose messages you cannot miss.',
+  },
+  rules: {
+    title: 'No priority rules yet.',
+    hint: 'You can add a rule for a sender or a keyword.',
+  },
+  notifications: {
+    title: 'No notifications.',
+    hint: 'We will tell you here when something matters.',
+  },
+  insight: {
+    title: 'No patterns to draw on yet.',
+    hint: 'This fills up after a few days of use.',
+  },
+  lifeEvent: {
+    title: 'No deliveries, flights or payments being tracked.',
+    hint: 'They land here automatically as soon as they show up in your mail.',
+  },
+  referral: {
+    title: 'You have not invited anyone yet.',
+    hint: 'Share your code and you both get something.',
+  },
+  offline: {
+    title: 'You are offline.',
+    hint: 'This section fills in by itself once you reconnect.',
+  },
+  error: {
+    title: 'This section could not load.',
+    hint: 'Trying again usually sorts it out.',
   },
 } satisfies MessageTree

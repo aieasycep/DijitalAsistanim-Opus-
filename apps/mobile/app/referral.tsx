@@ -5,8 +5,8 @@ import { formatFullDate } from '@da/i18n'
 import * as Clipboard from 'expo-clipboard'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRouter } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
 import { Share, View } from 'react-native'
 import { Button } from '../src/components/ui/Button'
 import { Card } from '../src/components/ui/Card'
@@ -19,7 +19,7 @@ import { useReferral } from '../src/hooks/queries'
 import { useUserContext } from '../src/hooks/useUserContext'
 import { useI18n, useT } from '../src/i18n/I18nProvider'
 import { track } from '../src/lib/analytics'
-import { env } from '../src/lib/env'
+import { shareableLink } from '../src/lib/deep-links'
 import { errorMessageKey } from '../src/lib/query-client'
 import { useApi } from '../src/providers/AppProviders'
 import { useTheme } from '../src/theme/ThemeProvider'
@@ -41,8 +41,14 @@ export default function ReferralScreen() {
   const { timeZone } = useUserContext()
   const query = useReferral()
 
-  const [code, setCode] = useState('')
+  const params = useLocalSearchParams<{ code?: string }>()
+  const [code, setCode] = useState((params.code ?? '').toUpperCase())
   const [copied, setCopied] = useState(false)
+
+  // An invite link opens straight here with the code already in hand.
+  useEffect(() => {
+    if (params.code) setCode(params.code.toUpperCase())
+  }, [params.code])
 
   const summary = query.data ?? null
 
@@ -64,7 +70,7 @@ export default function ReferralScreen() {
     await Share.share({
       message: t('referral.code.shareMessage', {
         code: summary.code,
-        url: `${env.webUrl}/davet/${summary.code}`,
+        url: shareableLink({ screen: 'referral', code: summary.code }),
       }),
     })
   }, [summary, t])

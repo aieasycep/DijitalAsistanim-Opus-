@@ -2,44 +2,58 @@ import type { MessageTree } from '../../engine.ts'
 
 export const followup = {
   title: 'Follow-ups',
-  subtitle: 'Conversations still waiting on an answer.',
+  subtitle: 'So nothing unanswered slips past you.',
   noReplyYet: 'No reply yet.',
-  sections: {
-    waitingOnOthers: 'Waiting on them',
+
+  section: {
+    waitingOnOthers: 'You are waiting on',
     waitingOnYou: 'Waiting on you',
     overdue: 'Overdue',
     upcoming: 'Coming up',
   },
-  sentAgo: 'Sent {elapsed}',
-  waitingFor: 'Waiting for {name}',
-  youOweReply: '{name} is waiting on you',
-  dueAt: 'Nudge on {date}',
-  overdueBy: 'Overdue by {duration}',
-  actions: {
-    nudge: 'Send a nudge',
-    draftNudge: 'Draft a nudge',
-    snooze: 'Snooze',
+
+  card: {
+    sentTo: 'Sent to {name}',
+    sentOn: 'Sent on {date}',
+    waitingFor: { one: 'Waiting 1 day', other: 'Waiting {count} days' },
+    expectedBy: 'A reply was expected by {date}',
+    lastNudge: 'Last nudged {time}',
+    neverNudged: 'You have not nudged yet.',
+  },
+
+  reason: {
+    questionAsked: 'You asked a question.',
+    approvalRequested: 'You asked for approval.',
+    deadlineMentioned: 'A date was given.',
+    commitmentMade: 'They made a promise.',
+    meetingProposed: 'You proposed a meeting.',
+  },
+
+  action: {
+    nudge: 'Nudge politely',
+    nudgeDraft: 'Draft a nudge',
     markResolved: 'Resolved',
     stopFollowing: 'Stop following',
-    openThread: 'Open conversation',
+    snooze: 'Snooze',
+    openThread: 'Open the thread',
+    remindMe: 'Remind me',
   },
+
   nudge: {
-    title: 'Nudge',
-    body: 'A short, polite reminder about your last message.',
-    tone: 'Tone',
-    generating: 'Drafting a nudge',
+    title: 'Nudge draft',
+    body: 'A short reminder with no pressure in it.',
+    preview: 'Hi {name}, any thoughts on the below?',
+    tooSoon: 'A little early. We would give it at least {days} days.',
   },
-  resolved: 'Marked resolved',
-  stopped: 'We will stop following this one.',
-  snoozed: 'Snoozed until {date}',
-  detected: {
-    question: 'You asked a question.',
-    request: 'You made a request.',
-    deadline: 'You set a date.',
-    approval: 'You asked for approval.',
-  },
+
+  resolved: 'Follow-up closed.',
+  stopped: 'We will stop following this.',
+  reopened: 'Follow-up reopened.',
+  autoDetected: 'We picked this follow-up up from your mail.',
   count: {
-    one: '1 follow-up',
-    other: '{count} follow-ups',
+    zero: 'Nothing waiting.',
+    one: '1 follow-up waiting',
+    other: '{count} follow-ups waiting',
   },
+  overdueCount: { one: '1 follow-up overdue', other: '{count} follow-ups overdue' },
 } satisfies MessageTree

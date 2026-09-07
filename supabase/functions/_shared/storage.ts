@@ -46,7 +46,7 @@ const EXTENSION_FOR_MIME: Record<string, string> = {
 
 function sanitizeFilename(filename: string, mimeType: string): string {
   const base = filename
-    .replace(/[^\w.\-]+/g, '-')
+    .replace(/[^\w.-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 60)

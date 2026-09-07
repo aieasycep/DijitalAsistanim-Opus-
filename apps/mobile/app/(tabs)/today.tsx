@@ -32,6 +32,7 @@ import { useApprovalFlow } from '../../src/hooks/useApprovalFlow'
 import { useEntitlements, useFeatureGate } from '../../src/hooks/useEntitlements'
 import { useInsightActions } from '../../src/hooks/useInsightActions'
 import { useTodayFeed } from '../../src/hooks/queries'
+import { useWidgetSync } from '../../src/hooks/useWidgetSync'
 import { useUserContext } from '../../src/hooks/useUserContext'
 
 /**
@@ -48,7 +49,7 @@ export default function TodayScreen() {
   const { timeZone, givenName } = useUserContext()
   const { can } = useEntitlements()
   const gate = useFeatureGate()
-  const { decide, isDeciding } = useApprovalFlow()
+  const { isDeciding } = useApprovalFlow()
   const { runAction, isRunning } = useInsightActions()
   const [refreshing, setRefreshing] = useState(false)
 
@@ -65,6 +66,10 @@ export default function TodayScreen() {
   }, [query])
 
   const feed = query.data
+  const greeting = t(greetingKey(now, timeZone), { name: givenName ?? '' })
+
+  // The home-screen widget renders a snapshot of exactly this feed.
+  useWidgetSync(feed, greeting)
 
   const priorities = useMemo<Insight[]>(() => {
     if (!feed) return []
@@ -121,7 +126,7 @@ export default function TodayScreen() {
     return (
       <Screen scroll bottomInset={spacing.xxl}>
         <TodayHeader
-          greeting={t(greetingKey(now, timeZone), { name: givenName ?? '' })}
+          greeting={greeting}
           dateLabel={formatWeekdayDate(now, locale, timeZone)}
           onOpenSearch={() => router.push('/search')}
           onOpenProfile={() => router.push('/settings')}
@@ -141,7 +146,7 @@ export default function TodayScreen() {
     return (
       <Screen scroll={false}>
         <TodayHeader
-          greeting={t(greetingKey(now, timeZone), { name: givenName ?? '' })}
+          greeting={greeting}
           dateLabel={formatWeekdayDate(now, locale, timeZone)}
           onOpenSearch={() => router.push('/search')}
           onOpenProfile={() => router.push('/settings')}
@@ -171,7 +176,7 @@ export default function TodayScreen() {
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing} bottomInset={spacing.xxl}>
       <TodayHeader
-        greeting={t(greetingKey(now, timeZone), { name: givenName ?? '' })}
+        greeting={greeting}
         dateLabel={formatWeekdayDate(now, locale, timeZone)}
         onOpenSearch={() => router.push('/search')}
         onOpenProfile={() => router.push('/settings')}

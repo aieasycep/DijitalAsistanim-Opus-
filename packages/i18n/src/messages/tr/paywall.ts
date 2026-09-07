@@ -8,7 +8,7 @@ export const paywall = {
   price: {
     monthly: '199 TL / ay',
     annual: '1.490 TL / yıl',
-    annualPerMonth: 'Ayda {amount}',
+    annualPerMonth: 'Ayda {price}',
     annualSaving: 'Yıllıkta {percent} tasarruf',
     trial: '{days} gün ücretsiz dene',
     trialThenMonthly: '{days} gün ücretsiz, sonra {price}',

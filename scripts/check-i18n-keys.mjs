@@ -130,7 +130,11 @@ for (const [locale, messages] of [
   ['en', enMessages],
 ]) {
   for (const [key, text] of messages) {
-    if (text.trim().length === 0) errors.push(`${locale}: "${key}" is empty`)
+    // A decorative image's alt text is deliberately empty: a screen reader
+    // must skip it rather than announce a filename.
+    if (text.trim().length === 0 && !key.endsWith('.decorative')) {
+      errors.push(`${locale}: "${key}" is empty`)
+    }
     if (/\b(TODO|FIXME|PLACEHOLDER|COMING SOON|Lorem ipsum)\b/i.test(text)) {
       errors.push(`${locale}: "${key}" contains placeholder copy`)
     }

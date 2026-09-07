@@ -1,16 +1,18 @@
 import type { MessageTree } from '../../engine.ts'
 
 export const commitment = {
-  title: 'Commitments',
-  subtitle: 'What you promised, and what was promised to you.',
+  title: 'Promises',
+  subtitle: 'Promises made in your threads, tracked here.',
+
   direction: {
-    user_owes: 'You promised',
-    other_owes: 'Promised to you',
+    user_owes: 'You owe this',
+    other_owes: 'They owe this',
   },
   directionShort: {
-    user_owes: 'You owe',
-    other_owes: 'They owe',
+    user_owes: 'Yours',
+    other_owes: 'Theirs',
   },
+
   status: {
     open: 'Open',
     done: 'Done',
@@ -18,56 +20,61 @@ export const commitment = {
     cancelled: 'Cancelled',
     overdue: 'Overdue',
   },
-  sections: {
-    dueToday: 'Due today',
-    dueSoon: 'Due soon',
-    overdue: 'Overdue',
-    noDate: 'No date',
-    completed: 'Completed',
+
+  card: {
+    youPromised: 'You promised {name}.',
+    theyPromised: '{name} promised you.',
+    dueOn: 'Due: {date}',
+    noDate: 'No date given.',
+    overdueBy: { one: '1 day overdue', other: '{count} days overdue' },
+    dueIn: { one: '1 day left', other: '{count} days left' },
+    dueToday: 'Today',
+    fromEmail: 'Taken from this message',
+    quote: '“{quote}”',
   },
-  toPerson: 'to {name}',
-  fromPerson: 'from {name}',
-  dueOn: 'Due {date}',
-  noDue: 'No date agreed',
-  detectedFrom: 'Found in {source}',
-  detectedFromEmail: 'Found in an email',
-  detectedFromMeeting: 'Found in meeting notes',
-  quote: 'In your words: “{quote}”',
-  actions: {
-    markDone: 'Mark done',
-    snooze: 'Snooze',
+
+  action: {
+    markDone: 'Mark as done',
+    reopen: 'Reopen',
     cancel: 'Cancel',
-    edit: 'Edit',
+    snooze: 'Snooze',
+    setDate: 'Set a date',
+    changeDate: 'Change the date',
     remind: 'Remind me',
+    nudge: 'Send a nudge',
     openSource: 'Open the source',
-    nudge: 'Nudge them',
-    draftUpdate: 'Draft an update',
+    addManually: 'Add one by hand',
   },
+
   create: {
-    title: 'New commitment',
-    whatLabel: 'What',
-    whatPlaceholder: 'What was promised?',
-    whoLabel: 'Who',
-    whoPlaceholder: 'Who is it with?',
-    directionLabel: 'Direction',
+    title: 'Add a promise',
+    whatLabel: 'What was promised?',
+    whatPlaceholder: 'For example: I will send the proposal by Friday',
+    whoLabel: 'To / from whom',
     dueLabel: 'By when',
+    directionLabel: 'Direction',
     save: 'Save',
-    created: 'Commitment saved',
   },
-  confirm: {
-    title: 'Is this a commitment?',
-    body: 'The assistant read: “{quote}”',
-    yes: 'Yes, keep it',
-    no: 'No, discard',
+
+  detected: {
+    title: 'We spotted a promise',
+    body: 'We read a commitment in this sentence. Is that right?',
+    confirm: 'Yes, track it',
+    reject: 'Not a promise',
+    rejected: 'Fine — we will not track it.',
   },
-  markedDone: 'Marked done',
-  cancelled: 'Cancelled',
+
   count: {
-    one: '1 commitment',
-    other: '{count} commitments',
+    open: { zero: 'No open promises', one: '1 open promise', other: '{count} open promises' },
+    overdue: { one: '1 promise overdue', other: '{count} promises overdue' },
+    dueToday: {
+      zero: 'Nothing due today',
+      one: '1 promise due today',
+      other: '{count} promises due today',
+    },
   },
-  overdueCount: {
-    one: '1 overdue commitment',
-    other: '{count} overdue commitments',
-  },
+
+  done: 'Promise closed.',
+  cancelled: 'Promise cancelled.',
+  snoozedTo: 'Snoozed until {date}.',
 } satisfies MessageTree

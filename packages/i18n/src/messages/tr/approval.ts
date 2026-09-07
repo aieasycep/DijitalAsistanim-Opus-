@@ -81,14 +81,14 @@ export const approval = {
   },
 
   expiry: {
-    expiresIn: '{time} içinde süresi dolacak',
+    expiresIn: '{duration} dakika içinde süresi dolacak',
     expiresSoon: 'Az sonra süresi dolacak',
     expired: 'Süresi doldu',
     recreate: 'Yeniden hazırla',
   },
 
   retry: {
-    attempt: '{current}. deneme',
+    attempt: '{count}. deneme',
     willRetry: '{seconds} saniye sonra tekrar denenecek',
     retryNow: 'Şimdi tekrar dene',
     givenUp: 'Denemeler tükendi. Elle tekrar hazırlayabilirsin.',

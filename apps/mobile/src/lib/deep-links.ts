@@ -117,6 +117,7 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
       return source ? { screen: 'paywall', source } : { screen: 'paywall' }
     }
 
+    case 'davet':
     case 'invite':
     case 'referral': {
       const code = tail ?? str('code')
@@ -134,9 +135,11 @@ export function targetToRoute(target: DeepLinkTarget): string {
     case 'today':
       return '/(tabs)/today'
     case 'briefing':
+      // The briefing screen is a single route parameterised by kind, so the
+      // kind travels as a query parameter rather than a path segment.
       return target.id
-        ? `/briefing/${target.kind}?id=${encodeURIComponent(target.id)}`
-        : `/briefing/${target.kind}`
+        ? `/briefing?kind=${target.kind}&date=${encodeURIComponent(target.id)}`
+        : `/briefing?kind=${target.kind}`
     case 'thread':
       return `/thread/${encodeURIComponent(target.threadId)}`
     case 'event':
@@ -180,7 +183,11 @@ export function shareableLink(target: DeepLinkTarget): string {
   const base = `${env.webUrl.replace(/\/$/, '')}/l`
   switch (target.screen) {
     case 'referral':
-      return target.code ? `${base}/invite/${encodeURIComponent(target.code)}` : `${base}/referral`
+      // Invite links are their own public page on the site, not an /l target:
+      // someone without the app should land on something readable.
+      return target.code
+        ? `${env.webUrl.replace(/\/$/, '')}/davet/${encodeURIComponent(target.code)}`
+        : `${base}/referral`
     case 'paywall':
       return `${base}/pro`
     default:

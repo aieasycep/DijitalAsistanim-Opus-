@@ -1,5 +1,5 @@
 import { spacing } from '@da/design-tokens'
-import { MaterialIcons } from '@expo/vector-icons'
+import { type MaterialIcons } from '@expo/vector-icons'
 import * as Application from 'expo-application'
 import { useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -17,6 +17,7 @@ import { useAccounts, useSubscription } from '../../src/hooks/queries'
 import { useEntitlements } from '../../src/hooks/useEntitlements'
 import { useT } from '../../src/i18n/I18nProvider'
 import { revokeSession } from '../../src/lib/auth'
+import { clearSnapshot } from '../../src/lib/native/widget'
 import { cancelAllLocalNotifications } from '../../src/lib/notifications'
 import { useSessionStore } from '../../src/stores/session'
 
@@ -99,6 +100,7 @@ export default function SettingsScreen() {
   const doSignOut = useCallback(async () => {
     setConfirmSignOut(false)
     await cancelAllLocalNotifications()
+    clearSnapshot()
     const token = await useSessionStore.getState().getAccessToken()
     if (token) await revokeSession(token)
     await signOut()

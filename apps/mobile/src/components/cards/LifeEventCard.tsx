@@ -1,7 +1,7 @@
 import { spacing } from '@da/design-tokens'
 import type { LifeEvent, LifeEventType } from '@da/domain'
 import { formatMoney, relativeDayKey } from '@da/i18n'
-import { MaterialIcons } from '@expo/vector-icons'
+import { type MaterialIcons } from '@expo/vector-icons'
 import { View } from 'react-native'
 import { useI18n, useT } from '../../i18n/I18nProvider'
 import { Badge } from '../ui/Badge'

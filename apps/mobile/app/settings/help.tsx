@@ -55,21 +55,21 @@ export default function HelpSettingsScreen() {
           <ListRow
             title={t('settings.help.howItWorks')}
             icon="help-outline"
-            onPress={() => open('/nasil-calisir')}
+            onPress={() => open('/#nasil-calisir')}
             testID="help-how"
           />
           <Divider />
           <ListRow
             title={t('settings.help.faq')}
             icon="quiz"
-            onPress={() => open('/sss')}
+            onPress={() => open('/#sss')}
             testID="help-faq"
           />
           <Divider />
           <ListRow
             title={t('settings.help.gettingStarted')}
             icon="rocket-launch"
-            onPress={() => open('/baslangic')}
+            onPress={() => open('/support')}
             testID="help-start"
           />
           <Divider />
@@ -86,28 +86,28 @@ export default function HelpSettingsScreen() {
           <ListRow
             title={t('settings.help.privacyPolicy')}
             icon="policy"
-            onPress={() => open('/gizlilik')}
+            onPress={() => open('/privacy')}
             testID="help-privacy"
           />
           <Divider />
           <ListRow
             title={t('settings.help.terms')}
             icon="gavel"
-            onPress={() => open('/kullanim-sartlari')}
+            onPress={() => open('/terms')}
             testID="help-terms"
           />
           <Divider />
           <ListRow
             title={t('settings.help.licenses')}
             icon="description"
-            onPress={() => open('/lisanslar')}
+            onPress={() => open('/licenses')}
             testID="help-licenses"
           />
           <Divider />
           <ListRow
             title={t('settings.help.status')}
             icon="monitor-heart"
-            onPress={() => open('/durum')}
+            onPress={() => open('/support')}
             testID="help-status"
           />
         </Card>

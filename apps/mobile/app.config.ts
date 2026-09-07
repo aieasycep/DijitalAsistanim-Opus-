@@ -52,6 +52,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     infoPlist: {
       CFBundleAllowMixedLocalizations: true,
+      // Read by the local native module so the app, the widget and the share
+      // extension all agree on one App Group without hard-coding it in Swift.
+      DAAppGroup: APP_GROUP,
       UIBackgroundModes: ['remote-notification', 'audio'],
       // Every string is user-facing at the permission prompt and must say what
       // the app actually does with the data, in Turkish.
@@ -99,7 +102,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         action: 'VIEW',
         autoVerify: true,
-        data: [{ scheme: 'https', host: WEB_HOST, pathPrefix: '/l' }],
+        // The two path prefixes the app can actually handle. Claiming the
+        // legal or support pages would open the app when someone taps a link
+        // to them in a browser, which is not what they asked for.
+        data: [
+          { scheme: 'https', host: WEB_HOST, pathPrefix: '/l' },
+          { scheme: 'https', host: WEB_HOST, pathPrefix: '/davet' },
+        ],
         category: ['BROWSABLE', 'DEFAULT'],
       },
       // Share-sheet targets: text, links, images and documents shared from any

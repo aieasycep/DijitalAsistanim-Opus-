@@ -1,5 +1,6 @@
 import type { SearchHit, SearchType } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
+import { systemClock } from '@da/domain'
 import { elapsedKey } from '@da/i18n'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -55,7 +56,7 @@ const HIT_ICON: Record<string, keyof typeof MaterialIcons.glyphMap> = {
  */
 export default function SearchScreen() {
   const t = useT()
-  const { locale, plural } = useI18n()
+  const { plural } = useI18n()
   const theme = useTheme()
   const router = useRouter()
   const params = useLocalSearchParams<{ q?: string }>()
@@ -170,7 +171,7 @@ export default function SearchScreen() {
             <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
               {hits.map((hit: SearchHit, index: number) => {
                 const elapsed = hit.occurredAt
-                  ? elapsedKey(new Date(hit.occurredAt), new Date())
+                  ? elapsedKey(new Date(hit.occurredAt), systemClock.now())
                   : null
                 return (
                   <View key={`${hit.type}:${hit.id}`}>

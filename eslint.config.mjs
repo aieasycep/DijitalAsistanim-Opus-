@@ -68,6 +68,24 @@ export default tseslint.config(
     },
   },
   {
+    // Expo config plugins and build scripts are CommonJS Node programs that run
+    // outside the app bundle: `require` is the correct module system there, and
+    // a build script that cannot print is not much of a build script.
+    files: ['**/plugins/**/*.js', '**/scripts/**/*.mjs', '**/*.config.js', '**/*.config.mjs'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-console': 'off',
+      'no-undef': 'off',
+    },
+  },
+  {
+    // Metro resolves bundled assets through `require`; there is no import form
+    // that produces the module reference `useFonts` expects.
+    files: ['apps/mobile/src/theme/fonts.ts'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
     files: ['**/*.test.ts', '**/*.test.tsx', '**/__tests__/**/*.{ts,tsx}', 'scripts/**/*.mjs'],
     rules: {
       'no-console': 'off',

@@ -18,6 +18,7 @@ const entries: readonly Entry[] = [
   { path: '/privacy', priority: 0.6, changeFrequency: 'yearly' },
   { path: '/terms', priority: 0.5, changeFrequency: 'yearly' },
   { path: '/data-deletion', priority: 0.6, changeFrequency: 'yearly' },
+  { path: '/licenses', priority: 0.3, changeFrequency: 'yearly' },
 ]
 
 export default function sitemap(): MetadataRoute.Sitemap {

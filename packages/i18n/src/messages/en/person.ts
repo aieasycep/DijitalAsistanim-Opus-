@@ -1,66 +1,72 @@
 import type { MessageTree } from '../../engine.ts'
 
 export const person = {
-  title: 'People',
-  detailTitle: 'Person',
-  sections: {
-    overview: 'Overview',
-    threads: 'Conversations',
-    meetings: 'Meetings',
-    commitments: 'Open between you',
+  title: 'Person',
+  contacts: 'People',
+  searchPlaceholder: 'Search people',
+
+  header: {
+    lastContact: 'Last contact: {time}',
+    neverContacted: 'You have not written to each other yet.',
+    relationship: 'Relationship',
+    company: 'Company',
+    role: 'Role',
+    email: 'Email',
+    phone: 'Phone',
+    vip: 'VIP',
+    external: 'Outside your organisation',
+  },
+
+  stats: {
+    title: 'Thread summary',
+    threads: { zero: 'No threads', one: '1 thread', other: '{count} threads' },
+    sent: { one: 'You sent 1 message', other: 'You sent {count} messages' },
+    received: { one: 'You received 1 message', other: 'You received {count} messages' },
+    meetings: { zero: 'No meetings', one: '1 meeting', other: '{count} meetings' },
+    avgResponse: 'Your average reply time: {time}',
+    theirAvgResponse: 'Their average reply time: {time}',
+    busiestTopic: 'What you discuss most: {topic}',
+  },
+
+  section: {
+    openItems: 'Open items',
+    commitments: 'Promises both ways',
+    recentThreads: 'Recent threads',
+    upcomingMeetings: 'Upcoming meetings',
+    pastMeetings: 'Past meetings',
+    notes: 'Your notes',
     files: 'Shared files',
   },
-  stats: {
-    threads: {
-      one: '1 conversation',
-      other: '{count} conversations',
-    },
-    meetings: {
-      one: '1 meeting',
-      other: '{count} meetings',
-    },
-    lastContact: 'Last contact {elapsed}',
-    firstContact: 'First contact {date}',
-    avgResponse: 'They usually reply in {duration}',
-    yourAvgResponse: 'You usually reply in {duration}',
-    neverMet: 'You have not met yet.',
+
+  summary: {
+    title: 'In short',
+    lastTopic: 'You last talked about {topic}.',
+    pendingFromYou: 'You owe them a reply on {count} things.',
+    pendingFromThem: 'You are waiting on them for {count} things.',
+    healthy: 'Nothing is open between you.',
+    generate: 'Write a summary',
   },
-  relationship: {
-    frequent: 'You talk often',
-    occasional: 'You talk sometimes',
-    rare: 'Rarely in touch',
-    fading: 'Quieter than it used to be',
+
+  note: {
+    add: 'Add a note',
+    placeholder: 'What you want to remember about this person',
+    saved: 'Note saved.',
+    delete: 'Delete the note',
   },
-  actions: {
-    email: 'Email',
-    schedule: 'Schedule a meeting',
-    markVip: 'Mark as VIP',
+
+  action: {
+    draftEmail: 'Draft an email',
+    scheduleMeeting: 'Propose a meeting',
+    markVip: 'Make VIP',
     unmarkVip: 'Remove from VIP',
     mute: 'Mute',
     unmute: 'Unmute',
-    call: 'Call',
-    openContact: 'Open in Contacts',
+    openThreads: 'See all threads',
   },
-  fields: {
-    email: 'Email',
-    phone: 'Phone',
-    company: 'Company',
-    role: 'Role',
-    notes: 'Notes',
-  },
-  notesPlaceholder: 'Anything you want to remember about them',
-  openItems: {
-    youOwe: 'You owe them: {item}',
-    theyOwe: 'They owe you: {item}',
-    none: 'Nothing open between you.',
-  },
-  list: {
-    frequent: 'People you talk to most',
-    recent: 'Recent',
-    vip: 'VIP',
-    all: 'Everyone',
-    searchPlaceholder: 'Search people',
-  },
-  vipBadge: 'VIP',
-  mutedBadge: 'Muted',
+
+  vipAdded: '{name} was added to your VIP list.',
+  vipRemoved: '{name} was removed from your VIP list.',
+  muted: '{name} is muted.',
+  unmuted: '{name} is no longer muted.',
+  privacyNote: 'Contact details are used only for your own device and account.',
 } satisfies MessageTree

@@ -81,7 +81,7 @@ export const priority = {
     title: 'Öğrenilenler',
     subtitle: 'Davranışından çıkardıklarımız.',
     item: '{description}',
-    confidence: 'Güven: {percent}',
+    confidence: 'Güven: %{confidence}',
     promote: 'Kurala dönüştür',
     forget: 'Unut',
     forgotten: 'Unutuldu.',

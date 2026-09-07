@@ -23,6 +23,7 @@ const columns: readonly FooterColumn[] = [
       { href: '/terms', label: 'Kullanım Koşulları' },
       { href: '/data-deletion', label: 'Veri Silme' },
       { href: '/oauth', label: 'Bağlantı ve izinler' },
+      { href: '/licenses', label: 'Lisanslar' },
     ],
   },
   {

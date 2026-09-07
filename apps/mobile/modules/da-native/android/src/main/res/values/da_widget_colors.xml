@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="da_widget_background">#FFFFFFFF</color>
+    <color name="da_widget_text">#FF1A1917</color>
+    <color name="da_widget_text_secondary">#FF6B6860</color>
+</resources>

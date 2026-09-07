@@ -1,7 +1,7 @@
 import { spacing } from '@da/design-tokens'
 import type { EmailCategory, EmailThread, Importance } from '@da/domain'
 import { formatTime } from '@da/i18n'
-import { MaterialIcons } from '@expo/vector-icons'
+import { type MaterialIcons } from '@expo/vector-icons'
 import { View } from 'react-native'
 import { useI18n, useT } from '../../i18n/I18nProvider'
 import { useTheme } from '../../theme/ThemeProvider'

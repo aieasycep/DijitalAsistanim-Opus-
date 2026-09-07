@@ -105,7 +105,7 @@ export default function AccountScreen() {
         </Text>
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.md }}>
           <Pressable
-            onPress={() => void WebBrowser.openBrowserAsync(`${env.webUrl}/kullanim-sartlari`)}
+            onPress={() => void WebBrowser.openBrowserAsync(`${env.webUrl}/terms`)}
             haptic="none"
             scaleOnPress={false}
             accessibilityLabel={t('onboarding.account.terms')}
@@ -116,7 +116,7 @@ export default function AccountScreen() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => void WebBrowser.openBrowserAsync(`${env.webUrl}/gizlilik`)}
+            onPress={() => void WebBrowser.openBrowserAsync(`${env.webUrl}/privacy`)}
             haptic="none"
             scaleOnPress={false}
             accessibilityLabel={t('onboarding.account.privacy')}

@@ -134,7 +134,12 @@ describe('message hygiene', () => {
   ]
 
   it('contains no empty strings', () => {
-    const empty = allStrings.filter(([, , value]) => value.trim() === '')
+    // `*.decorative` is the one exception: a decorative image's alt text is
+    // deliberately empty so a screen reader skips it instead of announcing a
+    // filename. Every other empty string is a copy gap.
+    const empty = allStrings.filter(
+      ([, key, value]) => value.trim() === '' && !key.endsWith('.decorative'),
+    )
     expect(empty).toEqual([])
   })
 
@@ -145,7 +150,9 @@ describe('message hygiene', () => {
   })
 
   it('never claims end-to-end encryption', () => {
-    const forbidden = /(uçtan uca|ucтан uca|end[- ]to[- ]end)/i
+    // The architecture is not end-to-end encrypted — the server reads the
+    // data in order to analyse it — so no string may imply that it is.
+    const forbidden = /(uçtan\s*uca|end[-\s]to[-\s]end)/i
     const offenders = allStrings.filter(([, , value]) => forbidden.test(value))
     expect(offenders).toEqual([])
   })

@@ -1,5 +1,6 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
+import { systemClock } from '@da/domain'
 import type { EmailMessage, FeedbackSignal } from '@da/domain'
 import { elapsedKey, formatTime } from '@da/i18n'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -315,7 +316,7 @@ export default function ThreadScreen() {
                       </Text>
                       <Text variant="micro" tone="tertiary" numberOfLines={1}>
                         {(() => {
-                          const elapsed = elapsedKey(new Date(message.sentAt), new Date())
+                          const elapsed = elapsedKey(new Date(message.sentAt), systemClock.now())
                           return plural(elapsed.key, elapsed.count)
                         })()}
                       </Text>

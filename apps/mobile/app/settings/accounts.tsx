@@ -1,5 +1,6 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
+import { systemClock } from '@da/domain'
 import type { AccountKind, ConnectedAccount, ConnectionStatus } from '@da/domain'
 import { elapsedKey } from '@da/i18n'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -90,7 +91,7 @@ export default function AccountsSettingsScreen() {
         .sort()
         .at(-1)
       if (!latest) return null
-      const elapsed = elapsedKey(new Date(latest), new Date())
+      const elapsed = elapsedKey(new Date(latest), systemClock.now())
       return plural(elapsed.key, elapsed.count)
     },
     [syncStatus.data, plural],

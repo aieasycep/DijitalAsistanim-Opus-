@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!--
+    The widget receiver and the notification listener service are declared by
+    the app's config plugin rather than here: both need to appear in the final
+    merged manifest with the app's own exported/permission attributes, and the
+    listener in particular must be reviewable in one place.
+  -->
+</manifest>

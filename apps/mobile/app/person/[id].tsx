@@ -1,5 +1,6 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
+import { systemClock } from '@da/domain'
 import { elapsedKey } from '@da/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -30,7 +31,7 @@ import { useApi } from '../../src/providers/AppProviders'
  */
 export default function PersonScreen() {
   const t = useT()
-  const { locale, plural } = useI18n()
+  const { plural } = useI18n()
   const router = useRouter()
   const api = useApi()
   const queryClient = useQueryClient()
@@ -96,7 +97,7 @@ export default function PersonScreen() {
   }
 
   const lastContact = contact.lastContactAt
-    ? elapsedKey(new Date(contact.lastContactAt), new Date())
+    ? elapsedKey(new Date(contact.lastContactAt), systemClock.now())
     : null
 
   return (

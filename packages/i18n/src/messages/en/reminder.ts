@@ -2,72 +2,69 @@ import type { MessageTree } from '../../engine.ts'
 
 export const reminder = {
   title: 'Reminders',
-  preset: {
-    in30Minutes: 'In 30 minutes, at {time}',
-    in1Hour: 'In 1 hour, at {time}',
-    thisEvening: 'This evening at {time}',
-    eveningPassed: 'The evening window has passed, so tomorrow morning at {time}',
-    tomorrowMorning: 'Tomorrow morning at {time}',
-    custom: 'At {time} on {date}',
-  },
-  smart: {
-    freeSlotToday: 'You are free at {time} today — a good moment.',
-    freeSlotTomorrow: 'You are free at {time} tomorrow — a good moment.',
-    nextFreeMorning: 'Your next clear morning is {date} at {time}.',
-  },
-  quietHoursShifted: 'This falls inside your quiet hours, so we moved it to {time}.',
-  beforeDeadline: '{duration} before the deadline, at {time}',
+  subtitle: 'The things you do not want to forget.',
+
+  /** Chip labels shown in the "remind me" sheet. */
   options: {
     in30Minutes: 'In 30 minutes',
-    in1Hour: 'In 1 hour',
+    in1Hour: 'In an hour',
     thisEvening: 'This evening',
     tomorrowMorning: 'Tomorrow morning',
-    smart: 'At a good time',
+    smart: 'At a good moment',
     custom: 'Pick a time',
   },
+
+  /** Resolved-time explanations returned by `resolveReminderTime`. */
+  preset: {
+    in30Minutes: 'You will be reminded in 30 minutes.',
+    in1Hour: 'You will be reminded in an hour.',
+    thisEvening: 'You will be reminded this evening at {time}.',
+    eveningPassed: 'The evening slot has passed, so it moved to tomorrow morning.',
+    tomorrowMorning: 'You will be reminded tomorrow at {time}.',
+    custom: 'Set for {date} at {time}.',
+  },
+
+  smart: {
+    freeSlotToday: 'You are free at {time} today — we will remind you then.',
+    freeSlotTomorrow: 'You are free at {time} tomorrow — we will remind you then.',
+    nextFreeMorning: 'Your first free morning is {date}; we will remind you then.',
+    explain: 'We look at your schedule and pick a moment that will not interrupt you.',
+  },
+
+  quietHoursShifted: 'It fell inside your quiet hours, so it moved to {time}.',
+  beforeDeadline: 'You will be reminded {hours} hours before the deadline.',
+
   create: {
-    title: 'Remind me',
-    whatLabel: 'About what',
-    whatPlaceholder: 'What should I remind you of?',
+    title: 'Set a reminder',
+    whatLabel: 'What should we remind you about?',
+    whatPlaceholder: 'For example: send the proposal',
     whenLabel: 'When',
-    save: 'Set reminder',
-    created: 'Reminder set for {time}',
+    customDate: 'Date',
+    customTime: 'Time',
+    save: 'Set',
+    saved: 'Reminder set.',
   },
-  edit: {
-    title: 'Edit reminder',
+
+  card: {
+    at: '{date} {time}',
+    fires: 'Reminds you at {time}',
+    fired: 'Reminded at {time}',
+    linkedTo: 'Linked to',
+    snoozedTo: 'Snoozed to {time}',
+  },
+
+  action: {
+    edit: 'Edit',
     reschedule: 'Change the time',
-    saved: 'Reminder updated',
-  },
-  list: {
-    upcoming: 'Coming up',
-    past: 'Past',
-    today: 'Today',
-    tomorrow: 'Tomorrow',
-    later: 'Later',
-  },
-  actions: {
+    cancel: 'Cancel',
     done: 'Done',
-    snooze: 'Snooze',
-    reschedule: 'Reschedule',
-    delete: 'Delete',
-    openSource: 'Open the source',
+    snooze15: 'Snooze 15 minutes',
+    snooze1h: 'Snooze an hour',
+    snoozeTomorrow: 'Snooze to tomorrow',
   },
-  snoozeOptions: {
-    tenMinutes: '10 minutes',
-    thirtyMinutes: '30 minutes',
-    oneHour: '1 hour',
-    tomorrow: 'Tomorrow',
-  },
-  snoozed: 'Snoozed until {time}',
-  deleted: 'Reminder deleted',
-  fired: 'Reminder',
-  count: {
-    one: '1 reminder',
-    other: '{count} reminders',
-  },
-  timePicker: {
-    dateLabel: 'Date',
-    timeLabel: 'Time',
-    inPast: 'That time has already passed.',
-  },
+
+  cancelled: 'Reminder cancelled.',
+  updated: 'Reminder updated.',
+  pastTime: 'We cannot set a reminder in the past.',
+  count: { zero: 'No reminders set', one: '1 reminder', other: '{count} reminders' },
 } satisfies MessageTree
