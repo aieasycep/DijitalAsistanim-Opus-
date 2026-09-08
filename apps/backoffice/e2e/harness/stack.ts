@@ -125,6 +125,28 @@ function spawnDetached(
   return child
 }
 
+/**
+ * Build, then put `next-env.d.ts` back the way the repository stores it.
+ *
+ * `next build` rewrites that file to reference the output directory it was
+ * given, so building into `.next-e2e` leaves the tree dirty and pointing at a
+ * directory that only exists after this suite has run — which would then fail
+ * `pnpm typecheck` for the next person. Next owns the file's contents; the
+ * suite borrows it for ninety seconds and hands it back.
+ */
+async function withUntouchedNextEnv(build: () => Promise<void>): Promise<void> {
+  const file = path.join(BACKOFFICE_ROOT, 'next-env.d.ts')
+  const before = existsSync(file) ? readFileSync(file, 'utf8') : null
+  try {
+    await build()
+  } finally {
+    // Guarded so a failure here cannot mask the build failure that caused it.
+    if (before !== null && (!existsSync(file) || readFileSync(file, 'utf8') !== before)) {
+      writeFileSync(file, before, 'utf8')
+    }
+  }
+}
+
 function killGroup(pid: number): void {
   try {
     process.kill(-pid, 'SIGTERM')
@@ -203,7 +225,7 @@ export async function startStack(): Promise<void> {
   // reuses the build that is already on disk.
   const reuse = process.env['BACKOFFICE_E2E_REUSE_BUILD'] === '1' && existsSync(buildId)
   if (reuse) note(`reusing the existing ${E2E_DIST_DIR} build`)
-  else await run(nextBin, ['build'], consoleEnv)
+  else await withUntouchedNextEnv(() => run(nextBin, ['build'], consoleEnv))
 
   const consoleServer = spawnDetached(
     nextBin,
