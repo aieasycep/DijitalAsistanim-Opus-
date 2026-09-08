@@ -8,7 +8,24 @@ version = '1.0.0'
 android {
   namespace 'expo.modules.danative'
   defaultConfig {
-    // The notification listener and monochrome widget both need API 26+.
+    // The notification listener and monochrome widget both need API 26+. The
+    // app sets the same floor through expo-build-properties, so the manifest
+    // merger has nothing to reconcile.
     minSdkVersion 26
+
+    // Required, and not optional the way an unpublished module suggests.
+    // `expo-module-gradle-plugin` builds a Maven publication descriptor while
+    // configuring the project, and it reads the coordinates from here:
+    //
+    //   version = requireNotNull(defaultConfig.versionName) {
+    //     "'android.defaultConfig.versionName' is not defined"
+    //   }
+    //
+    // That happens in `afterEvaluate`, before any task runs, so leaving these
+    // out fails the whole build during configuration — with a message naming a
+    // Gradle property rather than this file. Every module Expo ships sets both;
+    // they match the module's own version above.
+    versionCode 1
+    versionName '1.0.0'
   }
 }

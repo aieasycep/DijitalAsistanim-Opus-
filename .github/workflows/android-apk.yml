@@ -170,16 +170,34 @@ jobs:
       # in a build log — this is the step that makes it visible. `CN=Android
       # Debug` is the certificate every React Native project ships and whose
       # private key is public, so a release variant carrying it is a failure.
-      - name: Verify what the APK is signed with
+      - name: Verify the signature and the permissions
         run: |
           set -euo pipefail
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
-          test -n "$APKSIGNER"
-          CERTS=$("$APKSIGNER" verify --print-certs "${{ steps.collect.outputs.apk }}")
-          echo "$CERTS"
+          APK="${{ steps.collect.outputs.apk }}"
           VARIANT="${{ github.event.inputs.variant || 'release' }}"
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
+          test -n "$BUILD_TOOLS"
+
+          echo "## Signature"
+          CERTS=$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK")
+          echo "$CERTS"
           if [ "$VARIANT" != "debug" ] && echo "$CERTS" | grep -q 'CN=Android Debug'; then
             echo "::error::The release APK is signed with the template's public debug key."
+            exit 1
+          fi
+
+          # The manifest merger is the only thing that actually applies
+          # `tools:node="remove"`, and it runs inside Gradle. Reading the
+          # permissions back off the finished APK is the only way to know it
+          # did. SYSTEM_ALERT_WINDOW — "draw over other apps" — is contributed
+          # by the template and blocked in app.config.ts; if it reappears here,
+          # the block silently stopped working and the release is asking a
+          # person for something it does not use.
+          echo "## Permissions"
+          PERMISSIONS=$("$BUILD_TOOLS/aapt2" dump permissions "$APK")
+          echo "$PERMISSIONS"
+          if [ "$VARIANT" != "debug" ] && echo "$PERMISSIONS" | grep -q 'SYSTEM_ALERT_WINDOW'; then
+            echo "::error::The release APK requests SYSTEM_ALERT_WINDOW, which this app does not use."
             exit 1
           fi
 

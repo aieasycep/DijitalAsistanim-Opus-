@@ -98,6 +98,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.VIBRATE',
       'android.permission.RECEIVE_BOOT_COMPLETED',
     ],
+    // Permissions the template and its dependencies contribute that this app
+    // does not use. Listing them here writes `tools:node="remove"` into the
+    // main manifest, so they are absent from a release build.
+    //
+    // SYSTEM_ALERT_WINDOW is "draw over other apps" — React Native wants it for
+    // the development menu overlay, and the debug and debugOptimized variants
+    // declare it themselves, so blocking it here costs nothing during
+    // development. It has no place in a release: it is one of the permissions a
+    // person is most right to be suspicious of, this app never draws outside
+    // itself, and the product's whole claim is that it asks for less than it
+    // could. Nothing should have to take that on trust when the installer
+    // screen can be checked.
+    blockedPermissions: ['android.permission.SYSTEM_ALERT_WINDOW'],
     intentFilters: [
       {
         action: 'VIEW',
