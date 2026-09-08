@@ -127,6 +127,13 @@ jobs:
       - name: RBAC document
         run: pnpm run verify:rbac-doc
 
+      # The README states counts about the shape of this repository — how many
+      # migrations, tables, content-blind views, edge functions and routes. They
+      # had drifted by a factor of three before anyone noticed, because nothing
+      # re-derives a number a human typed.
+      - name: README counts
+        run: pnpm run verify:readme
+
   database:
     name: Migrations and RLS
     runs-on: ubuntu-latest

@@ -28,8 +28,9 @@
     "verify:no-dead-code": "node scripts/check-no-dead-code.mjs",
     "verify:secrets": "node scripts/check-secrets.mjs",
     "verify:rbac-doc": "node scripts/check-rbac-doc.mjs",
+    "verify:readme": "node scripts/check-readme.mjs",
     "assets:generate": "node scripts/generate-brand-assets.mjs",
-    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:mobile && pnpm run verify:supabase && pnpm run verify:i18n && pnpm run verify:e2e-ids && pnpm run verify:wiring && pnpm run verify:no-dead-code && pnpm run verify:secrets && pnpm run verify:rbac-doc"
+    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:mobile && pnpm run verify:supabase && pnpm run verify:i18n && pnpm run verify:e2e-ids && pnpm run verify:wiring && pnpm run verify:no-dead-code && pnpm run verify:secrets && pnpm run verify:rbac-doc && pnpm run verify:readme"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

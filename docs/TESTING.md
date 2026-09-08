@@ -8,11 +8,19 @@ telemetry event, a refresh token readable from a database dump, a deadline the
 sender never wrote, a briefing that arrives an hour late twice a year.
 
 ```
-389 tests   Vitest       shared packages and edge-function helpers (13 files)
- 55 tests   Jest + RNTL  React Native components (4 files)
- 12 flows   Maestro      end to end, on a device, against demo mode
-  6 checks  Node         product and security guards (5 wired into CI, 1 not)
+Vitest       shared packages, edge-function helpers, the demo API client,
+             and the console's pure decisions
+Jest + RNTL  React Native components
+Playwright   the console, end to end, against a real Postgres
+Maestro      12 flows, on a device, against demo mode
+Node         nine product and security guards, all in CI
 ```
+
+Exact test counts are deliberately not written down here. They move with
+ordinary work, and a number nobody re-derives is worse than no number — the
+figures this file used to carry were stale by a factor of three. `pnpm test`
+prints the real ones. What is written down is what each suite _pins_, because
+that does not drift without someone deciding it should.
 
 ---
 
@@ -104,19 +112,79 @@ Flow B walks all **seven** onboarding steps — `connect`, `permissions`,
 fixtures and no network, so the suite needs no Supabase project, no OAuth
 client and no test mailbox — and nothing in it can send mail to a real person.
 
+## The console, end to end — Playwright
+
+`pnpm run test:backoffice-e2e`. 33 specs, about two and a half minutes, against
+a **real Postgres with the real migrations applied** — not a mock of the
+database and not a mock of Supabase.
+
+Each run creates a scratch database, applies every migration in order, seeds
+five admins across five roles plus users, tickets, flags, an announcement, a
+prompt, an entitlement grant and a pending Support Access grant, starts a
+fixture Supabase server, builds and starts the console, and tears the whole lot
+down afterwards.
+
+### Why there is a fixture Supabase, and what makes it honest
+
+The console talks to Supabase over HTTP: GoTrue for sign-in, PostgREST for every
+read. Testing it against a hand-written mock would prove the mock agrees with
+the console and nothing about whether either agrees with Postgres. So the
+fixture is a translator, not a stand-in: it reads relations, columns, types and
+function signatures out of `pg_class` and `pg_proc` at boot, validates every
+identifier against that catalogue before it becomes SQL, binds every value as a
+parameter, and renders rows through `to_jsonb` in Postgres rather than in the
+driver — which is why an `account_kind[]` arrives as a JSON array and a `bigint`
+as a number, exactly as PostgREST sends them.
+
+**Nothing degrades.** A filter, operator, projection or endpoint it cannot
+translate raises a named error, is counted, and answers 501. It never returns an
+empty result to paper over a gap — a shim that quietly answers `[]` turns a real
+regression into a green test, which is worse than having no test. One spec
+asserts the counter is still zero at the end of the run, so the suite fails if
+it ever started guessing.
+
+### What the specs pin
+
+| Spec              | What it pins                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in           | Correct credentials land; a wrong password does not; the refusal says nothing about which half was wrong; a non-admin is refused; guessing at one address is stopped before the password is checked                                                                                                                                                            |
+| Session guard     | An unauthenticated route redirects; a session revoked in the database is refused on the very next request                                                                                                                                                                                                                                                      |
+| RBAC              | Every role sees only the sidebar entries it holds, read from `admin_role_permissions` in the database rather than from the TypeScript mirror, and is refused the pages it does not                                                                                                                                                                             |
+| Content-blindness | A sentinel string is written into a user's mail body and subject, then every route the highest-privileged role can reach is crawled and asserted not to contain it                                                                                                                                                                                             |
+| Support Access    | A request under the minimum reason length is refused; a real one is opened, pending and audited; the requester is offered no approval and the database refuses one anyway; a second admin can approve; a reveal returns content, writes a log row, and the console shows the row without showing what was seen; an ungranted scope is refused and logs nothing |
+| Accessibility     | Every interactive control has an accessible name, and every button does something when pressed                                                                                                                                                                                                                                                                 |
+| Shim fidelity     | Every list screen shows the row seeded for it, and a count on screen is the count in the database                                                                                                                                                                                                                                                              |
+
+The content-blindness spec is the one that matters most: it is the product's
+public promise, checked end to end rather than argued from the schema.
+
+### Two defects it found on its first run
+
+Both were caught by "every button does something when pressed", which is the
+kind of assertion that sounds trivial until it earns its keep:
+
+- **Sign-out did nothing.** Radix unmounted the menu before the form could
+  submit, so the browser cancelled the submission of a form no longer connected
+  to the document.
+- **"Sıfırla" navigated to the page you were already on.** It rendered on an
+  unfiltered list, because pages pass their _defaults_ into the filter
+  component, and the button could not tell a default from a choice.
+
 ## Guards
 
-Six checks that are not tests but fail the build the same way — except that one
-of them is not yet in the build at all.
+Nine checks that are not tests but fail the build the same way. All nine run in
+`pnpm verify` and in CI.
 
-| Command                         | In `pnpm verify` and CI | Fails on                                                                                                                                                                          |
-| ------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm run verify:supabase`      | yes                     | A migration that does not apply, is not re-runnable, an enum that has drifted from its TypeScript union, a table without RLS forced, or a `bo_*` view that reads a content column |
-| `pnpm run verify:i18n`          | yes                     | A key one locale defines and the other does not, a placeholder mismatch, unfinished copy, or an end-to-end-encryption claim                                                       |
-| `pnpm run verify:no-dead-code`  | yes                     | TODO/FIXME, a handler wired to `() => {}`, an `href="#"`, or stray debug output                                                                                                   |
-| `pnpm run verify:secrets`       | yes                     | A committed credential, a server secret referenced from a client bundle, a secret-sounding name behind a public prefix, or a filled-in `.env.example`                             |
-| `pnpm run verify:e2e-ids`       | yes                     | A Maestro flow naming a testID that appears nowhere in the source                                                                                                                 |
-| `node scripts/check-wiring.mjs` | **no — run it by hand** | A cron job, API-client call or app fetch naming an edge function with no directory; a `router.push` naming a route with no file                                                   |
+| Command                        | In `pnpm verify` and CI | Fails on                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm run verify:supabase`     | yes                     | A migration that does not apply, is not re-runnable, an enum that has drifted from its TypeScript union, a table without RLS forced, or a `bo_*` view that reads a content column                                                                                                                                                                                          |
+| `pnpm run verify:i18n`         | yes                     | A key one locale defines and the other does not, a placeholder mismatch, unfinished copy, or an end-to-end-encryption claim                                                                                                                                                                                                                                                |
+| `pnpm run verify:no-dead-code` | yes                     | TODO/FIXME, a handler wired to `() => {}`, an `href="#"`, or stray debug output                                                                                                                                                                                                                                                                                            |
+| `pnpm run verify:secrets`      | yes                     | A committed credential, a server secret referenced from a client bundle, a secret-sounding name behind a public prefix, or a filled-in `.env.example`                                                                                                                                                                                                                      |
+| `pnpm run verify:e2e-ids`      | yes                     | A Maestro flow naming a testID that appears nowhere in the source                                                                                                                                                                                                                                                                                                          |
+| `pnpm run verify:wiring`       | yes                     | A cron job, API-client call or app fetch naming an edge function with no directory; a `router.push` naming a route with no file; a workflow calling a script that does not exist; a console sidebar entry pointing at an unbuilt page or advertising a permission its page does not enforce; a package named in the mobile build config that the manifest does not declare |
+| `pnpm run verify:rbac-doc`     | yes                     | `docs/BACKOFFICE_RBAC.md` disagreeing with the role/permission matrix in `0019_admin_platform.sql`, cell by cell                                                                                                                                                                                                                                                           |
+| `pnpm run verify:readme`       | yes                     | A structural count in `README.md` — migrations, tables, views, functions, routes — that no longer matches the repository                                                                                                                                                                                                                                                   |
 
 ### `check-wiring.mjs`
 

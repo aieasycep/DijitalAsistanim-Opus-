@@ -155,11 +155,29 @@ function killGroup(pid: number): void {
   }
 }
 
+function writeRuntime(runtime: RuntimeState): void {
+  writeFileSync(RUNTIME_FILE, `${JSON.stringify(runtime, null, 2)}\n`, 'utf8')
+}
+
 export async function startStack(): Promise<void> {
   mkdirSync(ARTIFACTS_DIR, { recursive: true })
 
   const adminUrl = adminDatabaseUrl()
   const database = scratchDatabaseName()
+
+  // Recorded before the database exists rather than after everything is up: a
+  // setup that dies half way — a migration that will not apply, a fixture
+  // server that will not boot — must still leave teardown able to drop what it
+  // had already created. Otherwise the failures accumulate as abandoned
+  // databases on somebody's PostgreSQL.
+  let runtime: RuntimeState = {
+    adminDatabaseUrl: adminUrl,
+    database,
+    fixturePid: 0,
+    consolePid: 0,
+  }
+  writeRuntime(runtime)
+
   const databaseUrl = await createScratchDatabase(adminUrl, database)
   const applied = await applySchema(databaseUrl)
   note(`applied ${applied} migrations to ${database}`)
@@ -200,6 +218,8 @@ export async function startStack(): Promise<void> {
       E2E_FIXTURE_PORT: String(fixturePort),
     },
   )
+  runtime = { ...runtime, fixturePid: fixture.pid ?? 0 }
+  writeRuntime(runtime)
   await waitForHttp(`${supabaseUrl}/__fixture/health`, 'fixture Supabase', 30_000)
 
   const consoleEnv: NodeJS.ProcessEnv = {
@@ -232,15 +252,9 @@ export async function startStack(): Promise<void> {
     ['start', '--port', String(consolePort), '--hostname', '127.0.0.1'],
     consoleEnv,
   )
+  runtime = { ...runtime, consolePid: consoleServer.pid ?? 0 }
+  writeRuntime(runtime)
   await waitForHttp(`${baseUrl}/sign-in`, 'backoffice console')
-
-  const runtime: RuntimeState = {
-    adminDatabaseUrl: adminUrl,
-    database,
-    fixturePid: fixture.pid ?? 0,
-    consolePid: consoleServer.pid ?? 0,
-  }
-  writeFileSync(RUNTIME_FILE, `${JSON.stringify(runtime, null, 2)}\n`, 'utf8')
 
   const state: StackState = {
     databaseUrl,

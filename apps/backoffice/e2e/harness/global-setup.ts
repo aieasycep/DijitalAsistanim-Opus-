@@ -1,11 +1,19 @@
-import { startStack } from './stack.ts'
+import { startStack, stopStack } from './stack.ts'
 
 /**
  * Playwright's entry into the harness.
  *
- * Kept to one line on purpose: `stack.ts` is ordinary Node and can be run or
- * debugged without a test runner in front of it.
+ * The only thing it adds to `stack.ts` is the cleanup path: a setup that fails
+ * half way has usually already created a database and started a process, and
+ * Playwright does not run `globalTeardown` when `globalSetup` throws. Without
+ * this, a broken migration would leave a scratch database and two listeners
+ * behind on every attempt to fix it.
  */
 export default async function globalSetup(): Promise<void> {
-  await startStack()
+  try {
+    await startStack()
+  } catch (error) {
+    await stopStack()
+    throw error
+  }
 }
