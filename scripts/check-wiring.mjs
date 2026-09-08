@@ -13,8 +13,15 @@
  *     route with no file, landing the user on the router's not-found screen.
  *
  * None of these is a type error. A string that names something absent looks
- * exactly like a string that names something present. This resolves the three
- * kinds of name against the filesystem.
+ * exactly like a string that names something present, so each kind of name is
+ * resolved here against the filesystem: edge-function slugs, navigation
+ * targets, the scripts CI invokes, the console's sidebar links, and the
+ * packages the mobile build configuration names.
+ *
+ * The last of those was added after `babel.config.js` spent the whole project
+ * naming a preset the app did not depend on. It resolved on every machine where
+ * pnpm happened to hoist it and failed on a clean CI install, five minutes into
+ * a Gradle build, as `Cannot find module`.
  *
  * Route matching is intentionally forgiving about *parameters* and strict
  * about *structure*: `/thread/${id}` matches `app/thread/[id].tsx` because a
@@ -279,6 +286,102 @@ for (const file of walk(workflowsDir, new Set(['.yml', '.yaml']))) {
     })
 }
 
+// ── 5. Every package the mobile config names is a declared dependency ───────
+
+// `babel.config.js` said `presets: ['babel-preset-expo']` while the app did not
+// depend on `babel-preset-expo`. It resolved anyway on any machine where pnpm
+// had hoisted it into `.pnpm/node_modules`, and did not on a clean CI install —
+// so the app bundled locally and failed in Gradle with `Cannot find module`,
+// after five minutes of compiling. `@expo/metro-runtime` was the same shape.
+//
+// A tool reads these files and requires what they name; npm and Yarn hide the
+// omission by hoisting, and pnpm surfaces it only sometimes. Naming a package
+// is depending on it, so this checks that the manifest says so.
+
+const MOBILE = path.join(root, 'apps', 'mobile')
+
+/** Bare specifiers inside a named array literal, e.g. `presets: [ … ]`. */
+function specifiersInArray(source, key) {
+  const start = new RegExp(`${key}\\s*:\\s*\\[`).exec(source)
+  if (!start) return []
+  const open = source.indexOf('[', start.index)
+  let depth = 0
+  let end = open
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === '[') depth++
+    else if (source[i] === ']') {
+      depth--
+      if (depth === 0) {
+        end = i
+        break
+      }
+    }
+  }
+  return [...source.slice(open, end).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1])
+}
+
+/** The package a specifier belongs to, or null when it is not one. */
+function packageOf(specifier) {
+  if (!specifier || specifier.startsWith('.') || specifier.startsWith('/')) return null
+  if (specifier.startsWith('node:') || !/^[@a-z]/.test(specifier)) return null
+  const parts = specifier.split('/')
+  const name = specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
+  // A plugin entry can be a bare word that is not a package at all.
+  return name && /^(@[\w.-]+\/)?[\w.-]+$/.test(name) ? name : null
+}
+
+let depRefs = 0
+if (existsSync(path.join(MOBILE, 'package.json'))) {
+  const manifest = JSON.parse(readFileSync(path.join(MOBILE, 'package.json'), 'utf8'))
+  const declared = new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.devDependencies ?? {}),
+  ])
+
+  /** Where a package name can appear, and how it is written there. */
+  const CONFIG_SOURCES = [
+    { file: 'babel.config.js', keys: ['presets', 'plugins'] },
+    { file: 'app.config.ts', keys: ['plugins'] },
+  ]
+
+  for (const source of CONFIG_SOURCES) {
+    const file = path.join(MOBILE, source.file)
+    if (!existsSync(file)) continue
+    const text = readFileSync(file, 'utf8')
+    for (const key of source.keys) {
+      for (const specifier of specifiersInArray(text, key)) {
+        const name = packageOf(specifier)
+        if (name === null) continue
+        depRefs++
+        if (!declared.has(name)) {
+          problems.push({
+            at: `apps/mobile/${source.file}`,
+            rule: `${key} names "${specifier}", but apps/mobile/package.json does not depend on "${name}". It may resolve here through pnpm's hoisted layer and not on a clean install.`,
+          })
+        }
+      }
+    }
+  }
+
+  // Config files loaded through `require`, which Metro and Jest do at startup.
+  for (const configFile of ['metro.config.js', 'jest.config.js']) {
+    const file = path.join(MOBILE, configFile)
+    if (!existsSync(file)) continue
+    const text = readFileSync(file, 'utf8')
+    for (const match of text.matchAll(/(?:require\(|preset:\s*)['"]([^'"]+)['"]/g)) {
+      const name = packageOf(match[1])
+      if (name === null) continue
+      depRefs++
+      if (!declared.has(name)) {
+        problems.push({
+          at: `apps/mobile/${configFile}`,
+          rule: `requires "${match[1]}", but apps/mobile/package.json does not depend on "${name}".`,
+        })
+      }
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 if (problems.length > 0) {
@@ -293,7 +396,8 @@ console.log(
   `Wiring check passed: ${slugRefs} edge-function reference(s) across ${functionSlugs.size} functions, ` +
     `${routeRefs} navigation target(s) across ${routes.length} routes, ` +
     `${ciRefs} script reference(s) in CI, ` +
-    `and ${navRefs} backoffice sidebar link(s), all resolve.` +
+    `${navRefs} backoffice sidebar link(s), ` +
+    `and ${depRefs} package(s) named by the mobile config, all resolve.` +
     (dynamicRefs > 0
       ? `\n${dynamicRefs} navigation call(s) take a computed target and cannot be resolved statically.`
       : ''),
