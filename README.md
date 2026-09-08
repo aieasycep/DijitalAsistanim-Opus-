@@ -150,6 +150,14 @@ most of this project's life every gate was green against an app that could not
 be bundled at all. `expo export` builds the whole graph in well under a minute
 and needs no Android SDK, no device and no Gradle.
 
+It is not the whole story either, and it is worth knowing where it stops.
+`expo export` resolves modules through whatever layout the current install
+happens to have, including packages pnpm hoisted rather than linked — so a
+package named in `babel.config.js` but missing from the manifest bundles here
+and fails inside Gradle, which resolves differently. That was tested by hiding
+the link and watching the export succeed anyway. It is why `verify:wiring`
+checks declarations statically rather than trusting a successful bundle.
+
 ---
 
 ## Documentation
