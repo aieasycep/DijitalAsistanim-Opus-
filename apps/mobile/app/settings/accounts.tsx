@@ -13,13 +13,13 @@ import { Card } from '../../src/components/ui/Card'
 import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
 import { Sheet } from '../../src/components/ui/Sheet'
-import { EmptyState, SkeletonCard } from '../../src/components/ui/States'
+import { EmptyState, ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { Text } from '../../src/components/ui/Text'
 import { useAccounts } from '../../src/hooks/queries'
 import { useConnectAccount } from '../../src/hooks/useConnectAccount'
 import { useEntitlements } from '../../src/hooks/useEntitlements'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
-import { errorMessageKey, errorValues } from '../../src/lib/query-client'
+import { errorMessageKey, errorValues, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 import { useTheme } from '../../src/theme/ThemeProvider'
 
@@ -114,8 +114,20 @@ export default function AccountsSettingsScreen() {
       />
 
       <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+        {/* An unreadable list and an empty one are different sentences. This
+            used to render the "connect your first account" empty state for a
+            failed query, telling a user with three mailboxes connected that
+            they had none — and offering them the add button as the fix. */}
         {query.isLoading && accounts.length === 0 ? (
           <SkeletonCard />
+        ) : query.isError && accounts.length === 0 ? (
+          <ErrorState
+            message={t(errorMessageKey(query.error), errorValues(query.error))}
+            {...(isRetryable(query.error)
+              ? { retryLabel: t('common.action.retry'), onRetry: () => void query.refetch() }
+              : {})}
+            testID="accounts-error"
+          />
         ) : accounts.length === 0 ? (
           <EmptyState
             icon="link-off"

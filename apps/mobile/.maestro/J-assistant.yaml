@@ -1,4 +1,4 @@
-# Flow J — ask the assistant, and see a write come back as a proposal.
+# Flow J — ask the assistant, and reach the same ground through search.
 #
 # The assistant answers from the person's own data and cites what it used. When
 # a question implies a write, the answer must arrive as something to approve —
@@ -13,7 +13,7 @@ tags:
 - assertVisible:
     id: 'assistant-input'
 
-# A starter question.
+# A starter question answers, and the composer survives it.
 - tapOn:
     id: 'assistant-suggestion-.*'
 - assertVisible:
@@ -26,8 +26,10 @@ tags:
 - hideKeyboard
 - tapOn:
     id: 'assistant-send'
+- assertVisible:
+    id: 'assistant-input'
 
-# Search covers the same ground from the other direction.
+# Search covers the same ground from the other direction, and its hits open.
 - tapOn: 'Bugün'
 - tapOn:
     id: 'today-search'
@@ -35,7 +37,19 @@ tags:
     id: 'search-input'
 - inputText: 'teklif'
 - hideKeyboard
-- tapOn:
-    id: 'search-scope-.*'
 - assertVisible:
-    id: 'search-input'
+    id: 'search-hit-.*'
+- tapOn:
+    id: 'search-scope-email'
+- assertVisible:
+    id: 'search-hit-.*'
+- tapOn:
+    id: 'search-hit-.*'
+- scrollUntilVisible:
+    element:
+      id: 'thread-reply'
+    direction: DOWN
+- assertVisible:
+    id: 'thread-reply'
+- tapOn:
+    id: 'screen-header-back'

@@ -72,15 +72,20 @@ export function EmailCard({
     low: t('common.importance.low'),
   }
 
+  /**
+   * The unread dot is a 7pt circle and nothing else — the one piece of state on
+   * this card that a screen reader could not otherwise get at, so it is spoken
+   * here, right after the sender, before the summary that follows it.
+   */
+  const label = [
+    senderName,
+    ...(thread.isRead ? [] : [t('a11y.state.unread')]),
+    thread.summary ?? thread.subject,
+    importanceLabel[thread.importance],
+  ].join('. ')
+
   return (
-    <Card
-      onPress={onPress}
-      accessibilityLabel={`${senderName}. ${thread.summary ?? thread.subject}. ${
-        importanceLabel[thread.importance]
-      }`}
-      testID={testID}
-      style={{ gap: spacing.xs }}
-    >
+    <Card onPress={onPress} accessibilityLabel={label} testID={testID} style={{ gap: spacing.xs }}>
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <Avatar name={senderName} size={36} isVip={isVip} />
 

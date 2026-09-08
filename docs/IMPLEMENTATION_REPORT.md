@@ -6,20 +6,26 @@ What was built, where it lives, and what it does not do.
 
 ## By the numbers
 
-|                            |                                                         |
-| -------------------------- | ------------------------------------------------------- |
-| Mobile routes              | 68                                                      |
-| Shared components          | 31                                                      |
-| Hooks                      | 12                                                      |
-| Message keys               | 2,014 per locale, Turkish and English at exact parity   |
-| Database tables            | 38, RLS enabled **and** forced on every one             |
-| Migrations                 | 16, re-runnable, verified against real PostgreSQL in CI |
-| Edge functions             | 47                                                      |
-| Website routes             | 17                                                      |
-| Unit and integration tests | 389                                                     |
-| Component tests            | 45                                                      |
-| End-to-end flows           | 12 (A–L)                                                |
-| Automated guards           | 5                                                       |
+Every figure below is a count you can reproduce; the command is given where it
+is not obvious.
+
+|                            |                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| Mobile routes              | 51, plus 17 `_layout.tsx` files — 68 `.tsx` under `apps/mobile/app`                        |
+| Shared components          | 28 under `apps/mobile/src/components`                                                      |
+| Hook modules               | 12 in `apps/mobile/src/hooks`, exporting 44 `use*` functions                               |
+| Message keys               | 2,014 per locale, Turkish and English at exact parity                                      |
+| Database tables            | 39, RLS enabled **and** forced on every one                                                |
+| Postgres enums             | 30                                                                                         |
+| Migrations                 | 18, re-runnable, verified against real PostgreSQL in CI                                    |
+| Edge functions             | 48 (`ls supabase/functions \| grep -v _shared \| grep -v deno \| wc -l`)                   |
+| Backoffice views           | 16 `bo_*`, service-role only, none reading a content column                                |
+| Website routes             | 10 pages plus `not-found`, `robots`, `sitemap`, an OG image and two `.well-known` handlers |
+| Backoffice routes          | 3 (`/`, `/giris`, `/yetkisiz`)                                                             |
+| Unit and integration tests | 389 across 13 files                                                                        |
+| Component tests            | 55 across 4 files                                                                          |
+| End-to-end flows           | 12 (A–L), none executed in this environment                                                |
+| Automated guards           | 6 — five in `pnpm verify` and CI, plus `scripts/check-wiring.mjs`, which is in neither     |
 
 ---
 
@@ -36,7 +42,7 @@ What was built, where it lives, and what it does not do.
 | Flow: prioritised threads               | ✅    | `app/(tabs)/flow.tsx`                                       |
 | Thread detail and summary               | ✅    | `app/thread/[id].tsx`                                       |
 | Reply draft, tone, regenerate           | ✅    | `reply-draft`, `app/reply/[threadId].tsx`                   |
-| Commitments, both directions            | ✅    | `commitments`, `app/commitment/*`                           |
+| Commitments, both directions            | ✅    | `commitment-create`, `app/commitment/*`                     |
 | Follow-ups with nudges                  | ✅    | `detect-followups`, `app/followups/index.tsx`               |
 | Plan: day and week                      | ✅    | `plan-day`, `plan-week`, `app/(tabs)/plan.tsx`              |
 | Conflict detection                      | ✅    | `packages/domain/src/calendar-intelligence.ts`              |
@@ -47,7 +53,7 @@ What was built, where it lives, and what it does not do.
 | Assistant                               | ✅    | `assistant-ask`, `app/(tabs)/assistant.tsx`                 |
 | Voice input                             | ✅    | `transcribe`, `app/voice.tsx`                               |
 | Search                                  | ✅    | `search`, `app/search.tsx`                                  |
-| Reminders with quiet hours              | ✅    | `packages/domain/src/reminders.ts`                          |
+| Reminders with quiet hours              | ✅    | `reminder-create`, `packages/domain/src/reminders.ts`       |
 
 ### The approval contract
 
@@ -74,21 +80,23 @@ What was built, where it lives, and what it does not do.
 
 ### Privacy and security
 
-|                                                    | Built | Where                                            |
-| -------------------------------------------------- | ----- | ------------------------------------------------ |
-| Refresh tokens AES-256-GCM, never sent to a client | ✅    | `supabase/functions/_shared/crypto.ts`           |
-| Key rotation without downtime                      | ✅    | Per-row `key_version`                            |
-| RLS enabled and forced everywhere                  | ✅    | Verified in CI                                   |
-| Analytics carries no content, name or address      | ✅    | Type + runtime guard, event dropped on violation |
-| SSRF-safe URL fetcher                              | ✅    | `packages/validation/src/ssrf.ts`, 70 tests      |
-| Android OTP notifications never persisted          | ✅    | `modules/da-native` filter                       |
-| Notification content needs a second opt-in         | ✅    | `device-notifications`                           |
-| Data export                                        | ✅    | `data-export-request`, JSON + files              |
-| Delete history                                     | ✅    | `delete-history`                                 |
-| Delete account                                     | ✅    | `delete-account`, cascading, tokens revoked      |
-| Retention, user-chosen                             | ✅    | `retention-cleanup`, nightly                     |
-| Audit log of everything done on the user's behalf  | ✅    | `audit_logs`                                     |
-| No end-to-end-encryption claim                     | ✅    | Two automated checks                             |
+|                                                    | Built | Where                                               |
+| -------------------------------------------------- | ----- | --------------------------------------------------- |
+| Refresh tokens AES-256-GCM, never sent to a client | ✅    | `supabase/functions/_shared/crypto.ts`              |
+| Key rotation without downtime                      | ✅    | Per-row `key_version` and `refresh_key_version`     |
+| RLS enabled and forced everywhere                  | ✅    | Verified in CI on all 39 tables                     |
+| Provider data unwritable by any client             | ✅    | `0011_rls_policies.sql` tiers 2 and 3               |
+| Support tooling cannot see message content         | ✅    | 16 `bo_*` views, column dependencies asserted in CI |
+| Analytics carries no content, name or address      | ✅    | Type + runtime guard, event dropped on violation    |
+| SSRF-safe URL fetcher                              | ✅    | `packages/validation/src/ssrf.ts`, 70 tests         |
+| Android OTP notifications never persisted          | ✅    | `modules/da-native` filter                          |
+| Notification content needs a second opt-in         | ✅    | `device-notifications`                              |
+| Data export                                        | ✅    | `data-export-request`, JSON + files                 |
+| Delete history                                     | ✅    | `delete-history`                                    |
+| Delete account                                     | ✅    | `delete-account`, cascading, tokens revoked         |
+| Retention, user-chosen                             | ✅    | `retention-cleanup`, nightly                        |
+| Audit log of everything done on the user's behalf  | ✅    | `audit_logs`                                        |
+| No end-to-end-encryption claim                     | ✅    | Two automated checks                                |
 
 ### Platform and native
 
@@ -153,8 +161,9 @@ get it.
 
 ## Defects found and fixed while testing
 
-Writing the tests found four real bugs, all in code that had been written
-earlier in this session:
+### Found by writing tests
+
+Four real bugs, all in code that had been written earlier in this session:
 
 1. **SSRF bypass** — `new URL()` canonicalises `[::ffff:169.254.169.254]` to
    `[::ffff:a9fe:a9fe]`, so the dotted-quad IPv4-mapped check never fired and
@@ -169,6 +178,30 @@ earlier in this session:
    `apple-app-site-association` claimed paths the app cannot handle, so tapping
    "Privacy Policy" in a browser would have opened the app.
 
+### Found by resolving names against the filesystem
+
+Three more, none of which is a type error, which is why
+`scripts/check-wiring.mjs` now exists:
+
+5. **No background work ran at all.** Five scheduled jobs POSTed to edge-function
+   slugs that had never been written (`briefing-dispatch`, `follow-up-detect`,
+   …). No briefing, no reminder, no push, on a database that migrated cleanly.
+   `0014_cron_jobs.sql` now names the six functions that exist.
+6. **The API client called `reminder-create`,** which did not exist.
+7. **The Today screen's largest tap target pushed `/briefing/morning`,** a route
+   with no file, landing the user on the router's not-found screen.
+
+### Found by checking the documentation against the code
+
+The documents themselves carried false statements, including two in the file
+prepared for the Google restricted-scope assessment. They are listed with their
+corrections in the git history of this directory; the substantive ones were the
+claim that clients "cannot write at all" (they may write 14 tables), a
+scheduled-jobs table matching nothing in the migration, two named edge functions
+that have never existed (`oauth-google-callback`, `oauth-microsoft-callback`),
+five Postgres enums that do not exist, and a claim of PKCE S256 in a flow that
+sends no `code_challenge`.
+
 ---
 
 ## Honest limitations
@@ -179,10 +212,22 @@ earlier in this session:
 - Store purchases are exercised through webhook payloads; a sandbox purchase is
   a manual pre-release step.
 - Push payload construction is tested; delivery through APNs and FCM is not.
-- The Maestro suite has not been executed on a physical device in this
-  environment — there is no simulator here. `verify:e2e-ids` proves every
-  element the flows reach for exists; running them is the first step on a
-  machine with a device attached.
+- The Maestro suite has not been executed on a physical device or emulator in
+  this environment — there is no simulator here. `verify:e2e-ids` is a static
+  string check: it proves no flow names a testID that appears nowhere in the
+  source. It proves nothing about whether the app launches, whether a screen
+  reaches the state a flow expects, or whether any flow passes. Running
+  `maestro test .maestro` on a machine with a device attached is the first step.
+- **Microsoft Graph change subscriptions are not wired up.**
+  `createSubscription` and `renewSubscription` exist in
+  `_shared/providers/microsoft.ts` with no caller, and no cron job renews them.
+  `webhook-microsoft` will accept and verify a notification if a subscription is
+  created out of band, but nothing creates one. Outlook accounts stay current
+  through the 15-minute incremental sync.
+- **`scripts/check-wiring.mjs` is not in `pnpm verify` or in CI.** It passes
+  today; nothing stops the next dangling name from landing.
+- **`apps/backoffice` is outside two guards.** `check-no-dead-code.mjs` does not
+  scan it, and it has no component tests.
 
 Platform constraints, as opposed to gaps, are in
 [KNOWN_PLATFORM_LIMITATIONS.md](KNOWN_PLATFORM_LIMITATIONS.md).

@@ -66,8 +66,15 @@ class DaWidgetProvider : AppWidgetProvider() {
         return try { JSONObject(raw) } catch (e: Exception) { null }
     }
 
+    /**
+     * The scheme comes from a resource the app's config plugin writes from
+     * `APP_SCHEME`, the same value the iOS widget is generated with. Hard-coding
+     * it here would send a fork's or a staging build's widget taps to whichever
+     * app happens to own `dijitalasistan://` on the device.
+     */
     private fun deepLinkIntent(context: Context, path: String): PendingIntent {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("dijitalasistan://$path")).apply {
+        val scheme = context.getString(R.string.da_widget_scheme)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://$path")).apply {
             setPackage(context.packageName)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }

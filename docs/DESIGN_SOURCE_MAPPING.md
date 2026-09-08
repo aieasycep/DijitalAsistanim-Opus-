@@ -21,41 +21,44 @@ The hierarchy, where the three disagree:
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Palette: indigo primary, warm neutral ground, dawn gradient | `packages/design-tokens/src/palette.ts`                                                                |
 | Type scale and the editorial serif for briefings            | `packages/design-tokens/src/typography.ts`                                                             |
-| Spacing scale, corner radii, elevation                      | `packages/design-tokens/src/spacing.ts`                                                                |
+| Spacing scale, corner radii, elevation, motion              | `packages/design-tokens/src/layout.ts` — `spacing`, `radius`, `elevation`, `minTouchTarget`, `motion`  |
 | Light and dark themes, derived rather than hand-listed      | `packages/design-tokens/src/theme.ts`                                                                  |
 | The dashed "proposed" card border                           | `Card` `proposed` prop                                                                                 |
 | The sunrise mark                                            | `scripts/generate-brand-assets.mjs` — drawn from the tokens, so the icon cannot drift from the palette |
 
-Colours are tokens, never literals. A hex value in a component is a lint
-error, which is what keeps dark mode from rotting.
+Colours are tokens, never literals — but that is a convention held by review,
+not by a rule. `eslint.config.mjs` bans `any`, `console.log` and a bare
+`new Date()`; it has **no** rule against a hex literal in a component, and this
+document previously claimed it did. If dark mode is to stay honest, adding that
+rule is the way to make it stay honest by itself.
 
 ## Screen coverage
 
-| Design source screen      | Route                                              |
-| ------------------------- | -------------------------------------------------- |
-| Splash / sign-in          | `app/(auth)/index.tsx`                             |
-| Email sign-in, code       | `app/(auth)/email.tsx`, `verify.tsx`               |
-| Onboarding, six steps     | `app/(onboarding)/*`                               |
-| Today                     | `app/(tabs)/today.tsx`                             |
-| Briefing, full            | `app/briefing/index.tsx`                           |
-| Flow (thread list)        | `app/(tabs)/flow.tsx`                              |
-| Thread detail             | `app/thread/[id].tsx`                              |
-| Reply composer            | `app/reply/[threadId].tsx`                         |
-| Plan, day and week        | `app/(tabs)/plan.tsx`                              |
-| Conflicts                 | `app/plan/conflicts.tsx`                           |
-| Assistant                 | `app/(tabs)/assistant.tsx`                         |
-| Voice                     | `app/voice.tsx`                                    |
-| Approvals list and detail | `app/approvals/index.tsx`, `app/approval/[id].tsx` |
-| Commitments               | `app/commitment/{index,[id],new}.tsx`              |
-| Follow-ups                | `app/followups/index.tsx`                          |
-| Person                    | `app/person/[id].tsx`                              |
-| Meeting prep and notes    | `app/meeting/[id]/{index,note}.tsx`                |
-| Event detail              | `app/event/[id].tsx`                               |
-| Capture                   | `app/capture.tsx`                                  |
-| Search                    | `app/search.tsx`                                   |
-| Paywall                   | `app/paywall.tsx`                                  |
-| Referral                  | `app/referral.tsx`                                 |
-| Settings, sixteen screens | `app/settings/*`                                   |
+| Design source screen      | Route                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Splash / sign-in          | `app/(auth)/index.tsx`                                                                                                             |
+| Email sign-in, code       | `app/(auth)/email.tsx`, `verify.tsx`                                                                                               |
+| Onboarding, seven steps   | `app/(onboarding)/*` — `ONBOARDING_STEPS` is `connect`, `permissions`, `personalization`, `vip`, `preferences`, `analysis`, `done` |
+| Today                     | `app/(tabs)/today.tsx`                                                                                                             |
+| Briefing, full            | `app/briefing/index.tsx`                                                                                                           |
+| Flow (thread list)        | `app/(tabs)/flow.tsx`                                                                                                              |
+| Thread detail             | `app/thread/[id].tsx`                                                                                                              |
+| Reply composer            | `app/reply/[threadId].tsx`                                                                                                         |
+| Plan, day and week        | `app/(tabs)/plan.tsx`                                                                                                              |
+| Conflicts                 | `app/plan/conflicts.tsx`                                                                                                           |
+| Assistant                 | `app/(tabs)/assistant.tsx`                                                                                                         |
+| Voice                     | `app/voice.tsx`                                                                                                                    |
+| Approvals list and detail | `app/approvals/index.tsx`, `app/approval/[id].tsx`                                                                                 |
+| Commitments               | `app/commitment/{index,[id],new}.tsx`                                                                                              |
+| Follow-ups                | `app/followups/index.tsx`                                                                                                          |
+| Person                    | `app/person/[id].tsx`                                                                                                              |
+| Meeting prep and notes    | `app/meeting/[id]/{index,note}.tsx`                                                                                                |
+| Event detail              | `app/event/[id].tsx`                                                                                                               |
+| Capture                   | `app/capture.tsx`                                                                                                                  |
+| Search                    | `app/search.tsx`                                                                                                                   |
+| Paywall                   | `app/paywall.tsx`                                                                                                                  |
+| Referral                  | `app/referral.tsx`                                                                                                                 |
+| Settings, fifteen screens | `app/settings/*` (sixteen files — one is `_layout.tsx`)                                                                            |
 
 ## Where the implementation deliberately diverges
 
@@ -88,11 +91,18 @@ Turkish-canonical: English mirrors it key for key. Layouts are built for
 Turkish string lengths, which are longer, rather than for English ones that
 then overflow.
 
-## The two applications share tokens, not components
+## Three applications, one token vocabulary — but not one import
 
-The marketing site and the app render from the same
-`packages/design-tokens` — the same palette, the same type scale, the same
-spacing — but they do not share components. React Native primitives and DOM
-elements have different enough constraints that a shared abstraction over both
-ends up serving neither well. The tokens are what keeps the two looking like
-one product.
+The mobile app and the staff backoffice both depend on `@da/design-tokens`; the
+backoffice lists it in `package.json` and transpiles it through
+`next.config.mjs`. The marketing site does **not**: `apps/web` depends only on
+`next`, `react` and `react-dom`, and its `globals.css` restates the same values
+as CSS custom properties, with a comment saying so.
+
+That is worth stating plainly rather than claiming all three "render from the
+same package", because it means the site's copy of the palette can drift and
+nothing will fail the build. If the two ever disagree, the package is canonical.
+
+None of the three shares components. React Native primitives and DOM elements
+have different enough constraints that a shared abstraction over both ends up
+serving neither well.

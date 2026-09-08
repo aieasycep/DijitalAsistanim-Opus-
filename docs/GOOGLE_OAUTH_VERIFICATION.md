@@ -42,18 +42,37 @@ approval card.
 
 ## What the assessment covers
 
-| Area              | Our answer                                                                                                                                             |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Data in transit   | TLS 1.3 everywhere. No plaintext endpoint exists.                                                                                                      |
-| Data at rest      | AES-256 at the database and object-store level. Refresh tokens additionally AES-256-GCM with a key held as an environment secret, not in the database. |
-| Access control    | RLS enabled _and_ forced on all 38 tables, verified in CI on every push. Client credentials can read only their own rows and cannot write at all.      |
-| Key management    | `OAUTH_ENCRYPTION_KEY` as a function secret; per-row `key_version` supports rotation without downtime; every decryption is audited.                    |
-| Deletion          | Self-service in the app. Cascades every table, revokes provider tokens with Google, deletes stored files, irreversible after 30 days.                  |
-| Retention         | User-chosen, 30 days to indefinite, default 90. Enforced by a scheduled sweep, not by policy alone.                                                    |
-| Incident response | Documented, with a named owner and a 72-hour notification commitment.                                                                                  |
-| Third parties     | Model providers under agreements forbidding training on the data; they receive an opaque id, never a user identity.                                    |
-| Employee access   | Production access is break-glass, audited, and requires a second approver.                                                                             |
-| Pen test          | Annual third-party test; report available to the assessor.                                                                                             |
+Two notes before the table. Everything in it that can be checked against this
+repository is written to be checked; the rows that describe organisational
+process (incident response, employee access, pen test) are commitments about
+how the company operates and are not evidenced by code.
+
+| Area              | Our answer                                                                                                                                                                                                                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Data in transit   | TLS everywhere; no plaintext endpoint exists. The exact TLS version is the hosting platform's, not something this codebase configures.                                                                                                                                                                                                     |
+| Data at rest      | AES-256 at the database and object-store level. Provider refresh **and** access tokens additionally AES-256-GCM with a key held as an environment secret, not in the database.                                                                                                                                                             |
+| Access control    | RLS enabled _and_ forced on all 39 tables, verified in CI on every push. See the row below — the honest statement is more specific than "clients cannot write".                                                                                                                                                                            |
+| Client writes     | Clients write only their own rows in the 14 user-authored tables. The 18 tables holding assistant output, synced provider data and entitlements are `select`-only to a client; 7 more are service-role only. Nothing a client can write is provider data or an entitlement.                                                                |
+| Provider data     | `email_threads`, `email_messages`, `calendar_events` and `tasks` are readable by their owner and writable by no client role at all. Only an edge function running with the service role writes them.                                                                                                                                       |
+| Key management    | `OAUTH_ENCRYPTION_KEY` as a function secret; `key_version` and `refresh_key_version` per row support rotation without downtime. Every refresh-token decryption writes an `account.token_decrypted` audit row naming the account, provider and key version. Rotation is lazy: both keys stay configured until no row names the old version. |
+| Deletion          | Self-service in the app, and **immediate**. Provider tokens are revoked with Google first, then Storage objects are deleted, then the auth user — whose cascade clears every table. Irreversible from that moment; there is no recovery window.                                                                                            |
+| Retention         | User-chosen: 30 days, 90 days, 1 year, or until deleted. Default 90. Enforced by the daily `da_retention_cleanup` job, not by policy alone.                                                                                                                                                                                                |
+| Human access      | Support tooling reads 16 `bo_*` views granted to `service_role` only. No view selects a column that can carry message content; addresses appear only through `bo_redact_email()`. `validate-supabase.mjs` re-derives every view's column dependencies from `pg_depend` and fails the build if one reaches a content column.                |
+| Incident response | Documented, with a named owner and a 72-hour notification commitment. _(Process commitment; not evidenced in this repository.)_                                                                                                                                                                                                            |
+| Third parties     | Model providers under agreements forbidding training on the data; they receive an opaque id, never a user identity. _(Contractual; the code sends no user identity.)_                                                                                                                                                                      |
+| Employee access   | Production access is break-glass, audited, and requires a second approver. _(Process commitment.)_                                                                                                                                                                                                                                         |
+| Pen test          | Annual third-party test; report available to the assessor. _(Process commitment.)_                                                                                                                                                                                                                                                         |
+
+### On the authorization-code flow
+
+The flow does **not** use PKCE, and does not need to. The code is exchanged
+server-side by an edge function holding the client secret — a confidential
+client under RFC 6749 — so client authentication, not a proof key, is what binds
+the exchange. What protects the round trip is a 32-byte random `state` stored
+server-side and redeemed exactly once by an atomic `delete … returning`, a
+10-minute expiry, and a check that the state's user matches the caller's
+verified JWT. Full detail in
+[SECURITY.md](SECURITY.md#provider-oauth-what-actually-protects-the-authorization-code).
 
 ---
 
@@ -67,13 +86,23 @@ Google's Limited Use requirements, and how each is met:
    analysis, under contract, with no user identity attached.
 3. **No advertising.** There is no advertising SDK in the build, and no
    advertising business.
-4. **No human reading.** Nobody reads user mail. Support cannot see message
-   content; the support tooling exposes counts and error codes only.
+4. **No human reading,** except the narrow cases Google's own wording allows —
+   the user's explicit permission, a legal obligation, security investigation,
+   or aggregated anonymised data. Routine support access is closed by
+   construction, not by policy: the staff console reads only the 16 `bo_*`
+   views, none of which selects a message body, subject, summary, address,
+   attendee, capture text, assistant turn or approval payload. Addresses reach
+   an operator only through `bo_redact_email()` (`y•••@example.com`) and
+   provider errors only through `bo_error_code()`, which reduces anything
+   sentence-shaped to the literal `unstructured`. `0017_backoffice.sql` names
+   every excluded column, and `validate-supabase.mjs` re-derives the views'
+   column dependencies from `pg_depend` on every push. A reviewer can confirm
+   this by reading one migration.
 5. **No training on user data.** Neither we nor our model providers train on
    it; the provider agreements say so explicitly.
 
-The privacy policy states all five, in the same words, at
-`https://dijitalasistan.app/privacy`.
+The privacy policy states all five at `https://dijitalasistan.app/privacy`,
+section 4 (_Google izinleri ve Sınırlı Kullanım_).
 
 ---
 

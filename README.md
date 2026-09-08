@@ -44,13 +44,16 @@ without a person pressing approve.
 ```
 apps/
   mobile/            Expo SDK 57 · React Native 0.86 · Expo Router
-    app/             68 routes: tabs, details, settings, onboarding
+    app/             68 .tsx files: 51 routes and 17 layouts —
+                     tabs, details, settings, onboarding
     modules/da-native/  Local Expo module — Android widget, notification
                      listener, share intake; iOS widget + share bridges
-    plugins/         Config plugins: iOS share extension and widget,
-                     Android manifest entries
+    plugins/         Four config plugins: iOS share extension and widget,
+                     Android widget and notification listener
     .maestro/        End-to-end flows A–L
   web/               Next.js 16 marketing site, legal pages, deep links
+  backoffice/        Next.js 16 staff console. Reads the database only
+                     through the content-blind bo_* views
 
 packages/
   design-tokens/     Palette, type scale, spacing, light and dark themes
@@ -58,12 +61,13 @@ packages/
                      calendar intelligence, retention, entitlements, clock
   validation/        Zod schemas for the API and for every model response,
                      plus the SSRF guard
-  i18n/              Turkish (canonical) and English catalogues, 2000+ keys
+  i18n/              Turkish (canonical) and English catalogues, 2,014 keys
+                     per locale
   api-client/        Typed endpoint layer, query keys, demo-mode client
 
 supabase/
-  migrations/        16 migrations · 38 tables · RLS enabled and forced
-  functions/         49 Deno edge functions
+  migrations/        18 migrations · 39 tables · RLS enabled and forced
+  functions/         48 Deno edge functions
   tests/             Tests for the shared function helpers
 
 scripts/             Verifiers that run in CI and in `pnpm verify`
@@ -81,9 +85,10 @@ which is why relative imports carry explicit `.ts` extensions.
 
 ```bash
 pnpm install
-pnpm verify        # everything below, in one command
+pnpm verify              # everything below, in one command
 pnpm --filter @da/mobile start
 pnpm --filter @da/web dev
+pnpm run dev:backoffice  # staff console, port 3100 — needs a Supabase project
 ```
 
 **Nothing external is required to run it.** With no Supabase project
@@ -104,21 +109,35 @@ pnpm verify
 
 runs, in order:
 
-| Gate                  | What it protects                                                                                                                       |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `format:check`        | Prettier                                                                                                                               |
-| `lint`                | ESLint 9, flat config; bans `any`, `console.log`, bare `new Date()`                                                                    |
-| `typecheck`           | `tsc --noEmit` across every workspace package                                                                                          |
-| `test`                | Vitest: domain, validation, i18n, edge-function helpers                                                                                |
-| `test:mobile`         | Jest + Testing Library: React Native components                                                                                        |
-| `verify:supabase`     | Applies every migration to a real Postgres, twice; checks enums against their TypeScript unions; asserts RLS is enabled **and** forced |
-| `verify:i18n`         | Locale parity, placeholder parity, no unfinished copy, no end-to-end-encryption claim                                                  |
-| `verify:e2e-ids`      | Every element the Maestro flows reach for is one the app renders                                                                       |
-| `verify:no-dead-code` | No TODO/FIXME, no control that looks pressable and is not, no stray debug output                                                       |
-| `verify:secrets`      | No committed credential, no server secret referenced from a client bundle                                                              |
+| Gate                  | What it protects                                                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `format:check`        | Prettier                                                                                                                                                                             |
+| `lint`                | ESLint 9, flat config; bans `any`, `console.log`, bare `new Date()`                                                                                                                  |
+| `typecheck`           | `tsc --noEmit` across every workspace package                                                                                                                                        |
+| `test`                | Vitest, 389 tests: domain, validation, i18n, edge-function helpers                                                                                                                   |
+| `test:mobile`         | Jest + Testing Library, 55 tests across 4 suites: React Native components                                                                                                            |
+| `verify:supabase`     | Applies every migration to a real Postgres, twice; checks enums against their TypeScript unions; asserts RLS is enabled **and** forced; proves no `bo_*` view reads a content column |
+| `verify:i18n`         | Locale parity, placeholder parity, no unfinished copy, no end-to-end-encryption claim                                                                                                |
+| `verify:e2e-ids`      | Every testID a Maestro flow reaches for exists in the source. It does **not** run a flow — see [TESTING.md](docs/TESTING.md#what-the-gates-do-and-do-not-prove)                      |
+| `verify:no-dead-code` | No TODO/FIXME, no control that looks pressable and is not, no stray debug output                                                                                                     |
+| `verify:secrets`      | No committed credential, no server secret referenced from a client bundle                                                                                                            |
 
 `verify:supabase` skips with a message if no PostgreSQL is reachable, so a
 contributor without a database can still run the whole loop.
+
+One more verifier exists and is **not** yet in `pnpm verify` or in CI. Run it by
+hand:
+
+```bash
+node scripts/check-wiring.mjs
+```
+
+It resolves names against the filesystem: every edge-function slug a cron job,
+the API client or the app reaches for has a `supabase/functions/<slug>/index.ts`,
+and every literal `router.push`/`replace`/`navigate` target matches a route file
+under `apps/mobile/app`. Neither is a type error — a string naming something
+absent type-checks exactly like a string naming something present — and both
+have shipped past every other gate here before.
 
 ---
 
@@ -127,7 +146,7 @@ contributor without a database can still run the whole loop.
 | Document                                                            |                                                                   |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | How the pieces fit, and why                                       |
-| [DATA_MODEL.md](docs/DATA_MODEL.md)                                 | 38 tables, their relationships, and the RLS model                 |
+| [DATA_MODEL.md](docs/DATA_MODEL.md)                                 | 39 tables, their relationships, and the RLS model                 |
 | [AI_PIPELINE.md](docs/AI_PIPELINE.md)                               | Three-stage triage, grounding, and what stops a hallucinated date |
 | [SECURITY.md](docs/SECURITY.md)                                     | Token encryption, key rotation, RLS, SSRF, threat model           |
 | [PRIVACY_DATA_FLOW.md](docs/PRIVACY_DATA_FLOW.md)                   | What is collected, where it goes, how long it stays               |

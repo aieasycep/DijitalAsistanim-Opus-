@@ -1,4 +1,4 @@
-import { radius, spacing } from '@da/design-tokens'
+import { minTouchTarget, radius, spacing } from '@da/design-tokens'
 import type { SourceRef } from '@da/domain'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -50,6 +50,9 @@ export default function AssistantScreen() {
   const [input, setInput] = useState('')
 
   const { messages, ask, isAsking, error, reset } = useAssistant()
+
+  /** Exactly the condition `submit` acts on, so the button cannot disagree. */
+  const canSend = input.trim().length > 0 && !isAsking
 
   // A deep link can arrive with a question already chosen (a push, a widget).
   useEffect(() => {
@@ -277,18 +280,32 @@ export default function AssistantScreen() {
             onSubmitEditing={() => void submit(input)}
             testID="assistant-input"
           />
-          <IconButton
+          {/* Send is inert with an empty box or a question already in flight.
+              It used to say so in icon colour alone, which a screen reader
+              cannot see: it announced a working button and then did nothing.
+              The state is now on the control itself. */}
+          <Pressable
             onPress={() => void submit(input)}
+            disabled={!canSend}
             accessibilityLabel={t('assistant.send')}
-            tone="primary"
+            accessibilityState={{ disabled: !canSend, busy: isAsking }}
             testID="assistant-send"
+            style={{
+              width: minTouchTarget,
+              height: minTouchTarget,
+              borderRadius: radius.full,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.colors.primarySoft,
+            }}
+            pressedStyle={{ backgroundColor: theme.colors.surface2 }}
           >
             <MaterialIcons
               name="arrow-upward"
               size={20}
-              color={input.trim() ? theme.colors.primaryOnSoft : theme.colors.textDisabled}
+              color={canSend ? theme.colors.primaryOnSoft : theme.colors.textDisabled}
             />
-          </IconButton>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </Screen>

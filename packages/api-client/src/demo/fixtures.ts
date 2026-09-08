@@ -1,6 +1,5 @@
 import {
   APPROVAL_TTL_MS,
-  DAY_MS,
   DEFAULT_TIME_ZONE,
   HOUR_MS,
   MINUTE_MS,
@@ -113,6 +112,59 @@ export function createDemoStore(clock: Clock): DemoStore {
       addLocalDays(midnight, days, timeZone).getTime() + hour * HOUR_MS + minute * MINUTE_MS,
     ).toISOString()
 
+  /**
+   * The day's meetings, anchored to the clock rather than to a wall-clock hour.
+   *
+   * `at(0, 14)` reads well at nine in the morning and leaves Today's schedule
+   * section empty from three in the afternoon on — which is exactly when a
+   * reviewer, a screenshot run or an end-to-end flow tends to open the app.
+   * Offsets here are minutes from now, so there is always something still
+   * ahead; and when less of the local day is left than the schedule spans, the
+   * whole shape is compressed into what remains rather than spilling past
+   * midnight and out of "today" altogether.
+   */
+  const SCHEDULE_SPAN_MINUTES = 210
+  const GRID_MS = 5 * MINUTE_MS
+  const msLeftToday = Math.max(
+    addLocalDays(midnight, 1, timeZone).getTime() - now.getTime(),
+    MINUTE_MS,
+  )
+  const scheduleScale = Math.min(1, msLeftToday / ((SCHEDULE_SPAN_MINUTES + 6) * MINUTE_MS))
+
+  /** A meeting instant, `minutes` of the demo schedule from now. */
+  const soon = (minutes: number): IsoInstant => {
+    const target = now.getTime() + minutes * scheduleScale * MINUTE_MS
+    // Rounded up onto a five-minute grid so the times read like real ones —
+    // but only while the day has room for the full span, because rounding a
+    // compressed late-evening schedule would collapse the meetings into one
+    // another and lose the overlap the plan is supposed to find.
+    return new Date(
+      scheduleScale === 1 ? Math.ceil(target / GRID_MS) * GRID_MS : target,
+    ).toISOString()
+  }
+
+  /** An unscaled instant either side of now, for "last run"-style timestamps. */
+  const relative = (minutes: number): IsoInstant =>
+    new Date(now.getTime() + minutes * MINUTE_MS).toISOString()
+
+  /** `HH:mm` in the demo's own zone, for copy that names a meeting's time. */
+  const clockLabel = (instant: IsoInstant): string =>
+    new Intl.DateTimeFormat('tr-TR', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(instant))
+
+  const syncStart = soon(30)
+  const syncEnd = soon(60)
+  const strategyStart = soon(150)
+  const strategyEnd = soon(210)
+  // Deliberately inside the strategy meeting: the demo has to contain a real
+  // clash, or the conflicts entry point on the plan never renders at all.
+  const committeeStart = soon(180)
+  const committeeEnd = soon(210)
+
   const owned = (
     createdOffsetDays: number,
   ): { userId: string; createdAt: IsoInstant; updatedAt: IsoInstant } => ({
@@ -203,7 +255,7 @@ export function createDemoStore(clock: Clock): DemoStore {
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/calendar.events',
       ],
-      lastSyncedAt: at(0, 7, 10),
+      lastSyncedAt: relative(-38),
       lastErrorCode: null,
       lastErrorAt: null,
       isPrimary: true,
@@ -218,7 +270,7 @@ export function createDemoStore(clock: Clock): DemoStore {
       email: 'deniz.kaya@novadijital.com.tr',
       status: 'connected',
       grantedScopes: ['Mail.Read', 'Calendars.ReadWrite'],
-      lastSyncedAt: at(0, 7, 8),
+      lastSyncedAt: relative(-40),
       lastErrorCode: null,
       lastErrorAt: null,
       isPrimary: false,
@@ -235,8 +287,8 @@ export function createDemoStore(clock: Clock): DemoStore {
       cursor: 'history-84213',
       backfillCursor: null,
       backfillCompletedAt: at(-29, 10),
-      lastRunAt: at(0, 7, 10),
-      nextRunAt: at(0, 8, 10),
+      lastRunAt: relative(-38),
+      nextRunAt: relative(22),
       consecutiveFailures: 0,
       lastError: null,
     },
@@ -249,8 +301,8 @@ export function createDemoStore(clock: Clock): DemoStore {
       cursor: 'delta-19a4',
       backfillCursor: null,
       backfillCompletedAt: at(-29, 10),
-      lastRunAt: at(0, 7, 11),
-      nextRunAt: at(0, 8, 11),
+      lastRunAt: relative(-37),
+      nextRunAt: relative(23),
       consecutiveFailures: 0,
       lastError: null,
     },
@@ -356,7 +408,7 @@ export function createDemoStore(clock: Clock): DemoStore {
       category: 'meeting',
       summary:
         'Elif bugünkü toplantı için üç gündem maddesi paylaştı ve senden dördüncüsünü ekleme istedi.',
-      reasonImportant: 'Bugün 14:00’taki toplantının hazırlığı.',
+      reasonImportant: 'Bugünkü ürün stratejisi toplantısının hazırlığı.',
       requiresUserAction: true,
       deadline: null,
       isRead: false,
@@ -613,8 +665,8 @@ export function createDemoStore(clock: Clock): DemoStore {
       title: 'Haftalık ekip senkronu',
       description: 'Geçen haftanın çıktıları ve bu haftanın öncelikleri.',
       location: null,
-      startsAt: at(0, 9, 30),
-      endsAt: at(0, 10, 0),
+      startsAt: syncStart,
+      endsAt: syncEnd,
       isAllDay: false,
       timeZone,
       attendees: [
@@ -636,8 +688,8 @@ export function createDemoStore(clock: Clock): DemoStore {
       title: 'Ürün stratejisi',
       description: 'Yol haritası, fiyatlandırma ve ekip planı.',
       location: 'Levent Ofis — 4. kat',
-      startsAt: at(0, 14, 0),
-      endsAt: at(0, 15, 0),
+      startsAt: strategyStart,
+      endsAt: strategyEnd,
       isAllDay: false,
       timeZone,
       attendees: [
@@ -649,6 +701,32 @@ export function createDemoStore(clock: Clock): DemoStore {
       conferenceUrl: 'https://meet.google.com/dai-demo-strategy',
       status: 'confirmed',
       providerUpdatedAt: at(-1, 18),
+      externalUrl: null,
+    },
+    {
+      // The clash. Mehmet's committee prep lands inside the last half hour of
+      // the strategy meeting, which is what the plan's conflicts screen exists
+      // to show and what flow G walks.
+      id: demoId(303),
+      ...owned(-2),
+      connectedAccountId: MICROSOFT_ACCOUNT_ID,
+      externalEventId: 'evt-committee-prebrief',
+      provider: 'microsoft',
+      title: 'Yatırım komitesi ön görüşme',
+      description: 'Mehmet’in istediği büyüme senaryosunun ilk turu.',
+      location: null,
+      startsAt: committeeStart,
+      endsAt: committeeEnd,
+      isAllDay: false,
+      timeZone,
+      attendees: [
+        attendee(SELF_EMAIL, 'Deniz Kaya', true, false),
+        attendee(MEHMET.email, MEHMET.name, false, true),
+      ],
+      organizerEmail: MEHMET.email,
+      conferenceUrl: 'https://teams.microsoft.com/l/meetup-join/dai-demo-komite',
+      status: 'confirmed',
+      providerUpdatedAt: relative(-3 * 60),
       externalUrl: null,
     },
     {
@@ -830,15 +908,15 @@ export function createDemoStore(clock: Clock): DemoStore {
       source: source({
         type: 'calendar_event',
         id: demoId(301),
-        label: 'Takvim · Ürün stratejisi · 14:00',
+        label: `Takvim · Ürün stratejisi · ${clockLabel(strategyStart)}`,
         personName: ELIF.name,
-        occurredAt: at(0, 14, 0),
+        occurredAt: strategyStart,
       }),
-      reasonImportant: 'Toplantı bugün 14:00’ta.',
+      reasonImportant: `Toplantı bugün ${clockLabel(strategyStart)} başlıyor.`,
       actions: [
         { kind: 'prepare_meeting', label: 'Toplantıya hazırlan', params: { eventId: demoId(301) } },
       ],
-      dueAt: at(0, 14, 0),
+      dueAt: strategyStart,
       priorityScore: 81,
       completedAt: null,
       dismissedAt: null,
@@ -976,7 +1054,7 @@ export function createDemoStore(clock: Clock): DemoStore {
       forDate: today,
       headline: 'Bugünün tek kritik işi: Ahmet’in revize teklifi.',
       narrative:
-        'Günaydın Deniz. Gecede 34 e-posta geldi, dördü seni ilgilendiriyor. Ahmet Yılmaz revize teklifi cuma 17:00’a kadar istiyor; birim fiyat tablosunu güncellemen gerekiyor. Saat 14:00’taki ürün stratejisi toplantısında gündemin dördüncü maddesi hâlâ boş. Zeynep’ten dört gündür yanıt yok, istersen kısa bir hatırlatma gönderebilirsin. Kargon yarın teslim ediliyor, pazartesi uçuşun için check-in yarın açılıyor.',
+        'Günaydın Deniz. Gecede 34 e-posta geldi, dördü seni ilgilendiriyor. Ahmet Yılmaz revize teklifi cuma 17:00’a kadar istiyor; birim fiyat tablosunu güncellemen gerekiyor. Ürün stratejisi toplantısında gündemin dördüncü maddesi hâlâ boş ve toplantının son yarım saati yatırım komitesi ön görüşmesiyle çakışıyor. Zeynep’ten dört gündür yanıt yok, istersen kısa bir hatırlatma gönderebilirsin. Kargon yarın teslim ediliyor, pazartesi uçuşun için check-in yarın açılıyor.',
       durationSeconds: 95,
       audioUrl: null,
       audioProvider: null,
@@ -986,7 +1064,7 @@ export function createDemoStore(clock: Clock): DemoStore {
       stats: {
         emailsAnalyzed: 34,
         importantCount: 4,
-        meetingCount: 2,
+        meetingCount: 3,
         deadlineCount: 1,
         followUpCount: 1,
         estimatedMinutesSaved: 26,
@@ -1033,12 +1111,23 @@ export function createDemoStore(clock: Clock): DemoStore {
       id: demoId(1003),
       section: 'schedule',
       position: 0,
-      title: 'Ürün stratejisi · 14:00–15:00',
+      title: `Ürün stratejisi · ${clockLabel(strategyStart)}–${clockLabel(strategyEnd)}`,
       detail: 'Levent Ofis, 4. kat. Elif ve Mehmet katılıyor.',
       importance: 'high',
       entityType: 'calendar_event',
       entityId: demoId(301),
-      label: 'Takvim · Ürün stratejisi · 14:00',
+      label: `Takvim · Ürün stratejisi · ${clockLabel(strategyStart)}`,
+    },
+    {
+      id: demoId(1009),
+      section: 'schedule',
+      position: 1,
+      title: `Yatırım komitesi ön görüşme · ${clockLabel(committeeStart)}–${clockLabel(committeeEnd)}`,
+      detail: 'Ürün stratejisinin son yarım saatiyle çakışıyor.',
+      importance: 'high',
+      entityType: 'calendar_event',
+      entityId: demoId(303),
+      label: `Takvim · Yatırım komitesi ön görüşme · ${clockLabel(committeeStart)}`,
     },
     {
       id: demoId(1004),
@@ -1303,14 +1392,26 @@ export function createDemoStore(clock: Clock): DemoStore {
     },
   ]
 
+  /**
+   * The demo account is on the free plan, and that is the point.
+   *
+   * Demo mode is the only build in which the paywall, the upgrade route and the
+   * referral bonus can be opened at all — there is no store behind it, so the
+   * plan cards are served from `DEMO_PACKAGES` rather than from RevenueCat. A
+   * demo account that already held Pro made every one of those screens
+   * unreachable: no upgrade card in settings, no lock on the plan, nothing for
+   * a reviewer or an end-to-end run to look at. Every gated control still
+   * renders here — the gate opens the paywall rather than hiding the button —
+   * so nothing is lost from the tour by starting on free.
+   */
   const subscription: Subscription = {
     userId: USER_ID,
-    status: 'trialing',
-    entitlement: 'pro',
-    productId: 'da_pro_monthly',
-    store: 'app_store',
-    currentPeriodEnd: new Date(now.getTime() + 9 * DAY_MS).toISOString(),
-    trialEndsAt: new Date(now.getTime() + 9 * DAY_MS).toISOString(),
+    status: 'free',
+    entitlement: null,
+    productId: null,
+    store: null,
+    currentPeriodEnd: null,
+    trialEndsAt: null,
     revenueCatCustomerId: 'demo-customer',
     updatedAt: nowIso,
   }
@@ -1346,10 +1447,12 @@ export function createDemoStore(clock: Clock): DemoStore {
     exports: [],
     referral: {
       code: 'DA7K2M9P',
+      // Two friends have used the code and both bonuses have run out, so the
+      // account is genuinely on free: an unexpired bonus here would resolve to
+      // Pro on its own and close the paywall again.
       redemptionCount: 2,
-      // Two referrals stack to 28 days; the demo shows one still running.
-      bonusExpiresAt: new Date(now.getTime() + 9 * DAY_MS).toISOString(),
-      activeBonuses: 1,
+      bonusExpiresAt: null,
+      activeBonuses: 0,
     },
   }
 }

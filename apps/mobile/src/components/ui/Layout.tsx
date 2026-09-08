@@ -50,12 +50,16 @@ export function SectionHeader({ title, actionLabel, onAction, style }: SectionHe
         {title}
       </Text>
       {actionLabel && onAction ? (
+        // The label is small; the target is not. The 44pt floor comes from
+        // `Pressable` and is deliberately not overridden here — a section
+        // action used to be a ~30pt strip, which is a miss for anyone whose
+        // aim is not exact. Extra hit slop widens the narrow text as well.
         <Pressable
           onPress={onAction}
           haptic="none"
           scaleOnPress={false}
           accessibilityLabel={actionLabel}
-          style={{ minHeight: 0 }}
+          hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
         >
           <Text variant="micro" tone="primary">
             {actionLabel}
@@ -119,7 +123,9 @@ export interface ListRowProps {
 
 /**
  * The settings / list row. A row with no `onPress` and no `accessory` renders
- * without a chevron, so it never looks tappable when it is not.
+ * without a chevron, so it never looks tappable when it is not. An accessory —
+ * a Toggle, a Button — is always rendered outside the row's own accessibility
+ * element so a screen reader can reach and operate it.
  */
 export function ListRow({
   title,
@@ -134,6 +140,7 @@ export function ListRow({
 }: ListRowProps) {
   const theme = useTheme()
 
+  /** Everything the row *says*. Nothing in here is interactive. */
   const body = (
     <View
       style={{
@@ -160,31 +167,49 @@ export function ListRow({
           {value}
         </Text>
       ) : null}
-      {accessory ??
-        (onPress ? (
-          <MaterialIcons name="chevron-right" size={20} color={theme.colors.textTertiary} />
-        ) : null)}
+      {!accessory && onPress ? (
+        <MaterialIcons name="chevron-right" size={20} color={theme.colors.textTertiary} />
+      ) : null}
     </View>
   )
 
+  /**
+   * The accessory is a *sibling* of the row's accessibility element, never a
+   * descendant of it.
+   *
+   * `accessible` — set explicitly on an informational row, and set by
+   * `Pressable` on a tappable one — collapses its whole subtree into a single
+   * element on iOS. An accessory nested inside it therefore disappears from the
+   * accessibility tree: every settings switch in the app, Reduce Motion
+   * included, was unreachable by VoiceOver, and so was the remove button on a
+   * VIP row. Keeping the accessory outside is what makes it focusable.
+   */
+  const row: ViewStyle = { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }
+
   if (!onPress) {
     return (
-      <View testID={testID} accessible>
-        {body}
+      <View testID={testID} style={row}>
+        <View accessible style={{ flex: 1 }}>
+          {body}
+        </View>
+        {accessory}
       </View>
     )
   }
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityLabel={title}
-      accessibilityHint={subtitle}
-      testID={testID}
-      style={{ minHeight: 52 }}
-      pressedStyle={{ backgroundColor: theme.colors.surface2 }}
-    >
-      {body}
-    </Pressable>
+    <View style={row}>
+      <Pressable
+        onPress={onPress}
+        accessibilityLabel={title}
+        accessibilityHint={subtitle}
+        testID={testID}
+        style={{ flex: 1, minHeight: 52 }}
+        pressedStyle={{ backgroundColor: theme.colors.surface2 }}
+      >
+        {body}
+      </Pressable>
+      {accessory}
+    </View>
   )
 }

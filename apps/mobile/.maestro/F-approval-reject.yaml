@@ -3,6 +3,10 @@
 # Refusing has to be as easy as approving, and a refused proposal must not come
 # back. The reason is optional on purpose: making it mandatory only trains
 # people to type anything to make the dialog go away.
+#
+# As in flow E, the queue's cards are not buttons — the full record is opened
+# through the card's own "Düzenle" — and a decision does not navigate: the card
+# stays put and changes state, which is what makes the refusal visible.
 appId: ${APP_ID}
 name: F · Reject an outbound action
 tags:
@@ -13,12 +17,35 @@ tags:
     id: 'approval-banner'
 - assertVisible:
     id: 'approvals-tabs'
-- tapOn:
+- assertVisible:
     id: 'approval-.*'
+- scrollUntilVisible:
+    element:
+      text: 'Düzenle'
+    direction: DOWN
+- tapOn: 'Düzenle'
 - assertVisible:
     id: 'approval-detail-card'
 
+- scrollUntilVisible:
+    element:
+      text: 'Reddet'
+    direction: DOWN
 - tapOn: 'Reddet'
+
+# Refused, on the record, with nothing sent.
+- assertNotVisible: 'Onayla'
+- scrollUntilVisible:
+    element:
+      text: 'Reddedildi'
+    direction: UP
+- assertVisible: 'Reddedildi'
+- scrollUntilVisible:
+    element:
+      id: 'approval-close'
+    direction: DOWN
+- tapOn:
+    id: 'approval-close'
 - assertVisible:
     id: 'approvals-tabs'
 
@@ -26,8 +53,4 @@ tags:
 - tapOn: 'Geçmiş'
 - assertVisible:
     id: 'approval-.*'
-- tapOn:
-    id: 'approval-.*'
-- assertVisible:
-    id: 'approval-detail-card'
 - assertNotVisible: 'Onayla'

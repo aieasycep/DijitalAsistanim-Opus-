@@ -3,6 +3,11 @@
 # Most commitments are read out of mail automatically. Adding one by hand is
 # the escape hatch for a promise made on the phone, and it has to work with no
 # provider connected at all.
+#
+# A `CommitmentCard` is not itself a button — that would swallow "Tamamlandı"
+# and "Ertele" — so a promise is opened through its own action. On the list
+# screen that word is also the third filter tab, so the promise is opened from
+# the plan, where it is unambiguous.
 appId: ${APP_ID}
 name: H · Commitments
 tags:
@@ -16,13 +21,25 @@ tags:
     element:
       id: 'plan-commitment-.*'
     direction: DOWN
-- tapOn:
-    id: 'plan-commitment-.*'
+- scrollUntilVisible:
+    element:
+      text: 'Tamamlandı'
+    direction: DOWN
+- tapOn: 'Tamamlandı'
+- scrollUntilVisible:
+    element:
+      id: 'commitment-complete'
+    direction: DOWN
 - assertVisible:
     id: 'commitment-complete'
-- back
+- tapOn:
+    id: 'screen-header-back'
 
 # "See all" reaches the full list.
+- scrollUntilVisible:
+    element:
+      text: 'Tümünü gör'
+    direction: UP
 - tapOn: 'Tümünü gör'
 - assertVisible:
     id: 'commitment-add'
@@ -36,19 +53,28 @@ tags:
     id: 'commitment-text'
 - inputText: 'Sözleşmeyi cuma günü göndereceğim'
 - hideKeyboard
+
+# The direction control moves in both directions; the promise is one this
+# person owes, so it ends where it started.
+- tapOn: 'Onlarda'
+- tapOn: 'Sende'
+
 - tapOn:
     id: 'commitment-person'
 - inputText: 'Ahmet Kaya'
 - hideKeyboard
 - tapOn:
-    id: 'commitment-direction'
-- tapOn:
     id: 'commitment-due-3'
 - tapOn:
     id: 'commitment-save'
 
-# It is in the list, and it can be closed.
+# Saving opens the new promise, and it can be closed from there.
 - assertVisible: 'Sözleşmeyi cuma günü göndereceğim'
-- tapOn: 'Sözleşmeyi cuma günü göndereceğim'
+- scrollUntilVisible:
+    element:
+      id: 'commitment-complete'
+    direction: DOWN
 - tapOn:
     id: 'commitment-complete'
+- assertVisible:
+    id: 'commitment-add'

@@ -3,6 +3,10 @@
 # Capture is the one place the app takes something in from outside a connected
 # account. Both entry points must work, and neither may leave the person on a
 # spinner with no way back.
+#
+# The mode chips and the fields they reveal have separate ids on purpose —
+# `capture-link` picks the mode, `capture-link-input` is the field — so the
+# flow chooses the mode first and only then types.
 appId: ${APP_ID}
 name: I · Capture a link and a note
 tags:
@@ -17,6 +21,10 @@ tags:
 # A pasted link.
 - tapOn:
     id: 'capture-link'
+- assertVisible:
+    id: 'capture-link-input'
+- tapOn:
+    id: 'capture-link-input'
 - inputText: 'https://ornek.com/rapor'
 - hideKeyboard
 - tapOn:
@@ -25,17 +33,27 @@ tags:
     id: 'capture-done'
 - tapOn:
     id: 'capture-done'
+- assertVisible:
+    id: 'briefing-hero'
 
 # A typed note.
 - tapOn:
     id: 'today-capture'
-- tapOn:
+- assertVisible:
     id: 'capture-mode'
 - tapOn:
     id: 'capture-text'
+- assertVisible:
+    id: 'capture-text-input'
+- tapOn:
+    id: 'capture-text-input'
 - inputText: 'Ahmet ile fiyat görüşmesi cuma 14:00'
 - hideKeyboard
 - tapOn:
     id: 'capture-submit-text'
 - assertVisible:
     id: 'capture-done'
+- tapOn:
+    id: 'capture-done'
+- assertVisible:
+    id: 'briefing-hero'

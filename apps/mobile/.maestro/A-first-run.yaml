@@ -1,7 +1,12 @@
-# Flow A — first run: sign-in choices, demo mode, and the four tabs.
+# Flow A — first run: the intro, the sign-in choices, demo mode, and the tabs.
 #
-# The first screen a new person sees. What matters is that every route off it
-# leads somewhere real, and that demo mode is reachable without an account.
+# The first screens a new person sees. What matters is that every route off
+# them leads somewhere real, and that demo mode is reachable without an account.
+#
+# Google and Apple are deliberately not asserted here. `useSignIn` only offers a
+# provider the build is configured for — Apple exists on iOS alone, Google needs
+# a client id — so in a demo/CI build neither button is rendered at all, and a
+# flow that insisted on them would be asserting a dead control into existence.
 appId: ${APP_ID}
 name: A · First run and demo mode
 tags:
@@ -10,11 +15,15 @@ tags:
 - launchApp:
     clearState: true
 
-# Every sign-in route is offered and none of them is decorative.
+# The app opens on the intro pager, and both of its controls are live.
 - assertVisible:
-    id: 'sign-in-google'
+    id: 'intro-pager'
 - assertVisible:
-    id: 'sign-in-apple'
+    id: 'intro-primary'
+- tapOn:
+    id: 'intro-secondary'
+
+# The sign-in screen offers the routes this build actually has.
 - assertVisible:
     id: 'sign-in-email'
 - assertVisible:
@@ -25,12 +34,18 @@ tags:
     id: 'sign-in-email'
 - assertVisible:
     id: 'email-input'
-- back
+- tapOn:
+    id: 'screen-header-back'
+- assertVisible:
+    id: 'sign-in-demo'
 
-# Demo mode needs no account and no network.
+# Demo mode needs no account and no network, and lands on a populated Today
+# rather than in onboarding.
 - tapOn:
     id: 'sign-in-demo'
 - assertVisible: 'Bugün'
+- assertVisible:
+    id: 'briefing-hero'
 
 # The four tabs each render their own screen.
 - tapOn: 'Akış'
@@ -43,4 +58,5 @@ tags:
 - assertVisible:
     id: 'assistant-input'
 - tapOn: 'Bugün'
-- assertVisible: 'Bugün'
+- assertVisible:
+    id: 'briefing-hero'

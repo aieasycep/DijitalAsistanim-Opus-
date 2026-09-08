@@ -66,17 +66,28 @@ mechanism.
 Gmail's Pub/Sub push covers mailbox changes but needs a Cloud project, a topic
 and a subscription, and it is not available to every account type.
 
-**Instead**: push where it works, polling every ten minutes where it does not.
-The user sees a "last synced" time either way, so the difference is visible
-rather than hidden.
+**Instead**: push where it works, polling every **fifteen** minutes where it
+does not — `da_sync_incremental` in `0014_cron_jobs.sql`, `*/15 * * * *`. The
+user sees a "last synced" time either way, so the difference is visible rather
+than hidden.
 
 ## Microsoft Graph subscriptions expire
 
 Change notification subscriptions last three days at most, and renewal can
 fail while a tenant is unreachable.
 
-**Instead**: a cron job renews every twelve hours, and polling covers any gap.
-A lapsed subscription degrades latency, not correctness.
+**Instead**: the same fifteen-minute incremental sync covers Outlook, and a
+lapsed subscription degrades latency rather than correctness.
+
+Stated plainly because this document previously claimed otherwise: **there is no
+renewal job.** `createSubscription` and `renewSubscription` exist in
+`supabase/functions/_shared/providers/microsoft.ts` and have no caller;
+`0014_cron_jobs.sql` schedules six jobs and none of them renews a Graph
+subscription. `webhook-microsoft` will accept and verify a notification if a
+subscription is created out of band, but nothing in this repository creates one.
+This is a gap, not a platform limit — it belongs on the list in
+[IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md#honest-limitations) rather
+than here, and it is recorded in both places until it is built.
 
 ## Restricted Google scopes need an assessment
 

@@ -2,7 +2,9 @@
 #
 # A suggestion that cannot be acted on is just an observation, so the flow
 # presses one. Conflicts have to name the two events involved rather than
-# saying "you have a clash".
+# saying "you have a clash" — which is why the demo calendar contains a real
+# overlap: the committee pre-brief runs inside the last half hour of the
+# product strategy meeting, so `plan-conflicts` has something to render.
 appId: ${APP_ID}
 name: G · Plan the day and the week
 tags:
@@ -30,22 +32,42 @@ tags:
     id: 'plan-event-.*'
 - assertVisible:
     id: 'event-prep'
-- back
+- tapOn:
+    id: 'screen-header-back'
 
-# The conflicts screen names the events in the clash.
+# The conflicts screen names the events in the clash, and each one opens.
+- scrollUntilVisible:
+    element:
+      id: 'plan-conflicts'
+    direction: UP
 - tapOn:
     id: 'plan-conflicts'
 - assertVisible:
     id: 'conflict-.*'
 - tapOn:
     id: 'conflict-event-.*'
-- back
-- back
+- assertVisible:
+    id: 'event-prep'
+- tapOn:
+    id: 'screen-header-back'
+- assertVisible:
+    id: 'conflict-.*'
+- tapOn:
+    id: 'screen-header-back'
+- assertVisible:
+    id: 'plan-range'
 
 # A suggestion can be accepted, and acting on it is an approval, not a write.
 - scrollUntilVisible:
     element:
-      id: 'plan-suggestion-.*'
+      id: 'plan-suggestion-accept-.*'
     direction: DOWN
 - tapOn:
     id: 'plan-suggestion-accept-.*'
+- assertVisible:
+    id: 'approval-detail-card'
+- scrollUntilVisible:
+    element:
+      text: 'Onayla'
+    direction: DOWN
+- assertVisible: 'Onayla'

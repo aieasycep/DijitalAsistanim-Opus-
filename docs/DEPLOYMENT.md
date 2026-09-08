@@ -1,8 +1,9 @@
 # Deployment
 
-Four things ship independently: the database, the edge functions, the mobile
-apps and the website. Nothing here requires the others to be deployed first,
-except that the functions expect the migrations to have run.
+Five things ship independently: the database, the edge functions, the mobile
+apps, the website and the staff backoffice. Nothing here requires the others to
+be deployed first, except that the functions and the backoffice both expect the
+migrations to have run.
 
 ---
 
@@ -21,43 +22,68 @@ database — which is exactly what CI does on every commit:
 pnpm run verify:supabase
 ```
 
-It applies all 16 migrations from empty, applies them again to prove
-idempotency, checks every Postgres enum against its TypeScript union, and
-asserts RLS is enabled **and** forced on every user table.
+It applies all 18 migrations from empty, applies them again to prove
+idempotency, checks every Postgres enum against its TypeScript union, asserts
+RLS is enabled **and** forced on every user table, and proves that no backoffice
+view reads a content column.
 
 ### Extensions
 
-`pgvector` (assistant memory), `pg_cron` (scheduled jobs), `pg_net` (calling
-functions from cron). All three are enabled by `0001_extensions_and_enums.sql`;
-on Supabase they are available without a support request.
+`0001_extensions_and_enums.sql` creates `pgcrypto`, `pg_trgm`, `unaccent`,
+`vector` (assistant memory) and `citext`, each inside a `do` block that survives
+the extension being unavailable.
+
+It does **not** create `pg_cron` or `pg_net`. Enable those on the project
+yourself — on Supabase, Database → Extensions, no support request needed.
+`0014_cron_jobs.sql` checks `pg_extension` for both and degrades rather than
+failing: without `pg_cron` it schedules nothing at all, and without `pg_net` it
+schedules only the jobs that have a pure-SQL implementation. A database without
+`pg_cron` therefore runs no background work whatsoever — no sync, no briefing,
+no push — while migrating perfectly cleanly.
 
 ### Scheduled jobs
 
-`0014_cron_jobs.sql` registers them. They call edge functions over `pg_net`,
-so the logic lives in one place:
+`0014_cron_jobs.sql` registers six jobs. Each prefers an HTTP call to the
+matching edge function over `pg_net`, so the logic lives in one place; the
+function base URL and service key are read at fire time from
+`app.settings.supabase_url` and `app.settings.service_role_key`, so no secret
+is committed or visible in a schema dump.
 
-| Job                        | Schedule        | Does                                                                     |
-| -------------------------- | --------------- | ------------------------------------------------------------------------ |
-| `briefing-morning`         | every 15 min    | Generates briefings for users whose local time has reached their setting |
-| `briefing-evening`         | every 15 min    | The evening close                                                        |
-| `sync-poll`                | every 10 min    | Polls accounts without a working webhook                                 |
-| `detect-followups`         | hourly          | Surfaces threads that have gone quiet                                    |
-| `approvals-expire`         | hourly          | Expires proposals past their TTL                                         |
-| `retention-cleanup`        | daily 03:00 UTC | Applies each user's retention window                                     |
-| `subscription-refresh`     | daily           | Reconciles with RevenueCat                                               |
-| `graph-subscription-renew` | every 12 h      | Renews Microsoft change subscriptions before they lapse                  |
+| Job                      | Schedule                 | Calls                    | Without `pg_net`                      |
+| ------------------------ | ------------------------ | ------------------------ | ------------------------------------- |
+| `da_sync_incremental`    | `*/15 * * * *`           | `sync-start`             | Not scheduled — syncing needs HTTP    |
+| `da_briefing_dispatch`   | `*/5 * * * *`            | `notification-scheduler` | Not scheduled — push needs HTTP       |
+| `da_follow_up_detection` | `0 * * * *` (hourly)     | `detect-followups`       | Not scheduled — needs HTTP            |
+| `da_approval_expiry`     | `*/10 * * * *`           | `approvals-expire`       | `public.expire_stale_approvals()`     |
+| `da_retention_cleanup`   | `15 3 * * *` (03:15 UTC) | `retention-cleanup`      | `public.cleanup_expired_retention()`  |
+| `da_export_cleanup`      | `45 3 * * *` (03:45 UTC) | — (pure SQL always)      | Marks ready-but-stale exports expired |
 
-The briefing jobs run every fifteen minutes rather than hourly because
-briefing times are per user and per time zone; the job selects the users whose
-local clock has just crossed their configured time.
+`da_briefing_dispatch` is the only caller of push delivery in the whole system.
+It runs every five minutes rather than hourly because briefing times are per
+user and per time zone: `notification-scheduler` selects the users whose local
+clock has just crossed their configured time and the reminders now due, which
+keeps the schedule timezone-agnostic and serves any offset within five minutes.
+
+`da_approval_expiry` and `da_retention_cleanup` are the two with a real SQL
+fallback, because an approval must never outlive its TTL and retention must
+apply even on a database that cannot make outbound calls.
+
+There is **no** job that renews Microsoft Graph change subscriptions.
+`createSubscription` and `renewSubscription` exist in
+`_shared/providers/microsoft.ts` but nothing calls them; Outlook accounts stay
+current through `da_sync_incremental` every fifteen minutes.
+
+The migration unschedules each job by name before scheduling it, so it is
+re-runnable and a renamed schedule cannot leave an orphan firing on the old
+cadence.
 
 ---
 
 ## 2 · Edge functions
 
+There are 48 of them (`ls supabase/functions | grep -v _shared | grep -v deno`).
+
 ```bash
-supabase functions deploy --no-verify-jwt oauth-google-callback
-supabase functions deploy --no-verify-jwt oauth-microsoft-callback
 supabase functions deploy --no-verify-jwt webhook-gmail
 supabase functions deploy --no-verify-jwt webhook-microsoft
 supabase functions deploy --no-verify-jwt revenuecat-webhook
@@ -66,10 +92,23 @@ supabase functions deploy --no-verify-jwt revenuecat-webhook
 supabase functions deploy
 ```
 
-The five above are called by a provider, not by the app, so they cannot
-require a user JWT. Each verifies its caller by its own means instead: the
-OAuth callbacks by single-use `state`, the webhooks by signature
-(constant-time comparison), RevenueCat by its shared secret.
+Exactly three functions are called by a provider rather than by the app, so
+they cannot require a user JWT. Each verifies its caller by its own means, all
+three with `timingSafeEqual`: `webhook-gmail` against
+`GOOGLE_PUBSUB_VERIFICATION_TOKEN`, `webhook-microsoft` against the Graph
+`clientState` (`MICROSOFT_WEBHOOK_SECRET`), and `revenuecat-webhook` against
+`REVENUECAT_WEBHOOK_AUTH_HEADER`.
+
+Four more — `approvals-expire`, `detect-followups`, `notification-scheduler` and
+`retention-cleanup` — take no user JWT either, but they are invoked by `pg_cron`
+with the service-role key as their bearer token, so the platform's JWT
+verification passes and they keep it. Do not deploy them with `--no-verify-jwt`.
+
+Both OAuth functions **do** require a user JWT: the flow terminates in the app,
+not in a browser redirect to the server, so `oauth-start` and `oauth-complete`
+are ordinary authenticated calls. There is no `oauth-google-callback` or
+`oauth-microsoft-callback`; earlier revisions of this document named functions
+that have never existed. See [OAUTH_SETUP.md](OAUTH_SETUP.md).
 
 ### Secrets
 
@@ -78,10 +117,16 @@ supabase secrets set \
   OAUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
   OAUTH_ENCRYPTION_KEY_VERSION=1 \
   GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... \
+  GOOGLE_REDIRECT_URI=dijitalasistan://oauth \
   MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=... \
+  MICROSOFT_REDIRECT_URI=dijitalasistan://oauth \
   ANTHROPIC_API_KEY=... \
-  REVENUECAT_WEBHOOK_SECRET=...
+  REVENUECAT_WEBHOOK_AUTH_HEADER=...
 ```
+
+The redirect URIs are the app's own deep link, not a function URL — the
+provider redirects to the device and the app posts the code to
+`oauth-complete`. `MICROSOFT_TENANT` defaults to `common` when unset.
 
 `supabase secrets list` shows names only, never values. See `.env.example` for
 the full list with comments, and [SECURITY.md](SECURITY.md) for the key
@@ -144,9 +189,12 @@ cannot land on an incompatible build.
 pnpm run build:web
 ```
 
-Static except `/l/[[...target]]` and `/davet/[code]`, which are dynamic
-because they read the request. Deploy to any Node host; Vercel needs no
-configuration.
+Ten pages (`/`, `/pricing`, `/privacy`, `/terms`, `/support`, `/licenses`,
+`/data-deletion`, `/oauth`, `/l/[[...target]]`, `/davet/[code]`) plus
+`not-found`, `robots.ts`, `sitemap.ts`, an Open Graph image route and the two
+`.well-known` handlers. Static except `/l/[[...target]]` and `/davet/[code]`,
+which are dynamic because they read route params. Deploy to any Node host;
+Vercel needs no configuration.
 
 ### Deep links
 
@@ -163,6 +211,29 @@ of what they asked for.
 
 Verify with Apple's CDN (`https://app-site-association.cdn-apple.com/a/v1/<domain>`)
 and Google's Digital Asset Links tester before announcing anything.
+
+---
+
+## 5 · Staff backoffice
+
+```bash
+pnpm run build:backoffice   # or pnpm run dev:backoffice, port 3100
+```
+
+`apps/backoffice` needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and an anon
+key (`SUPABASE_ANON_KEY`, falling back to `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+Any missing one is a 500 naming the variable, not a silent degradation.
+
+The anon key only signs staff in through GoTrue and refreshes their token; every
+data read goes through the `bo_*` views with the service role. A session counts
+only when the access-token cookie verifies, the user has a `staff_members` row,
+and that row's `disabled_at` is null — checked on every protected request, so
+revoking access takes effect immediately rather than at the next cookie expiry.
+Roles are ordered `support` < `ops` < `admin`.
+
+**Do not expose this app publicly.** It holds the service role, which bypasses
+RLS; put it behind whatever network boundary you would put a database console
+behind.
 
 ---
 

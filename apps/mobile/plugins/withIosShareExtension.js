@@ -13,6 +13,15 @@ const fs = require('node:fs')
  */
 
 const TARGET_NAME = 'DijitalAsistanShare'
+const SOURCE_FILE = 'ShareViewController.swift'
+/**
+ * A Swift class is only reachable from the Objective-C runtime under its
+ * mangled `<module>.<class>` name unless it carries an `@objc(...)` alias, so
+ * the bare class name iOS is handed here has to be module-qualified. The module
+ * name is pinned by the `PRODUCT_MODULE_NAME` build setting below rather than
+ * left to Xcode's default derivation from the product name.
+ */
+const PRINCIPAL_CLASS = '$(PRODUCT_MODULE_NAME).ShareViewController'
 
 const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -39,7 +48,7 @@ const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
     <key>NSExtensionPointIdentifier</key>
     <string>com.apple.share-services</string>
     <key>NSExtensionPrincipalClass</key>
-    <string>ShareViewController</string>
+    <string>${PRINCIPAL_CLASS}</string>
     <key>NSExtensionAttributes</key>
     <dict>
       <key>NSExtensionActivationRule</key>
@@ -237,11 +246,7 @@ const withIosShareExtension = (config) => {
         ENTITLEMENTS(appGroup),
         'utf8',
       )
-      fs.writeFileSync(
-        path.join(dir, 'ShareViewController.swift'),
-        SHARE_VIEW_CONTROLLER(appGroup, scheme),
-        'utf8',
-      )
+      fs.writeFileSync(path.join(dir, SOURCE_FILE), SHARE_VIEW_CONTROLLER(appGroup, scheme), 'utf8')
       return cfg
     },
   ])
@@ -249,29 +254,67 @@ const withIosShareExtension = (config) => {
   // Register the target in the Xcode project.
   config = withXcodeProject(config, (cfg) => {
     const project = cfg.modResults
+    const objects = project.hash.project.objects
     const bundleId = `${cfg.ios?.bundleIdentifier ?? 'com.dijitalasistan.app'}.share`
 
-    if (project.pbxTargetByName(TARGET_NAME)) return cfg
+    // `addTarget` stores the target's name quoted, and `pbxTargetByName`
+    // matches the stored comment verbatim, so only the quoted form finds a
+    // target this plugin created. Checking the bare name alone would miss it
+    // and add a second copy of the target on every prebuild over an existing
+    // project.
+    if (project.pbxTargetByName(`"${TARGET_NAME}"`) ?? project.pbxTargetByName(TARGET_NAME)) {
+      return cfg
+    }
 
+    // Project-relative child paths with an empty group path, rather than bare
+    // names under a group whose path is the target folder: `xcode` matches an
+    // existing file reference by path alone, so this target and the widget's
+    // would otherwise silently share one `Info.plist` reference.
     const group = project.addPbxGroup(
-      ['Info.plist', `${TARGET_NAME}.entitlements`, 'ShareViewController.swift'],
+      [`${TARGET_NAME}/Info.plist`, `${TARGET_NAME}/${TARGET_NAME}.entitlements`],
       TARGET_NAME,
-      TARGET_NAME,
+      // An empty group path, written the way `xcode` needs it quoted, so the
+      // group inherits the project directory and its children keep the unique
+      // project-relative paths above.
+      '""',
     )
 
-    const groups = project.hash.project.objects.PBXGroup
+    const groups = objects.PBXGroup
     Object.keys(groups).forEach((key) => {
       if (groups[key].name === undefined && groups[key].path === undefined) {
         project.addToPbxGroup(group.uuid, key)
       }
     })
 
+    // `addTarget` makes the extension a dependency of the app target, but only
+    // writes it when both of these sections already exist — and the Expo
+    // template ships with neither, having no target dependencies of its own.
+    // Without them the app embeds an `.appex` whose build order is left to
+    // Xcode's implicit-dependency resolution.
+    objects.PBXTargetDependency = objects.PBXTargetDependency ?? {}
+    objects.PBXContainerItemProxy = objects.PBXContainerItemProxy ?? {}
+
     const target = project.addTarget(TARGET_NAME, 'app_extension', TARGET_NAME, bundleId)
 
     project.addBuildPhase([], 'PBXSourcesBuildPhase', 'Sources', target.uuid)
-    project.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target.uuid)
     project.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid)
-    project.addSourceFile('ShareViewController.swift', { target: target.uuid }, group.uuid)
+    project.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target.uuid)
+
+    // Added after the Sources phase exists, because `addSourceFile` reaches the
+    // phase through the target's own build-phase list. It returns false when a
+    // file reference for the path is already registered, which is why the Swift
+    // file is deliberately not part of the group above: registering it there
+    // first is exactly what left this target compiling nothing at all.
+    const source = project.addSourceFile(
+      `${TARGET_NAME}/${SOURCE_FILE}`,
+      { target: target.uuid },
+      group.uuid,
+    )
+    if (!source) {
+      throw new Error(
+        `withIosShareExtension: ${SOURCE_FILE} did not reach the ${TARGET_NAME} Sources phase; the extension would ship empty.`,
+      )
+    }
 
     const configurations = project.pbxXCBuildConfigurationSection()
     for (const key of Object.keys(configurations)) {
@@ -284,6 +327,14 @@ const withIosShareExtension = (config) => {
       buildSettings.SWIFT_VERSION = '5.0'
       buildSettings.TARGETED_DEVICE_FAMILY = '"1"'
       buildSettings.PRODUCT_BUNDLE_IDENTIFIER = `"${bundleId}"`
+      // Pinned rather than derived, because it is half of the principal class
+      // name in Info.plist: iOS instantiates `<module>.ShareViewController`.
+      buildSettings.PRODUCT_MODULE_NAME = `"${TARGET_NAME}"`
+      // The Info.plist above resolves both from build settings. Left undefined
+      // they expand to empty strings, and an extension whose version does not
+      // match the app's is rejected at App Store validation.
+      buildSettings.MARKETING_VERSION = `"${cfg.version ?? '1.0.0'}"`
+      buildSettings.CURRENT_PROJECT_VERSION = `"${cfg.ios?.buildNumber ?? '1'}"`
     }
 
     return cfg

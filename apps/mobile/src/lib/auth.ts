@@ -1,3 +1,4 @@
+import { createDemoStore } from '@da/api-client'
 import { AppError, type Profile, systemClock } from '@da/domain'
 import { env } from './env'
 import type { StoredSession } from '../stores/session'
@@ -167,30 +168,28 @@ export async function revokeSession(accessToken: string): Promise<void> {
  * The local session used when no backend is configured.
  *
  * Demo mode has to reach the signed-in state or none of the app is reachable,
- * so it mints a session that is obviously local: the id is fixed, the token is
- * not a JWT, and every request it would authorise is served from fixtures.
+ * so it mints a session that is obviously local: the token is not a JWT, and
+ * every request it would authorise is served from fixtures.
+ *
+ * The profile is the demo store's own rather than a second one written out
+ * here, because the two have to be the same person. They were not: this one
+ * signed in as `demo@dijitalasistan.app` while every row the API then served
+ * belonged to `deniz.kaya@…` under a different id — so the privacy screen's
+ * "type your address to confirm" could never be satisfied, and, worse, this
+ * profile left `onboardingCompletedAt` null, which sent demo sign-in into the
+ * six onboarding steps instead of onto the populated Today the fixtures exist
+ * to show.
  */
 export function createDemoSession(): { session: StoredSession; profile: Profile } {
   const now = systemClock.now()
+  const { profile } = createDemoStore(systemClock)
   return {
     session: {
       accessToken: 'demo-access-token',
       refreshToken: 'demo-refresh-token',
       expiresAt: Math.floor(now.getTime() / 1000) + 60 * 60 * 24 * 365,
-      userId: '00000000-0000-4000-8000-000000000001',
+      userId: profile.id,
     },
-    profile: {
-      id: '00000000-0000-4000-8000-000000000001',
-      email: 'demo@dijitalasistan.app',
-      displayName: 'Demo Kullanıcı',
-      givenName: 'Demo',
-      avatarUrl: null,
-      locale: 'tr',
-      timeZone: 'Europe/Istanbul',
-      onboardingCompletedAt: null,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-      deletedAt: null,
-    },
+    profile,
   }
 }

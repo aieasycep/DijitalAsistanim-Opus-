@@ -1,39 +1,107 @@
-# Flow B — onboarding, end to end.
+# Flow B — the intro pager, the sign-in form, and the setup an account arrives
+# with.
 #
-# Six screens between signing in and the first briefing. Each one has to be
-# skippable or completable without a provider connected, because a person who
-# declines every permission still gets a working app.
+# The six `(onboarding)` screens cannot be walked in CI, and pretending
+# otherwise is what this flow used to do. The root layout mounts that group only
+# while `status === 'signed_in' && !onboardingCompleted`, demo mode signs in as
+# an account whose onboarding is finished, and there is no route back into the
+# group afterwards. The emailed code is out of reach for the same kind of
+# reason: `requestEmailCode` talks to GoTrue, and a demo build has no Supabase
+# project, so pressing "Devam" on the email form can only ever produce an error
+# card — never the code screen.
+#
+# What is left is still the whole of the first run: every intro slide advances,
+# the email route opens a real form, demo mode lands on a finished account, and
+# each choice the six steps collect is editable afterwards from settings.
 appId: ${APP_ID}
-name: B · Onboarding
+name: B · Intro pager and first-run setup
 tags:
   - smoke
 ---
 - launchApp:
     clearState: true
+
+# Every slide advances — the primary button's own label is what changes on the
+# first one — and the last one hands over to sign-in.
+- assertVisible:
+    id: 'intro-pager'
+- assertVisible: 'Başlayalım'
+- tapOn:
+    id: 'intro-primary'
+- assertVisible: 'Devam'
+- tapOn:
+    id: 'intro-primary'
+- tapOn:
+    id: 'intro-primary'
+- tapOn:
+    id: 'intro-primary'
+- assertVisible:
+    id: 'sign-in-demo'
+
+# The email route opens a real form that takes an address.
 - tapOn:
     id: 'sign-in-email'
+- assertVisible:
+    id: 'email-input'
 - tapOn:
     id: 'email-input'
 - inputText: 'deneme@ornek.com'
-- tapOn:
+- hideKeyboard
+- assertVisible:
     id: 'email-submit'
+- tapOn:
+    id: 'screen-header-back'
 
-# The code screen states where the code went and offers a resend.
-- assertVisible:
-    id: 'code-input'
-- assertVisible:
-    id: 'code-resend'
-- back
-- back
-
-# Demo mode reaches the same onboarding, without waiting for a code.
+# Demo mode reaches a finished account without waiting for a code.
 - tapOn:
     id: 'sign-in-demo'
 - assertVisible: 'Bugün'
 
-# Onboarding is reachable again from settings, and every step advances.
-- tapOn: 'Bugün'
+# Everything onboarding would have asked is editable from settings.
 - tapOn:
     id: 'today-settings'
+- assertVisible:
+    id: 'settings-profile-card'
+
+# The mail and calendar connection.
+- scrollUntilVisible:
+    element:
+      id: 'settings-accounts'
+    direction: DOWN
+- tapOn:
+    id: 'settings-accounts'
+- assertVisible:
+    id: 'accounts-add'
+- tapOn:
+    id: 'screen-header-back'
+
+# What the assistant is allowed to learn.
+- scrollUntilVisible:
+    element:
+      id: 'settings-personalization'
+    direction: DOWN
+- tapOn:
+    id: 'settings-personalization'
+- assertVisible:
+    id: 'personalization-learning'
+- tapOn:
+    id: 'screen-header-back'
+
+# When the briefings arrive.
+- scrollUntilVisible:
+    element:
+      id: 'settings-briefing'
+    direction: DOWN
+- tapOn:
+    id: 'settings-briefing'
+- assertVisible:
+    id: 'briefing-morning-time'
+- tapOn:
+    id: 'screen-header-back'
+
+- scrollUntilVisible:
+    element:
+      id: 'settings-profile-card'
+    direction: UP
 - assertVisible:
     id: 'settings-profile-card'

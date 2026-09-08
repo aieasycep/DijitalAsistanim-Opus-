@@ -43,7 +43,9 @@ Everything left. Before spending anything, the pipeline hashes
 fingerprint up: identical content is never classified twice, which matters
 because the same newsletter reaches thousands of users.
 
-In practice roughly four messages in five never reach a model.
+The pipeline is designed so that roughly four messages in five never reach a
+model. That is the design target, not a measurement — nothing here records the
+achieved ratio.
 
 ---
 
@@ -132,11 +134,17 @@ quieter. Nothing crashes and nothing is fabricated to fill the gap.
 
 ## Cost control
 
-- Stage 1 and 2 remove ~80% of mail before any spend.
+- Stages 1 and 2 are designed to remove roughly 80% of mail before any spend.
+  That is the target the pipeline is shaped around; nothing in this repository
+  measures the real ratio, and it will vary with the mailbox.
 - Content fingerprints deduplicate identical text across users.
 - `ai_usage_events` records tokens per user per day; the free tier is capped,
   and a runaway loop costs a rejection rather than an invoice.
-- Batch endpoints classify up to 20 items in one call.
+- One message, one model call. What is bounded is **concurrency**, not batch
+  size: `MODEL_CONCURRENCY = 3` in `_shared/ingest.ts` runs three analyses at a
+  time — enough to hide latency, few enough to stay inside the provider's rate
+  limit and the function's memory budget. Failures are settled per item, so one
+  bad message does not lose the batch.
 
 ## Feedback
 

@@ -1,10 +1,26 @@
-# Launch the app fresh and land on Today with demo data loaded.
+# Launch the app fresh and land on Today with the demo fixtures loaded.
+#
+# Two things about the first screen matter, and every flow used to get both
+# wrong. The app does not open on sign-in: `app/(auth)/index.tsx` is a
+# four-slide intro pager, and the sign-in buttons live one screen further in,
+# behind either "Başlayalım" (`intro-primary`, four taps) or "Zaten hesabım
+# var" (`intro-secondary`, one). This helper takes the short way.
+#
+# And demo mode signs in as an account whose onboarding is already finished, so
+# it lands on the tab shell rather than in the six onboarding steps — which is
+# what makes "Bugün" the right thing to wait for here.
 appId: ${APP_ID}
 ---
 - launchApp:
     clearState: true
 - assertVisible:
+    id: 'intro-pager'
+- tapOn:
+    id: 'intro-secondary'
+- assertVisible:
     id: 'sign-in-demo'
 - tapOn:
     id: 'sign-in-demo'
 - assertVisible: 'Bugün'
+- assertVisible:
+    id: 'briefing-hero'

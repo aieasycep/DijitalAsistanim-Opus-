@@ -2,6 +2,13 @@
 #
 # This is the screen the product is named for. Every card on it must open
 # something; a card that only decorates is the failure this flow catches.
+#
+# Two structural notes the flow depends on. A `CommitmentCard` is not itself a
+# button — the whole card being pressable would swallow "Tamamlandı" and
+# "Ertele" for a screen reader — so a promise is opened through its own action.
+# And the briefing is walked last: that screen draws its own gradient header
+# instead of a `ScreenHeader`, so it has no `screen-header-back` to leave by,
+# and nothing after it needs Today again.
 appId: ${APP_ID}
 name: C · Today
 tags:
@@ -9,14 +16,29 @@ tags:
 ---
 - runFlow: helpers/enter-demo.yaml
 
-# The briefing hero opens the full briefing and comes back.
-- assertVisible:
-    id: 'briefing-hero'
+# The header leads to capture, search and settings.
 - tapOn:
-    id: 'briefing-hero'
+    id: 'today-search'
 - assertVisible:
-    id: 'briefing-regenerate'
-- back
+    id: 'search-input'
+- tapOn:
+    id: 'screen-header-back'
+- tapOn:
+    id: 'today-capture'
+- assertVisible:
+    id: 'capture-mode'
+- tapOn:
+    id: 'screen-header-back'
+- tapOn:
+    id: 'today-settings'
+- assertVisible:
+    id: 'settings-profile-card'
+- tapOn:
+    id: 'screen-header-back'
+
+# Something is waiting for approval, and the banner says so.
+- assertVisible:
+    id: 'approval-banner'
 
 # An event on Today opens its own detail, with the prep action on it.
 - scrollUntilVisible:
@@ -27,37 +49,63 @@ tags:
     id: 'event-.*'
 - assertVisible:
     id: 'event-prep'
-- back
+- tapOn:
+    id: 'screen-header-back'
 
-# A commitment opens its detail.
+# A promise opens its own screen, through the action on its card.
 - scrollUntilVisible:
     element:
       id: 'commitment-.*'
     direction: DOWN
-- tapOn:
-    id: 'commitment-.*'
+- scrollUntilVisible:
+    element:
+      text: 'Tamamlandı'
+    direction: DOWN
+- tapOn: 'Tamamlandı'
+- scrollUntilVisible:
+    element:
+      id: 'commitment-complete'
+    direction: DOWN
 - assertVisible:
     id: 'commitment-complete'
-- back
+- tapOn:
+    id: 'screen-header-back'
 
-# The header leads to capture, search and settings.
+# A tracked parcel, flight or bill opens its own screen too.
+- scrollUntilVisible:
+    element:
+      id: 'life-.*'
+    direction: DOWN
 - tapOn:
-    id: 'today-search'
+    id: 'life-.*'
+- scrollUntilVisible:
+    element:
+      id: 'life-track'
+    direction: DOWN
 - assertVisible:
-    id: 'search-input'
-- back
+    id: 'life-track'
 - tapOn:
-    id: 'today-capture'
-- assertVisible:
-    id: 'capture-mode'
-- back
-- tapOn:
-    id: 'today-settings'
-- assertVisible:
-    id: 'settings-profile-card'
-- back
+    id: 'screen-header-back'
 
 # Pull to refresh leaves a rendered screen, not an empty one.
+- scrollUntilVisible:
+    element:
+      id: 'briefing-hero'
+    direction: UP
 - swipe:
     direction: DOWN
+- assertVisible:
+    id: 'briefing-hero'
 - assertVisible: 'Bugün'
+
+# The hero opens the full briefing, and the briefing can be asked for again.
+- tapOn:
+    id: 'briefing-hero'
+- scrollUntilVisible:
+    element:
+      id: 'briefing-regenerate'
+    direction: DOWN
+- tapOn:
+    id: 'briefing-regenerate'
+- assertVisible:
+    id: 'briefing-regenerate'

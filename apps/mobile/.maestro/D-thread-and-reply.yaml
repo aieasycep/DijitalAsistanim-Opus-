@@ -12,23 +12,33 @@ tags:
 - assertVisible:
     id: 'flow-list'
 
-# The filters narrow the list without emptying the screen.
+# A filter narrows the list without emptying the screen, and "all" restores it.
 - tapOn:
-    id: 'flow-filter-.*'
+    id: 'flow-filter-important'
 - assertVisible:
-    id: 'flow-list'
+    id: 'thread-.*'
+- tapOn:
+    id: 'flow-filter-all'
+- assertVisible:
+    id: 'thread-.*'
 
 - tapOn:
     id: 'thread-.*'
-- assertVisible:
-    id: 'thread-reply'
 
-# The summary carries a feedback control, and pressing it is acknowledged.
+# The summary carries a feedback control. Recording a signal has no screen of
+# its own, so what is checked is that it leaves the thread standing rather than
+# dropping the reader somewhere else.
 - assertVisible:
     id: 'summary-good'
 - tapOn:
     id: 'summary-good'
 
+- scrollUntilVisible:
+    element:
+      id: 'thread-reply'
+    direction: DOWN
+- assertVisible:
+    id: 'thread-reply'
 - tapOn:
     id: 'thread-reply'
 - assertVisible:
@@ -36,7 +46,9 @@ tags:
 
 # The tone is selectable and the draft can be regenerated on an instruction.
 - tapOn:
-    id: 'reply-tone-.*'
+    id: 'reply-tone-friendly'
+- assertVisible:
+    id: 'reply-body'
 - tapOn:
     id: 'reply-instruction'
 - inputText: 'Daha kısa olsun'
@@ -53,7 +65,13 @@ tags:
 - hideKeyboard
 
 # Discarding leaves without sending anything.
+- assertVisible:
+    id: 'reply-submit'
 - tapOn:
     id: 'reply-discard'
+- scrollUntilVisible:
+    element:
+      id: 'thread-reply'
+    direction: DOWN
 - assertVisible:
     id: 'thread-reply'

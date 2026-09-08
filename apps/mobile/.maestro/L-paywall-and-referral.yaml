@@ -3,6 +3,12 @@
 # Two rules: a locked feature must say what it unlocks rather than just
 # refusing, and "continue on free" must always be present. A paywall with no
 # way past it is a dead end, not a business model.
+#
+# This is the only build in which either screen can be opened at all: there is
+# no store behind demo mode, so the plan cards come from the demo offering in
+# `src/lib/purchases.ts`, and the demo account is deliberately on the free plan
+# — a Pro one hides the upgrade route entirely and leaves the paywall with no
+# entry point to reach it by.
 appId: ${APP_ID}
 name: L · Paywall and referral
 tags:
@@ -11,14 +17,29 @@ tags:
 - runFlow: helpers/enter-demo.yaml
 - tapOn:
     id: 'today-settings'
+- assertVisible:
+    id: 'settings-upgrade'
 - tapOn:
     id: 'settings-upgrade'
 
-# Both plans are offered, with a way out.
+# Both plans are offered, and the choice is a real one rather than a fixed
+# selection.
+- scrollUntilVisible:
+    element:
+      id: 'paywall-plan-annual'
+    direction: DOWN
 - assertVisible:
-    id: 'paywall-plan-.*'
+    id: 'paywall-plan-annual'
 - assertVisible:
-    id: 'paywall-subscribe'
+    id: 'paywall-plan-monthly'
+- tapOn:
+    id: 'paywall-plan-monthly'
+
+# There is always a way out, next to the way in.
+- scrollUntilVisible:
+    element:
+      id: 'paywall-subscribe'
+    direction: DOWN
 - assertVisible:
     id: 'paywall-restore'
 - assertVisible:
@@ -35,17 +56,31 @@ tags:
     id: 'settings-profile-card'
 
 # The referral screen offers a code to share and a code to enter.
+- scrollUntilVisible:
+    element:
+      id: 'settings-subscription'
+    direction: DOWN
 - tapOn:
     id: 'settings-subscription'
+- scrollUntilVisible:
+    element:
+      id: 'subscription-referral'
+    direction: DOWN
 - tapOn:
     id: 'subscription-referral'
 - assertVisible:
     id: 'referral-copy'
 - assertVisible:
     id: 'referral-share'
+- scrollUntilVisible:
+    element:
+      id: 'referral-code-input'
+    direction: DOWN
 - tapOn:
     id: 'referral-code-input'
 - inputText: 'ABCD2345'
 - hideKeyboard
 - tapOn:
     id: 'referral-redeem'
+- assertVisible:
+    id: 'referral-redeem-result'

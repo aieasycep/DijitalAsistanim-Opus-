@@ -5,11 +5,18 @@
 # client and no test mailbox. That is also what makes it safe to run in CI —
 # nothing here can send an email to a real person.
 #
+# What demo mode cannot reach is written down where it bites, not hidden behind
+# a tag: the six `(onboarding)` steps (the root layout only mounts them for an
+# account whose onboarding is unfinished, and demo mode's is finished), the
+# emailed sign-in code (GoTrue needs a project), and Google/Apple sign-in (both
+# buttons are hidden unless the build is configured for them). Flow B says so
+# in its own header.
+#
 # Run the whole suite:      pnpm --filter @da/mobile run e2e
 # Run one flow:             maestro test apps/mobile/.maestro/A-first-run.yaml
 flows:
   - '*.yaml'
 excludeTags:
-  # Flows that need a real signed-in account and a connected provider. They
-  # are written and kept current, but they cannot pass in CI.
+  # Reserved for flows that need a real signed-in account and a connected
+  # provider. Nothing carries it today: every flow in the suite runs in CI.
   - requires-account

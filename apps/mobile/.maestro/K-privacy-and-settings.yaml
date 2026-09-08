@@ -2,7 +2,13 @@
 #
 # The privacy screen is a promise in the App Store listing, so each control on
 # it has to lead somewhere real: an export that can be requested, a history
-# that can be deleted, an account that can be closed.
+# that can be deleted, an account that can be closed. This flow really does
+# delete and really does close — demo mode resets its store afterwards, and
+# every flow launches with `clearState`, so nothing leaks into the next run.
+#
+# The language screen shows the *language* title, not "Ayarlar", so the switch
+# is checked against that screen's own heading and then against the settings
+# index it returns to.
 appId: ${APP_ID}
 name: K · Settings and privacy
 tags:
@@ -15,42 +21,100 @@ tags:
     id: 'settings-profile-card'
 
 # The whole app switches language, and switches back.
+- scrollUntilVisible:
+    element:
+      id: 'settings-language'
+    direction: DOWN
 - tapOn:
     id: 'settings-language'
+- assertVisible: 'Dil'
 - tapOn:
     id: 'language-en'
-- assertVisible: 'Settings'
+- assertVisible: 'Language'
 - tapOn:
     id: 'language-tr'
+- assertVisible: 'Dil'
+- tapOn:
+    id: 'screen-header-back'
+- scrollUntilVisible:
+    element:
+      text: 'Ayarlar'
+    direction: UP
 - assertVisible: 'Ayarlar'
-- back
 
-# Appearance.
+# Appearance: the theme applies immediately, and reduce-motion is a real switch.
+- scrollUntilVisible:
+    element:
+      id: 'settings-appearance'
+    direction: DOWN
 - tapOn:
     id: 'settings-appearance'
-- tapOn:
+- assertVisible:
     id: 'appearance-theme'
+- tapOn: 'Koyu'
+- tapOn: 'Sistem'
 - tapOn:
     id: 'appearance-reduce-motion'
-- back
+- tapOn:
+    id: 'screen-header-back'
+- scrollUntilVisible:
+    element:
+      text: 'Ayarlar'
+    direction: UP
+- assertVisible: 'Ayarlar'
 
-# Privacy: export, delete history, delete account — each reachable, and the
-# destructive two behind a confirmation.
+# Privacy: an export that can be requested, and a history that really goes.
+- scrollUntilVisible:
+    element:
+      id: 'settings-privacy'
+    direction: DOWN
 - tapOn:
     id: 'settings-privacy'
 - assertVisible:
     id: 'privacy-export-request'
 - tapOn:
+    id: 'privacy-export-request'
+
+- scrollUntilVisible:
+    element:
+      id: 'privacy-delete-history'
+    direction: DOWN
+- tapOn:
     id: 'privacy-delete-history'
 - assertVisible:
     id: 'privacy-delete-history-sheet'
-- back
+- tapOn:
+    id: 'privacy-delete-history-confirm'
+- assertVisible:
+    id: 'privacy-delete-history-done'
+
+# The policy is one tap away from the screen that describes it.
+- scrollUntilVisible:
+    element:
+      id: 'privacy-policy'
+    direction: DOWN
+- assertVisible:
+    id: 'privacy-policy'
+
+# Closing the account is gated on typing the address it belongs to, and it
+# really does end the session.
+- scrollUntilVisible:
+    element:
+      id: 'privacy-delete-account'
+    direction: DOWN
 - tapOn:
     id: 'privacy-delete-account'
 - assertVisible:
     id: 'privacy-delete-account-sheet'
-- back
-
-# The policy is one tap away from the screen that describes it.
+- scrollUntilVisible:
+    element:
+      id: 'privacy-delete-account-email'
+    direction: DOWN
+- tapOn:
+    id: 'privacy-delete-account-email'
+- inputText: 'deniz.kaya@dijitalasistan.app'
+- hideKeyboard
+- tapOn:
+    id: 'privacy-delete-account-confirm'
 - assertVisible:
-    id: 'privacy-policy'
+    id: 'intro-pager'

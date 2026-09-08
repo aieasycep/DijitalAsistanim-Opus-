@@ -73,6 +73,18 @@ screen and extract what is in it".
 prompt — it exists because a framework could trigger it, and the string says
 plainly that the app does not track.
 
+There are nine `NS*UsageDescription` strings: calendars (×2), reminders (×2),
+camera, photo library, microphone, contacts and tracking. **No location string,
+because no location permission is requested on either platform** — the Android
+manifest asks for notifications, calendar read/write, camera, audio, contacts,
+vibrate and boot-completed, and nothing else.
+
+### Export compliance
+
+`ITSAppUsesNonExemptEncryption: false` is set in `app.config.ts`, so App Store
+Connect will not ask again per build. The app uses only HTTPS and the platform's
+own crypto; the AES-256-GCM token sealing runs on the server, not in the binary.
+
 ### Guideline 5.1.1(v) — account deletion
 
 Settings → Privacy → Delete account. In the review notes, name that path. A

@@ -3,6 +3,13 @@
 # The single most important behaviour in the product: nothing reaches a real
 # mailbox or calendar until a person has seen exactly what it says and pressed
 # approve. This flow walks that path; flow F walks the refusal.
+#
+# Two mechanics the flow has to respect. The queue's cards are not themselves
+# buttons — an approval card that were one could be "opened" by a tap meant for
+# Approve — so the full record is reached through the card's own "Düzenle".
+# And saving an edit *is* the approval: `applyEdit` validates the changed
+# fields and then decides `approve` with them, so there is no second Onayla to
+# press afterwards, and the card is expected to go quiet instead.
 appId: ${APP_ID}
 name: E · Approve an outbound action
 tags:
@@ -18,28 +25,54 @@ tags:
 - assertVisible:
     id: 'approvals-tabs'
 
-- tapOn:
-    id: 'approval-.*'
+# Every decision is offered on the card itself, next to the full payload.
 - assertVisible:
-    id: 'approval-detail-card'
-
-# The card states the exact change, and all three decisions are offered.
+    id: 'approval-.*'
+- scrollUntilVisible:
+    element:
+      text: 'Düzenle'
+    direction: DOWN
 - assertVisible: 'Onayla'
 - assertVisible: 'Reddet'
-- assertVisible: 'Düzenle'
+- tapOn: 'Düzenle'
 
-# Editing opens the fields that may be changed, and saves.
+# The full record states the exact change, and all three decisions are on it.
+- assertVisible:
+    id: 'approval-detail-card'
+- scrollUntilVisible:
+    element:
+      text: 'Düzenle'
+    direction: DOWN
+- assertVisible: 'Onayla'
+- assertVisible: 'Reddet'
+
+# Editing opens only the fields the domain allows, and saving approves with them.
 - tapOn: 'Düzenle'
 - assertVisible:
     id: 'approval-edit-sheet'
+- assertVisible:
+    id: 'approval-edit-save'
 - tapOn:
     id: 'approval-edit-save'
 
-# Approving is the only thing that sends.
-- tapOn: 'Onayla'
+# It executed: the record says so and there is nothing left to approve.
+- assertNotVisible: 'Onayla'
+- scrollUntilVisible:
+    element:
+      text: 'Tamamlandı'
+    direction: UP
+- assertVisible: 'Tamamlandı'
+- scrollUntilVisible:
+    element:
+      id: 'approval-close'
+    direction: DOWN
+- tapOn:
+    id: 'approval-close'
 - assertVisible:
     id: 'approvals-tabs'
 
 # It has left the pending queue and is in the history with no approve button.
 - tapOn: 'Geçmiş'
+- assertVisible:
+    id: 'approval-.*'
 - assertNotVisible: 'Onayla'

@@ -959,8 +959,15 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
             : 'Yanıt beklediğin bir konu yok.'
           citations = waiting ? [sourceForThread(waiting.threadId)] : []
         } else {
-          answer =
-            'Bugünün tek kritik işi Ahmet’in revize teklifi. Saat 14:00’ta ürün stratejisi toplantın var.'
+          // The demo calendar is anchored to the clock, so the fallback answer
+          // names whichever meeting is genuinely still ahead rather than an
+          // hour that was true only in the morning.
+          const nextUp = todayEvents.find(
+            (event) => new Date(event.endsAt).getTime() >= now().getTime(),
+          )
+          answer = nextUp
+            ? `Bugünün tek kritik işi Ahmet’in revize teklifi. Sıradaki toplantın: ${nextUp.title}.`
+            : 'Bugünün tek kritik işi Ahmet’in revize teklifi. Takviminde bugüne kalan toplantı yok.'
           citations = openCommitment ? [openCommitment.source] : []
         }
 
@@ -1397,11 +1404,15 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
           return { granted: false, bonusDays: 0, expiresAt: null, reason: 'self_referral' }
         }
         const expiresAt = new Date(now().getTime() + REFERRAL_BONUS_DAYS * DAY_MS).toISOString()
-        store.subscription = {
-          ...store.subscription,
-          status: 'trialing',
-          trialEndsAt: expiresAt,
-          updatedAt: nowIso(),
+        // A redeemed bonus is a referral bonus, not a subscription. It used to
+        // be written onto the subscription row as a trial, which `resolveEntitlements`
+        // reads first — so the app reported the plan's source as a trial that
+        // the store knows nothing about, and the referral card kept saying the
+        // account had no bonus running.
+        store.referral = {
+          ...store.referral,
+          bonusExpiresAt: expiresAt,
+          activeBonuses: store.referral.activeBonuses + 1,
         }
         return { granted: true, bonusDays: REFERRAL_BONUS_DAYS, expiresAt, reason: null }
       },

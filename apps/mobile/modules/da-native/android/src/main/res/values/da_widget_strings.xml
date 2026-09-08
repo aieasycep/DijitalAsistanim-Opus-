@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="da_widget_description">Bugün bilmen gerekenler.</string>
+    <!--
+      The app's deep-link scheme. This is only the default: `withAndroidWidget`
+      writes the configured `APP_SCHEME` into the application module's own
+      strings.xml, which takes precedence over this library value at merge time.
+      Declaring it here is what gives the provider an `R.string` to resolve.
+    -->
+    <string name="da_widget_scheme" translatable="false">dijitalasistan</string>
 </resources>

@@ -3,35 +3,40 @@
 ## The shape of it
 
 ```
-┌─────────────────────────┐     ┌──────────────────────────┐
-│  iOS / Android app      │     │  Marketing site          │
-│  Expo SDK 57 · RN 0.86  │     │  Next.js 16 · App Router │
-│  Expo Router · TanStack │     │  Static + two dynamic    │
-└───────────┬─────────────┘     └──────────────────────────┘
-            │ HTTPS, bearer token
-            ▼
-┌───────────────────────────────────────────────────────────┐
-│  Supabase                                                 │
-│                                                           │
-│  ┌─────────────┐   ┌──────────────────────────────────┐  │
-│  │  GoTrue     │   │  49 Deno edge functions          │  │
-│  │  auth       │   │  the only writer of user data    │  │
-│  └─────────────┘   └───────────────┬──────────────────┘  │
-│                                    │ service role         │
-│  ┌─────────────────────────────────▼──────────────────┐  │
-│  │  PostgreSQL 16 · 38 tables · RLS enabled + forced  │  │
-│  │  pgvector · pg_cron · pg_net                       │  │
-│  └────────────────────────────────────────────────────┘  │
-└───────────┬───────────────────────────────────────────────┘
+┌─────────────────────────┐  ┌──────────────────────┐  ┌───────────────────┐
+│  iOS / Android app      │  │  Marketing site      │  │  Staff backoffice │
+│  Expo SDK 57 · RN 0.86  │  │  Next.js 16 ·        │  │  Next.js 16,      │
+│  Expo Router · TanStack │  │  App Router          │  │  service role     │
+└───────────┬─────────────┘  └──────────────────────┘  └─────────┬─────────┘
+            │ HTTPS, bearer token                                │ bo_* views
+            ▼                                                    │ only
+┌────────────────────────────────────────────────────────────────▼──────────┐
+│  Supabase                                                                 │
+│                                                                           │
+│  ┌─────────────┐   ┌──────────────────────────────────┐                  │
+│  │  GoTrue     │   │  48 Deno edge functions          │                  │
+│  │  auth       │   │  every write that leaves the app │                  │
+│  └─────────────┘   └───────────────┬──────────────────┘                  │
+│                                    │ service role                         │
+│  ┌─────────────────────────────────▼──────────────────┐                  │
+│  │  PostgreSQL · 39 tables · RLS enabled + forced     │                  │
+│  │  pgvector · pg_cron · pg_net                       │                  │
+│  └────────────────────────────────────────────────────┘                  │
+└───────────┬───────────────────────────────────────────────────────────────┘
             │ server-side only, never from the client
             ▼
   Google (Gmail, Calendar, Tasks) · Microsoft (Graph)
   Anthropic / OpenAI · RevenueCat · Expo Push
 ```
 
-The client reads through RLS and writes through functions. There is no path by
-which a phone holds a provider refresh token, and no path by which one user's
-row is returned to another.
+The local stack in `supabase/config.toml` pins Postgres 15; CI validates the
+migrations against the `postgres:16` image, and `validate-supabase.mjs` needs
+15 or newer. `pgvector` is created by `0001_extensions_and_enums.sql`;
+`pg_cron` and `pg_net` are **not** — `0014_cron_jobs.sql` detects them and
+degrades if they are absent, so they must be enabled on the project.
+
+There is no path by which a phone holds a provider refresh token, and no path
+by which one user's row is returned to another.
 
 ## Why the pieces are what they are
 
@@ -48,19 +53,42 @@ It also means the edge functions and the app share _the actual same code_ for
 priority, approvals and validation, rather than two implementations that agree
 until they do not.
 
-### Edge functions as the only writer
+### Who may write what
 
-Every table is readable through RLS by its owner and writable by nobody. All
-writes go through a function running with the service role, which:
+The write model has two halves, and only describing one of them would be
+misleading.
+
+**RLS decides who may write directly.** `0011_rls_policies.sql` splits the 39
+tables three ways. Fourteen are client-writable: the app inserts, updates and
+deletes its own rows in `profiles`, `user_preferences`,
+`notification_preferences`, `contacts`, `vip_people`, `priority_rules`,
+`learned_preferences`, `captures`, `ai_feedback`, `assistant_threads`,
+`push_tokens`, `reminders`, `tasks` and `commitments`, each policy scoped to
+`(select auth.uid())`. These are things the human authored, and routing a VIP
+toggle through an edge function would buy nothing.
+
+Eighteen are read-only to the client — everything the assistant produced or that
+encodes an entitlement, from `email_threads` and `insights` to
+`approval_actions` and `subscriptions`. Seven have no client policy at all
+(`oauth_credentials`, `audit_logs`, `ai_usage_events`, `rate_limit_counters`,
+`notification_deliveries`, `oauth_states`, `staff_members`).
+
+**Edge functions own everything else.** Every write that reaches a provider,
+confers an entitlement, or produces evidence the client could otherwise
+fabricate goes through a function running with the service role, which:
 
 1. verifies the caller's JWT and derives `user_id` from it, never from the body;
 2. validates the request against a Zod schema;
 3. applies the domain rules — the same module the client uses to render them;
 4. writes, and appends to `audit_logs` when the write has an external effect.
 
-This is what makes "the assistant cannot do anything behind your back" a
-structural property rather than a promise. There is no client code path that
-reaches a provider.
+That division is what makes "the assistant cannot do anything behind your back"
+a structural property rather than a promise: a client can edit its own VIP list,
+and it categorically cannot mint an insight, pre-approve an action that sends
+mail, or grant itself Pro. There is no client code path that reaches a provider.
+
+See [SECURITY.md](SECURITY.md#2--row-level-security) for the full table-by-table
+split.
 
 ### The approval machine
 
@@ -146,6 +174,24 @@ a web build, a Jest run — degrades to no-ops rather than throwing.
 | Android  | App widget, `NotificationListenerService`, share intake | No JS equivalent                             |
 | Both     | App Group / SharedPreferences bridge                    | The widget renders without launching the app |
 
+### The staff backoffice
+
+`apps/backoffice` is a third application: a Next.js 16 staff console on port
+3100, with three routes (`/`, `/giris`, `/yetkisiz`). It does not talk to the
+edge functions and it does not read the user tables. Its entire surface is the
+16 `bo_*` views from `0017_backoffice.sql`, which are granted to `service_role`
+alone and revoked from `anon` and `authenticated`.
+
+Those views are the mechanism behind the claim that nobody at the company reads
+user mail. Not one of them selects a column that can carry what a person wrote
+or received; addresses are projected only through `bo_redact_email()`, and
+free-text provider errors only through `bo_error_code()`, which collapses
+anything sentence-shaped to `unstructured`. `scripts/validate-supabase.mjs`
+re-derives every view's column dependencies from `pg_depend` and fails the build
+if one ever reaches a content column, so the guarantee is checked rather than
+asserted. Staff identity lives in `staff_members`, whose only client policy lets
+a staff member see their own row.
+
 ## Request lifecycle, end to end
 
 A mail arrives and becomes something on the Today screen:
@@ -166,8 +212,10 @@ A mail arrives and becomes something on the Today screen:
 7. **Surface** — `today-feed` assembles the screen; the briefing generator
    writes the morning summary from the same rows.
 
-The point of steps 2–3 is cost and latency, and of step 5 is truth. Roughly
-four in five messages never reach a model.
+The point of steps 2–3 is cost and latency, and of step 5 is truth. The design
+target is that roughly four in five messages never reach a model — that is a
+target the pipeline is shaped around, not a figure measured from production
+traffic, and nothing in this repository can confirm it.
 
 ## Failure behaviour
 

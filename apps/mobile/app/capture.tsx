@@ -15,6 +15,7 @@ import { Card } from '../src/components/ui/Card'
 import { FilterChip } from '../src/components/ui/Controls'
 import { Screen } from '../src/components/ui/Screen'
 import { ScreenHeader } from '../src/components/ui/ScreenHeader'
+import { ErrorState, SkeletonCard } from '../src/components/ui/States'
 import { Text } from '../src/components/ui/Text'
 import { TextField } from '../src/components/ui/TextField'
 import { useCapture, useInvalidateAfterWrite } from '../src/hooks/queries'
@@ -25,7 +26,7 @@ import { useI18n, useT } from '../src/i18n/I18nProvider'
 import { track } from '../src/lib/analytics'
 import { reportError } from '../src/lib/error-reporting'
 import { uploadCaptureFile } from '../src/lib/upload'
-import { errorMessageKey } from '../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../src/lib/query-client'
 import { useApi } from '../src/providers/AppProviders'
 import { useTheme } from '../src/theme/ThemeProvider'
 
@@ -234,6 +235,41 @@ export default function CaptureScreen() {
 
   const busy = createText.isPending || createLink.isPending || createFile.isPending
   const error = createText.error ?? createLink.error ?? createFile.error
+
+  /**
+   * A capture id in hand means this screen is that capture's status view, and
+   * it stays that view until the row arrives or the fetch fails.
+   *
+   * It used to fall through to the composer whenever `data` was undefined, so
+   * opening a capture from Today — or the moment right after creating one —
+   * showed an empty "new capture" screen: the capture looked as though it had
+   * never existed. The screen now says which of the two it is.
+   */
+  if (captureId && !capture) {
+    return (
+      <Screen scroll bottomInset={spacing.xxl}>
+        <ScreenHeader title={t('capture.title')} dismiss onBack={() => router.back()} />
+        <View style={{ gap: spacing.sm, paddingTop: spacing.sm }}>
+          {captureQuery.isError ? (
+            <ErrorState
+              message={t(errorMessageKey(captureQuery.error))}
+              {...(isRetryable(captureQuery.error)
+                ? {
+                    retryLabel: t('common.action.retry'),
+                    onRetry: () => void captureQuery.refetch(),
+                  }
+                : {})}
+              testID="capture-error"
+            />
+          ) : (
+            // Still fetching. A skeleton says "we do not have this yet",
+            // where the composer said "this never existed".
+            <SkeletonCard />
+          )}
+        </View>
+      </Screen>
+    )
+  }
 
   if (capture) {
     const extraction = capture.extracted

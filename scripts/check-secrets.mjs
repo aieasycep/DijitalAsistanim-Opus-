@@ -103,6 +103,12 @@ const CREDENTIAL_PATTERNS = [
   { name: 'Supabase service-role JWT', pattern: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}\./ },
   {
     name: 'inline password assignment',
+    // The only fuzzy rule here: it matches on a field NAME rather than on a
+    // credential's own distinctive shape, so a doc comment describing a field
+    // called `token` trips it. Comments are therefore exempt from this rule
+    // and only from this rule — every other pattern below is specific enough
+    // that a match inside a comment is still a real leak worth failing on.
+    heuristic: true,
     // A URL is excluded: `token: 'https://oauth2.googleapis.com/token'` is an
     // endpoint, and endpoints are exactly what a field called `token` holds in
     // an OAuth configuration.
@@ -110,6 +116,13 @@ const CREDENTIAL_PATTERNS = [
       /\b(password|passwd|secret|api_?key|token)\s*[:=]\s*["'`](?!https?:\/\/)[^"'`\s{$]{12,}["'`]/i,
   },
 ]
+
+/**
+ * A line that is entirely a comment, in any of the languages scanned here:
+ * `//` and `/* … *\/` for TypeScript, `#` for env files and YAML, `--` for
+ * SQL, and a bare `*` for the body of a block comment.
+ */
+const COMMENT_LINE = /^\s*(\/\/|\/\*|\*|#|--)/
 
 /**
  * The local Supabase stack ships with a fixed, publicly documented password
@@ -176,13 +189,16 @@ for (const file of files) {
     continue
   }
   const namingOnly = NAMING_ONLY.some((allow) => allow.test(relative))
-  const isClient = CLIENT_TREES.some((tree) => tree.test(relative)) && !SERVER_SIDE_WEB.test(relative)
+  const isClient =
+    CLIENT_TREES.some((tree) => tree.test(relative)) && !SERVER_SIDE_WEB.test(relative)
 
   text.split('\n').forEach((line, index) => {
     const at = `${relative}:${index + 1}`
 
     if (!namingOnly && !LOCAL_DEV_VALUES.test(line)) {
+      const commented = COMMENT_LINE.test(line)
       for (const credential of CREDENTIAL_PATTERNS) {
+        if (credential.heuristic && commented) continue
         if (credential.pattern.test(line)) {
           offenders.push({ at, rule: `committed credential (${credential.name})` })
         }

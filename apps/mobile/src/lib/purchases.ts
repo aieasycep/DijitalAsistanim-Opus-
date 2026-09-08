@@ -1,6 +1,6 @@
 import { AppError } from '@da/domain'
 import { formatMoney } from '@da/i18n'
-import { Platform } from 'react-native'
+import { NativeModules, Platform } from 'react-native'
 import { useSessionStore } from '../stores/session'
 import { env, integrations } from './env'
 import { reportError } from './error-reporting'
@@ -14,6 +14,12 @@ import { reportError } from './error-reporting'
  * on disk and no implementation behind it. The guard keeps those contexts
  * running and lets the paywall say "not available here" instead of crashing on
  * import.
+ *
+ * The require alone is not the whole guard. The package imports cleanly with no
+ * native module behind it and falls back to a browser implementation that only
+ * accepts web API keys, then throws on the first call — so availability is
+ * decided by the native module the SDK itself binds to, not by whether the
+ * import succeeded.
  *
  * The SDK is configured with the Supabase user id. That is not a detail: it is
  * what makes RevenueCat's `app_user_id` the account that paid, so the webhook
@@ -120,6 +126,12 @@ export function purchasesAvailable(): boolean {
 
 function loadSdk(): RevenueCatModule['default'] | null {
   if (sdk) return sdk
+  // The same handle `react-native-purchases` binds to internally. Absent it,
+  // every call the SDK exposes throws, so reporting the store as available
+  // would leave the paywall's buy and restore buttons looking live and doing
+  // nothing but raising.
+  const nativeModule: unknown = NativeModules.RNPurchases
+  if (nativeModule == null) return null
   try {
     // Resolved at runtime: the package is a native module, and a static import
     // would break every JS-only context that has no implementation behind it.

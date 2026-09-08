@@ -1,4 +1,4 @@
-import { spacing } from '@da/design-tokens'
+import { radius, spacing } from '@da/design-tokens'
 import type { CalendarEvent } from '@da/domain'
 import { formatTimeRange } from '@da/i18n'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -9,6 +9,7 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { IconTile } from '../ui/Layout'
+import { Pressable } from '../ui/Pressable'
 import { Text } from '../ui/Text'
 
 export interface MeetingCardProps {
@@ -30,6 +31,10 @@ export interface MeetingCardProps {
  * "Starts in N minutes" is only rendered when the caller supplies a real
  * `minutesUntil`; nothing here derives a countdown from the clock, so a card
  * rendered from cached data cannot silently claim a meeting is imminent.
+ *
+ * Opening the event is the summary's job, not the whole card's: Prepare and
+ * Join sit outside that tap target so iOS does not collapse them into it and
+ * leave a VoiceOver user with no way to reach either.
  */
 export function MeetingCard({
   event,
@@ -55,59 +60,63 @@ export function MeetingCard({
   const imminent = minutesUntil !== null && minutesUntil > 0 && minutesUntil <= 30
 
   return (
-    <Card
-      onPress={onPress}
-      accessibilityLabel={`${event.title}. ${range}`}
-      testID={testID}
-      style={{ gap: spacing.xs }}
-    >
-      <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
-        <IconTile icon="event" tone={imminent || inProgress ? 'primary' : 'neutral'} />
+    <Card style={{ gap: spacing.xs }}>
+      <Pressable
+        onPress={onPress}
+        accessibilityLabel={`${event.title}. ${range}`}
+        testID={testID}
+        haptic="light"
+        style={{ gap: spacing.xs }}
+        pressedStyle={{ backgroundColor: theme.colors.surface2, borderRadius: radius.cardSm }}
+      >
+        <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
+          <IconTile icon="event" tone={imminent || inProgress ? 'primary' : 'neutral'} />
 
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="h3" numberOfLines={2}>
-            {event.title}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text variant="secondary" tone="secondary" tabular>
-              {range}
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="h3" numberOfLines={2}>
+              {event.title}
             </Text>
-            {event.location ? (
-              <>
-                <Text variant="secondary" tone="tertiary">
-                  ·
-                </Text>
-                <Text variant="secondary" tone="secondary" numberOfLines={1} style={{ flex: 1 }}>
-                  {event.location}
-                </Text>
-              </>
-            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text variant="secondary" tone="secondary" tabular>
+                {range}
+              </Text>
+              {event.location ? (
+                <>
+                  <Text variant="secondary" tone="tertiary">
+                    ·
+                  </Text>
+                  <Text variant="secondary" tone="secondary" numberOfLines={1} style={{ flex: 1 }}>
+                    {event.location}
+                  </Text>
+                </>
+              ) : null}
+            </View>
           </View>
         </View>
-      </View>
 
-      <View
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}
-      >
-        {inProgress ? (
-          <Badge label={t('calendar.event.inProgress')} tone="primary" icon="play-circle" />
-        ) : null}
-        {imminent && minutesUntil !== null ? (
-          <Badge
-            label={plural('calendar.event.startsIn', minutesUntil)}
-            tone="warning"
-            icon="schedule"
-          />
-        ) : null}
-        {others.length > 0 ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <MaterialIcons name="group" size={13} color={theme.colors.textTertiary} />
-            <Text variant="micro" tone="tertiary" tabular>
-              {plural('calendar.event.attendeeCount', others.length)}
-            </Text>
-          </View>
-        ) : null}
-      </View>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}
+        >
+          {inProgress ? (
+            <Badge label={t('calendar.event.inProgress')} tone="primary" icon="play-circle" />
+          ) : null}
+          {imminent && minutesUntil !== null ? (
+            <Badge
+              label={plural('calendar.event.startsIn', minutesUntil)}
+              tone="warning"
+              icon="schedule"
+            />
+          ) : null}
+          {others.length > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <MaterialIcons name="group" size={13} color={theme.colors.textTertiary} />
+              <Text variant="micro" tone="tertiary" tabular>
+                {plural('calendar.event.attendeeCount', others.length)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
 
       {onPrepare || onJoin ? (
         <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xxs }}>

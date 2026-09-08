@@ -1,4 +1,4 @@
-import { spacing } from '@da/design-tokens'
+import { radius, spacing } from '@da/design-tokens'
 import type { Insight, InsightAction } from '@da/domain'
 import { MaterialIcons } from '@expo/vector-icons'
 import { View } from 'react-native'
@@ -43,6 +43,11 @@ export interface InsightCardProps {
  * badge names its level in words as well as colour, the source chip is always
  * rendered when a source exists, and every action button comes from the
  * insight's own action list so there is never a button without a handler.
+ *
+ * The card's own tap target covers the summary only. Wrapping the action row
+ * in it as well would put the buttons inside an `accessible` subtree, which
+ * iOS collapses into a single element — the actions would still be tappable by
+ * hand and completely absent for VoiceOver.
  */
 export function InsightCard({
   insight,
@@ -55,13 +60,19 @@ export function InsightCard({
   const t = useT()
   const isDone = Boolean(insight.completedAt)
 
-  return (
-    <Card
-      onPress={onPress}
-      accessibilityLabel={insight.title}
-      testID={testID}
-      style={{ gap: spacing.xs, opacity: isDone ? 0.6 : 1 }}
-    >
+  /**
+   * A tappable summary is one accessibility element, so everything it shows has
+   * to be in the label — the detail and the "why this matters" line included,
+   * or they are simply never spoken.
+   */
+  const label = [
+    insight.title,
+    ...(insight.detail ? [insight.detail] : []),
+    ...(insight.reasonImportant ? [insight.reasonImportant] : []),
+  ].join('. ')
+
+  const summary = (
+    <>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
         {insight.importance === 'critical' ? (
           <Badge label={t('common.importance.critical')} tone="critical" icon="priority-high" />
@@ -101,6 +112,30 @@ export function InsightCard({
           </Text>
         </View>
       ) : null}
+    </>
+  )
+
+  return (
+    <Card
+      style={{ gap: spacing.xs, opacity: isDone ? 0.6 : 1 }}
+      testID={onPress ? undefined : testID}
+    >
+      {onPress ? (
+        <Pressable
+          onPress={onPress}
+          accessibilityLabel={label}
+          haptic="light"
+          testID={testID}
+          style={{ gap: spacing.xs }}
+          pressedStyle={{ backgroundColor: theme.colors.surface2, borderRadius: radius.cardSm }}
+        >
+          {summary}
+        </Pressable>
+      ) : (
+        // Nothing to open, so nothing collapses: each line stays its own
+        // element and a screen reader reads the card as it is written.
+        <View style={{ gap: spacing.xs }}>{summary}</View>
+      )}
 
       {insight.source ? <SourceChip source={insight.source} onPress={onOpenSource} /> : null}
 
