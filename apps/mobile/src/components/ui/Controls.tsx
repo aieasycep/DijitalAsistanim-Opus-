@@ -26,6 +26,11 @@ export function Toggle({
       onValueChange={onValueChange}
       disabled={disabled}
       accessibilityLabel={accessibilityLabel}
+      // React Native derives `accessibilityState` from `disabled` only on the
+      // Android branch of Switch; the iOS branch passes `disabled` through
+      // raw. Without this, a Pro-gated toggle is announced to VoiceOver as a
+      // normally operable switch that then refuses to move.
+      accessibilityState={{ disabled, checked: value }}
       testID={testID}
       trackColor={{ false: theme.colors.hairline, true: theme.colors.primary }}
       thumbColor={theme.colors.surface}
@@ -200,9 +205,15 @@ export function ProgressBar({ progress, label, tone = 'primary', testID }: Progr
 
 export interface IconButtonProps {
   onPress: () => void
+  /** Required: an icon-only control has no text for a screen reader to read. */
   accessibilityLabel: string
+  accessibilityHint?: string
   children: React.ReactNode
   tone?: 'neutral' | 'primary'
+  /** Blocks the press and announces the control as unavailable. */
+  disabled?: boolean
+  /** Announces work in flight, for a control that stays visible while it runs. */
+  busy?: boolean
   testID?: string
 }
 
@@ -210,15 +221,23 @@ export interface IconButtonProps {
 export function IconButton({
   onPress,
   accessibilityLabel,
+  accessibilityHint,
   children,
   tone = 'neutral',
+  disabled = false,
+  busy = false,
   testID,
 }: IconButtonProps) {
   const theme = useTheme()
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      // An icon-only control has no text to carry its state, so the state has
+      // to be announced. Dimming the glyph says nothing to a screen reader.
+      accessibilityState={{ disabled, busy }}
       testID={testID}
       style={{
         width: minTouchTarget,

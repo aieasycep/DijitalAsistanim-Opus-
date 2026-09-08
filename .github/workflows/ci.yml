@@ -108,8 +108,17 @@ jobs:
         run: pnpm run verify:secrets
 
       # Every element the end-to-end flows reach for is one the app renders.
+      # This proves the ids EXIST in source; it does not prove a flow runs.
       - name: End-to-end flow targets
         run: pnpm run verify:e2e-ids
+
+      # Every edge-function slug and every navigation target resolves to
+      # something on disk. None of the defects this catches is a type error:
+      # a string naming an absent function or route looks exactly like one
+      # naming a present one, which is how five scheduled jobs, a missing
+      # endpoint and the home screen's primary button all shipped broken.
+      - name: Wiring
+        run: pnpm run verify:wiring
 
   database:
     name: Migrations and RLS
@@ -199,6 +208,31 @@ jobs:
 
       - name: Build
         run: pnpm run build:web
+
+  backoffice:
+    name: Backoffice
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Types
+        run: pnpm --filter @da/backoffice run typecheck
+
+      - name: Build
+        run: pnpm run build:backoffice
 
   mobile:
     name: Mobile app config

@@ -69,6 +69,12 @@ export function SourceChip({ source, onPress, testID }: SourceChipProps) {
       accessibilityLabel={source.label}
       accessibilityRole="link"
       testID={testID}
+      // The chip is deliberately short — it sits inline under a card's text —
+      // so the touch target is restored with slop rather than by growing the
+      // visible box. Overriding minHeight to 0 without it left roughly a 20pt
+      // target on a control that appears on every insight card and every
+      // assistant citation.
+      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
       style={{ minHeight: 0, alignSelf: 'flex-start' }}
     >
       {content}
