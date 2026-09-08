@@ -278,7 +278,19 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
           personName: payload.personName,
           dueAt: payload.dueAt,
           status: 'open',
-          source: approval.source ?? sourceForThread(approval.id),
+          // An approval that names no source came from the user, not from a
+          // conversation. `sourceForThread(approval.id)` labelled the promise
+          // as an e-mail and pointed it at the approval's own id, so the
+          // commitment card offered to open a thread that does not exist.
+          source: approval.source ?? {
+            type: 'user_input',
+            id: 'demo-user-input',
+            label: 'Senin onayladığın işlem',
+            provider: null,
+            personName: payload.personName,
+            occurredAt: nowIso(),
+            externalUrl: null,
+          },
           quote: payload.quote,
           confidence: 0.9,
           confirmedByUser: true,
@@ -483,10 +495,20 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
           openedAt: null,
           contentHash: `demo-${input.kind}-${forDate}`,
         }
-        store.briefings.push(briefing)
         const items = store.briefingItems
           .filter((item) => item.briefingId === template.id)
           .map((item) => ({ ...item, id: nextId(), briefingId: id, ...owned() }))
+        // An upsert on `(kind, for_date)`, the key `briefing-generate` writes
+        // under. Appending left the day holding two briefings, and both Today
+        // and `briefings.get` read the older one — so "Yeniden hazırla" wrote a
+        // briefing no screen could ever show.
+        if (existing) {
+          store.briefingItems = store.briefingItems.filter(
+            (item) => item.briefingId !== existing.id,
+          )
+          store.briefings = store.briefings.filter((item) => item.id !== existing.id)
+        }
+        store.briefings.push(briefing)
         store.briefingItems.push(...items)
         return { status: 'ready', reason: 'generated', briefing, items }
       },

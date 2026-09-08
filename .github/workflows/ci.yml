@@ -120,6 +120,13 @@ jobs:
       - name: Wiring
         run: pnpm run verify:wiring
 
+      # The role/permission matrix in docs/BACKOFFICE_RBAC.md, re-derived from
+      # 0019_admin_platform.sql and compared cell by cell. A matrix document
+      # that silently goes stale is worse than none, because people plan around
+      # it and reviewers cite it.
+      - name: RBAC document
+        run: pnpm run verify:rbac-doc
+
   database:
     name: Migrations and RLS
     runs-on: ubuntu-latest
@@ -233,6 +240,71 @@ jobs:
 
       - name: Build
         run: pnpm run build:backoffice
+
+  backoffice-e2e:
+    name: Backoffice end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # The same service the `database` job uses. The suite creates a scratch
+    # database on it per run, applies every migration to it, seeds fixture data
+    # and serves the console against it — so this job proves the console works
+    # against the real schema, not against a mock of it.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # A runner has no browser. Development containers that ship one set
+      # PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD so `pnpm install` does not fetch a
+      # second copy; turning it off for this step alone keeps that arrangement
+      # working locally while CI still gets the browser it needs.
+      - name: Install Chromium
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '0'
+        run: pnpm --filter @da/backoffice exec playwright install --with-deps chromium
+
+      - name: End-to-end suite
+        run: pnpm run test:backoffice-e2e
+        env:
+          E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+      # The report and the traces are how a failure here is diagnosed without
+      # reproducing it; a green run uploads nothing.
+      - name: Upload report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backoffice-e2e-report
+          path: |
+            apps/backoffice/playwright-report
+            apps/backoffice/test-results
+          retention-days: 7
+          if-no-files-found: ignore
 
   mobile:
     name: Mobile app config

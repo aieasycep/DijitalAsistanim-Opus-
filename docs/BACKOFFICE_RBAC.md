@@ -204,11 +204,15 @@ own.
 The enum is the specification's vocabulary, and some of it is ahead of the
 console. As the routes stand today, no page or Server Action performs
 `users.export`, `users.delete`, `integration.disconnect`, `privacy.process`,
-`ai.configure`, `audit.export` or a `sa_reveal_*` call. Holding one of those
-permissions therefore grants a capability the interface does not yet offer — it
-does not grant a hidden one. The library functions for revealing exist in
-`lib/support-access.ts`, fully guarded, and are unreferenced by any route; see
-[SUPPORT_ACCESS.md](SUPPORT_ACCESS.md#what-the-console-does-and-does-not-do-today).
+`ai.configure` or `audit.export`. Holding one of those permissions therefore
+grants a capability the interface does not yet offer — it does not grant a
+hidden one.
+
+`support.access.reveal` is no longer among them.
+`/support/access/[grantId]/reveal` calls the eight `sa_reveal_*` functions
+through the wrappers in `lib/db.ts`, one record at a time, and every call writes
+its own `support_access_reveals` row and its own `support_access.revealed` audit
+row; see [SUPPORT_ACCESS.md](SUPPORT_ACCESS.md#the-procedure).
 
 ---
 

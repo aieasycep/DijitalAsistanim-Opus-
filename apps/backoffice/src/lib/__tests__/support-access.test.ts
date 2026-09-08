@@ -25,12 +25,18 @@ import {
 /**
  * Support Access: the gate, not the workflow.
  *
- * `support-access.ts` is a thin server wrapper — it loads a grant, calls the
- * guard below, rate-limits, calls the `sa_*` function and writes the audit row.
- * Every decision it makes is made here, in pure code, which is what lets this
- * file prove the property that matters most: **a reveal without a live,
- * matching grant is refused**, and it is refused before anything reaches
- * Postgres.
+ * The workflow lives in `lib/actions/support-access.ts`, which runs every one
+ * of its five operations through `runAdminAction` and lets Postgres refuse what
+ * Postgres owns — `sa_assert_grant()` proves the six things a reveal needs, in
+ * the same statement that returns the data.
+ *
+ * The gate below is what the *screens* are built on: `evaluateReveal` decides
+ * which reveal controls may be drawn at all, so a scope outside a grant is
+ * never offered as a button that then fails
+ * (`components/support-access/__tests__/reveal.test.ts` proves that
+ * derivation). Every decision it makes is pure, which is what lets this file
+ * prove the property that matters most: **a reveal without a live, matching
+ * grant is refused**.
  */
 
 const ADMIN = 'a0000000-0000-4000-8000-000000000001'

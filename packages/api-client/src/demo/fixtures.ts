@@ -41,6 +41,7 @@ import {
   type Task,
   type UserPreferences,
 } from '@da/domain'
+import { captureExtraction } from '@da/validation'
 
 /**
  * The demo dataset: one deterministic Turkish day. Every instant is derived
@@ -155,6 +156,12 @@ export function createDemoStore(clock: Clock): DemoStore {
       minute: '2-digit',
       hour12: false,
     }).format(new Date(instant))
+
+  /** `14 Eylül` in the demo's own zone, for copy that names a day. */
+  const dateLabel = (instant: IsoInstant): string =>
+    new Intl.DateTimeFormat('tr-TR', { timeZone, day: 'numeric', month: 'long' }).format(
+      new Date(instant),
+    )
 
   const syncStart = soon(30)
   const syncEnd = soon(60)
@@ -515,28 +522,6 @@ export function createDemoStore(clock: Clock): DemoStore {
     },
   ]
 
-  const threads: EmailThread[] = threadSeeds.map((seed) => ({
-    id: seed.id,
-    ...owned(-5),
-    connectedAccountId: seed.accountId ?? GOOGLE_ACCOUNT_ID,
-    externalThreadId: `gmail-${seed.id.slice(-6)}`,
-    subject: seed.subject,
-    participantEmails: seed.participants,
-    lastMessageAt: seed.lastMessageAt,
-    messageCount: 2,
-    isRead: seed.isRead,
-    importance: seed.importance,
-    category: seed.category,
-    summary: seed.summary,
-    reasonImportant: seed.reasonImportant,
-    requiresUserAction: seed.requiresUserAction,
-    deadline: seed.deadline,
-    confidence: 0.88,
-    priorityScore: seed.priorityScore,
-    suppressedAt: null,
-    archivedAt: null,
-  }))
-
   interface MessageSeed {
     id: string
     threadId: string
@@ -619,27 +604,100 @@ export function createDemoStore(clock: Clock): DemoStore {
       sentAt: at(0, 6, 20),
       isFromUser: false,
     },
+    // The three life-admin threads used to carry no message at all. They are
+    // listed on Akış, cited by the briefing's personal section and named as the
+    // source of three life events, so every one of those cards opened a
+    // conversation screen with nothing in it.
+    {
+      id: demoId(207),
+      threadId: demoId(104),
+      fromEmail: 'bilet@turkishairlines.com',
+      fromName: 'Türk Hava Yolları',
+      snippet: 'TK1985 İstanbul–Berlin biletin hazır. Check-in yarın açılıyor.',
+      body: 'Sayın Deniz Kaya,\n\nTK1985 İstanbul–Berlin uçuşunuz için biletiniz hazır. Kalkış 07:40, check-in yarın açılıyor.\n\nİyi yolculuklar,\nTürk Hava Yolları',
+      sentAt: at(-2, 12, 30),
+      isFromUser: false,
+    },
+    {
+      id: demoId(208),
+      threadId: demoId(105),
+      fromEmail: 'fatura@enerjisa.com.tr',
+      fromName: 'Enerjisa',
+      snippet: 'Elektrik faturanız hazır. Referans: ENR-2026-884213.',
+      body: 'Elektrik faturanız hazır.\n\nReferans: ENR-2026-884213\nTutar: 1.284,60 TL\n\nSon ödeme tarihine kadar ödeyebilirsiniz.',
+      sentAt: at(-1, 9, 15),
+      isFromUser: false,
+    },
+    {
+      id: demoId(209),
+      threadId: demoId(106),
+      fromEmail: 'no-reply@spotify.com',
+      fromName: 'Spotify',
+      snippet: 'Premium aboneliğin üç gün sonra yenilenecek.',
+      body: 'Merhaba,\n\nSpotify Premium aboneliğin üç gün sonra 99,99 TL karşılığında otomatik olarak yenilenecek.\n\nSpotify',
+      sentAt: at(-1, 7, 45),
+      isFromUser: false,
+    },
   ]
 
-  const messages: EmailMessage[] = messageSeeds.map((seed) => ({
+  /** The thread a message belongs to. A message without one is a demo bug. */
+  const threadSeedOf = (threadId: string): ThreadSeed => {
+    const seed = threadSeeds.find((candidate) => candidate.id === threadId)
+    if (!seed) throw new Error(`demo fixture: message on unknown thread ${threadId}`)
+    return seed
+  }
+
+  const messages: EmailMessage[] = messageSeeds.map((seed) => {
+    const thread = threadSeedOf(seed.threadId)
+    return {
+      id: seed.id,
+      ...owned(-5),
+      threadId: seed.threadId,
+      // Both read off the thread rather than restated. The recipients used to be
+      // a literal `[AHMET.email]` for anything the user sent, so the draft to
+      // Zeynep was addressed to Ahmet, and the mailbox was always the Google
+      // one, so the Nova Dijital thread's only message claimed the wrong account.
+      connectedAccountId: thread.accountId ?? GOOGLE_ACCOUNT_ID,
+      toEmails: thread.participants.filter((email) => email !== seed.fromEmail),
+      externalMessageId: `msg-${seed.id.slice(-6)}`,
+      fromEmail: seed.fromEmail,
+      fromName: seed.fromName,
+      ccEmails: [],
+      subject: thread.subject,
+      snippet: seed.snippet,
+      bodyText: seed.body,
+      sentAt: seed.sentAt,
+      isFromUser: seed.isFromUser,
+      hasAttachments: false,
+      attachmentMeta: [],
+      contentHash: `hash-${seed.id.slice(-6)}`,
+      externalUrl: null,
+    }
+  })
+
+  const threads: EmailThread[] = threadSeeds.map((seed) => ({
     id: seed.id,
     ...owned(-5),
-    threadId: seed.threadId,
-    connectedAccountId: GOOGLE_ACCOUNT_ID,
-    externalMessageId: `msg-${seed.id.slice(-6)}`,
-    fromEmail: seed.fromEmail,
-    fromName: seed.fromName,
-    toEmails: seed.isFromUser ? [AHMET.email] : [SELF_EMAIL],
-    ccEmails: [],
-    subject: threadSeeds.find((t) => t.id === seed.threadId)?.subject ?? 'Konu',
-    snippet: seed.snippet,
-    bodyText: seed.body,
-    sentAt: seed.sentAt,
-    isFromUser: seed.isFromUser,
-    hasAttachments: false,
-    attachmentMeta: [],
-    contentHash: `hash-${seed.id.slice(-6)}`,
-    externalUrl: null,
+    connectedAccountId: seed.accountId ?? GOOGLE_ACCOUNT_ID,
+    externalThreadId: `gmail-${seed.id.slice(-6)}`,
+    subject: seed.subject,
+    participantEmails: seed.participants,
+    lastMessageAt: seed.lastMessageAt,
+    // Counted, not asserted: every thread used to claim two messages while six
+    // held one and three held none, so Akış promised "2 mesaj" on a card that
+    // opened onto a single mail.
+    messageCount: messages.filter((message) => message.threadId === seed.id).length,
+    isRead: seed.isRead,
+    importance: seed.importance,
+    category: seed.category,
+    summary: seed.summary,
+    reasonImportant: seed.reasonImportant,
+    requiresUserAction: seed.requiresUserAction,
+    deadline: seed.deadline,
+    confidence: 0.88,
+    priorityScore: seed.priorityScore,
+    suppressedAt: null,
+    archivedAt: null,
   }))
 
   const attendee = (
@@ -1343,23 +1401,36 @@ export function createDemoStore(clock: Clock): DemoStore {
     },
   ]
 
+  const captureId = demoId(1300)
+  const posterStartsAt = at(6, 19, 0)
+  /** The line on the poster the date was read from, and quoted verbatim. */
+  const posterDateQuote = `${dateLabel(posterStartsAt)}, ${clockLabel(posterStartsAt)}`
+
   const captures: Capture[] = [
     {
-      id: demoId(1300),
+      id: captureId,
       ...owned(-1),
       kind: 'photo',
       status: 'ready',
       storagePath: `${USER_ID}/demo/afis.jpg`,
       sourceUrl: null,
-      rawText: 'Tasarım Buluşmaları — 19 Eylül, 19:00, Salt Galata',
+      // Written from the same instant the extraction carries. The literal it
+      // replaces said "19 Eylül" while `startsAt` was six days from the clock,
+      // so the capture screen showed a date its own source text contradicted.
+      rawText: `Tasarım Buluşmaları — ${posterDateQuote}, Salt Galata`,
       mimeType: 'image/jpeg',
       sizeBytes: 482_113,
       detectedIntent: 'event',
-      extracted: {
+      // Parsed through the contract the live client reads a stored row back
+      // with, so the demo cannot present a claim the product would strip: an
+      // extraction whose date has no verbatim quote loses that date on the way
+      // out, and this one used to have none.
+      extracted: captureExtraction.parse({
         title: 'Tasarım Buluşmaları',
         summary: 'Salt Galata’da akşam etkinliği.',
-        startsAt: at(6, 19, 0),
+        startsAt: posterStartsAt,
         endsAt: at(6, 21, 0),
+        dateQuote: posterDateQuote,
         location: 'Salt Galata, İstanbul',
         people: [],
         amount: null,
@@ -1367,9 +1438,9 @@ export function createDemoStore(clock: Clock): DemoStore {
         keyPoints: ['Kayıt gerekiyor', 'Kontenjan sınırlı'],
         confidence: 0.86,
         suggestedActions: [
-          { kind: 'add_to_calendar', label: 'Takvime ekle', params: { captureId: demoId(1300) } },
+          { kind: 'add_to_calendar', label: 'Takvime ekle', params: { captureId } },
         ],
-      },
+      }),
       failureReason: null,
       analyzedAt: at(-1, 21, 5),
     },

@@ -129,10 +129,13 @@ describe('the stored form is not reversible to the shown form', () => {
       const token = newInviteToken()
       const stored = await sha256Bytea(token)
       expect(stored).not.toContain(token)
-      // Three characters of base64url is 18 bits: short enough that a lazy
-      // "store a hint" regression would be caught, long enough not to collide
-      // with 64 hex characters by accident.
-      for (const fragment of fragments(token, 3)) {
+      // Six characters, not three. Base64url and lowercase hex share sixteen
+      // characters, so a three-character window over a 64-character digest
+      // matches by chance often enough to fail this run roughly one time in
+      // five — a red suite that proves nothing. Six is still only 36 bits, so a
+      // digest that kept any run of the token is caught, and a chance match is
+      // out of reach.
+      for (const fragment of fragments(token, 6)) {
         expect(stored).not.toContain(fragment)
       }
     }

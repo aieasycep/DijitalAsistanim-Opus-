@@ -123,10 +123,44 @@ export const messages = {
     sessionExpired: 'Oturumun süresi doldu, tekrar giriş yap.',
     signOutFailed: 'Çıkış tamamlanamadı, tekrar dene.',
     rateLimited: 'Çok fazla deneme yapıldı. Bir süre sonra tekrar dene.',
+    /**
+     * The limiter's window is fixed, so the number is a ceiling on the wait.
+     * The sentence says so, and says the password was not the problem: telling
+     * an operator their parola is wrong when it was accepted sends them off to
+     * reset a credential that works.
+     */
+    rateLimitedFor: (minutes: number): string =>
+      `Çok fazla giriş denemesi yapıldı. Bu bir parola hatası değil: en fazla ${minutes} dakika bekleyip tekrar dene.`,
     unavailable: 'Kimlik servisi şu anda yanıt vermiyor.',
+
+    /** The second step. */
+    mfaTitle: 'İki adımlı doğrulama',
+    mfaSubtitle: 'Parola doğrulandı. Girişi tamamlamak için doğrulama uygulamandaki kodu gir.',
+    mfaCode: 'Doğrulama kodu',
+    mfaFactor: 'Doğrulama yöntemi',
+    /** Shown when GoTrue has no friendly name for the factor. */
+    mfaFactorFallback: 'Doğrulama uygulaması',
+    mfaSubmit: 'Doğrula ve gir',
+    mfaSubmitting: 'Doğrulanıyor…',
+    mfaCodeRequired: 'Doğrulama kodu zorunludur.',
+    mfaInvalidCode:
+      'Kod doğrulanmadı. Uygulamadaki güncel kodu gir; kod 30 saniyede bir yenilenir.',
+
+    /**
+     * The terminal state when the policy demands a factor the account does not
+     * have. The console cannot enrol one here on purpose, and the text says
+     * why: a sign-in screen that let whoever knows the password bind their own
+     * second factor would be a policy that any stolen password walks through.
+     */
+    mfaEnrolmentRequired:
+      'Bu konsol ikinci adım olmadan açılmıyor ve hesabında tanımlı bir doğrulama yöntemi yok.',
+    mfaEnrolmentHelp:
+      'Giriş ekranı yeni bir doğrulama yöntemi tanımlayamaz: parolayı ele geçiren birinin kendi ikinci adımını bağlayabilmesi, politikanın tamamını geçersiz kılardı. Kaydı, Supabase kimlik panosuna erişimi olan bir super_admin açar. Daha önce kaydın varsa yöntem oradan kaldırılmış olabilir; aynı kişiden yenisini tanımlamasını iste.',
+    startOver: 'Baştan başla',
+
     unauthorizedTitle: 'Yetkin yok',
     unauthorizedBody:
-      'Hesabın geçerli ama backoffice erişimi tanımlı değil. Erişim gerekiyorsa bir yöneticiden staff_members kaydı açmasını iste.',
+      'Hesabın geçerli ama backoffice erişimi tanımlı değil. Erişim gerekiyorsa bir yöneticiden admin_users kaydı açmasını iste.',
     unauthorizedRoleBody:
       'Bu sayfa daha yüksek bir yetki seviyesi istiyor. Mevcut seviyen bu işlem için yeterli değil.',
     neededPermission: 'Gereken yetki',
@@ -328,6 +362,9 @@ export const messages = {
   audit: {
     /** Action labels. An action the tool does not know is shown verbatim. */
     actions: {
+      'admin.signed_in': 'Yönetici giriş yaptı',
+      'admin.signed_out': 'Yönetici çıkış yaptı',
+      'auth.admin_sign_in_denied': 'Giriş reddedildi',
       'staff.signed_in': 'Ekip üyesi giriş yaptı',
       'staff.signed_out': 'Ekip üyesi çıkış yaptı',
       'staff.sign_in_denied': 'Giriş reddedildi',

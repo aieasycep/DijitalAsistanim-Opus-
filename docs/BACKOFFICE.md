@@ -134,8 +134,8 @@ names, the file stops compiling.
 
 `apps/backoffice/src/lib/auth.ts` carries a second, much smaller surface
 (`ADMIN_READABLE`, eight sources; `ADMIN_WRITABLE`, three tables) with its own
-allow-lists, used by the authorization layer and by `support-access.ts`. It has
-its own client, and it too never sees a content table.
+allow-lists, used by the authorization layer. It has its own client, and it too
+never sees a content table.
 
 **Enforced by:** `tsc --noEmit`, which CI runs as the `Types` step of the
 `static` job and again in the `backoffice` job.

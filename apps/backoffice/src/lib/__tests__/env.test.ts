@@ -206,6 +206,41 @@ describe('the fallback notes are caveats, not green ticks', () => {
     expect(entry?.fallbackNote).toBeNull()
   })
 
+  /**
+   * The MFA policy is not a secret, and it is the one variable on the list an
+   * operator has to be able to check from the console: `mfaPolicy()` treats
+   * every value that is not exactly `required` as `enrolled`, so a typo is a
+   * weaker policy that leaves no other trace.
+   */
+  it('says which policy is in force when the variable is unset', () => {
+    const entry = secretInventory().find((e) => e.variable === 'BACKOFFICE_MFA_POLICY')
+    expect(entry?.configured).toBe(false)
+    expect(entry?.required).toBe(false)
+    expect(entry?.fallbackNote).toContain('enrolled')
+  })
+
+  it('reports either accepted spelling with no caveat', () => {
+    process.env['BACKOFFICE_MFA_POLICY'] = 'required'
+    const strict = secretInventory().find((e) => e.variable === 'BACKOFFICE_MFA_POLICY')
+    expect(strict?.configured).toBe(true)
+    expect(strict?.fallbackNote).toBeNull()
+
+    process.env['BACKOFFICE_MFA_POLICY'] = 'enrolled'
+    expect(
+      secretInventory().find((e) => e.variable === 'BACKOFFICE_MFA_POLICY')?.fallbackNote,
+    ).toBeNull()
+  })
+
+  it('refuses to show a green tick for a value nothing recognises', () => {
+    // ` required ` is not `required`: `mfaPolicy()` compares the raw value, so
+    // this deployment is running the weaker policy while looking configured.
+    process.env['BACKOFFICE_MFA_POLICY'] = ' required '
+    const entry = secretInventory().find((e) => e.variable === 'BACKOFFICE_MFA_POLICY')
+    expect(entry?.configured).toBe(true)
+    expect(entry?.fallbackNote).toContain('Tanınmayan değer')
+    expect(entry?.fallbackNote).toContain('enrolled')
+  })
+
   it('explains that an unset environment is being inferred', () => {
     const entry = secretInventory().find((e) => e.variable === 'BACKOFFICE_ENV')
     expect(entry?.configured).toBe(false)

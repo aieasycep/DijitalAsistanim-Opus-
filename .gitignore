@@ -39,3 +39,6 @@ Thumbs.db
 # Test artifacts
 .maestro/output/
 test-results/
+playwright-report/
+# Per-run backoffice end-to-end state: generated credentials, seeded ids.
+apps/backoffice/e2e/.artifacts/

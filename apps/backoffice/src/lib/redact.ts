@@ -35,11 +35,11 @@ import type { AdminPermission, AdminRole } from './permissions.ts'
  *   1. `sa_assert_grant()` in Postgres re-checks the grant on every reveal, and
  *      the trigger on `support_access_reveals` re-checks it again on the log
  *      row. Neither can be bypassed by application code.
- *   2. This module refuses to *call* a reveal function without a live grant, so
- *      an attempt does not even reach the database and does not consume a
- *      reveal slot.
- *   3. `support-access.ts` writes an `audit_logs` row for every reveal that
- *      does happen, naming the grant it happened under.
+ *   2. This module decides which reveal controls a screen may draw at all, so a
+ *      scope outside a grant is never offered as a button that then fails.
+ *   3. `lib/actions/support-access.ts` runs every reveal through
+ *      `runAdminAction`, which writes an `audit_logs` row naming the grant it
+ *      happened under — on the failure path as well as the success path.
  *
  * Removing any one of the three leaves the other two standing. That is the
  * point of having three.
@@ -278,8 +278,9 @@ export function renderRedacted(value: Redacted<string>): string {
 
 /**
  * The fields of a Support Access grant that bear on whether a reveal may
- * happen. `support-access.ts` loads the full row; this is the subset every
- * guard actually reads, so the guard can be called with a literal in a test.
+ * happen. `lib/queries/support-access.ts` loads the full row; this is the subset
+ * every guard actually reads, so the guard can be called with a literal in a
+ * test.
  */
 export interface GrantSnapshot {
   readonly grantId: string
@@ -393,9 +394,11 @@ export function evaluateReveal(request: RevealRequest): RevealDecision {
 /**
  * `evaluateReveal`, but it throws.
  *
- * Every `sa_*` wrapper in `support-access.ts` calls this before it opens a
- * connection, so there is no code path from a page to user content that does
- * not pass through this line.
+ * For a caller that has already established it holds a grant and wants a
+ * refusal to be an error rather than a value it might ignore. The reveal
+ * console does not use it — it renders the refusal instead — and the reveal
+ * itself is refused inside Postgres by `sa_assert_grant()`, which is the lock
+ * this function mirrors rather than replaces.
  */
 export function assertRevealAllowed(request: RevealRequest): void {
   const decision = evaluateReveal(request)

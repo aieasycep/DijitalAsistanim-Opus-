@@ -1,5 +1,6 @@
 import type { ErrorCode } from '@da/domain'
-import type { SupportAccessStatus } from '@/lib/redact'
+import type { DatabaseHint } from '@/lib/db'
+import { REVEAL_DENIAL_MESSAGES_TR, type SupportAccessStatus } from '@/lib/redact'
 
 /**
  * Every Turkish string the Support Access area renders.
@@ -92,6 +93,38 @@ export const FAILURE_MESSAGES_TR: Readonly<Partial<Record<ErrorCode, string>>> =
 
 export function failureMessage(code: ErrorCode): string {
   return FAILURE_MESSAGES_TR[code] ?? GENERIC_FAILURE_TR
+}
+
+/**
+ * The six refusals `sa_assert_grant()` raises, in Turkish.
+ *
+ * Five of them are the same sentences `REVEAL_DENIAL_MESSAGES_TR` uses for the
+ * console-side mirror in `redact.ts`, and they are reused rather than restated:
+ * a refusal must read the same whether Postgres produced it or the screen
+ * anticipated it, or an operator comparing the two would think they were
+ * looking at different problems. The sixth — an id that names no grant at all —
+ * has no console-side counterpart, because the console only ever reaches this
+ * path from a row it has already read.
+ */
+const REVEAL_REFUSAL_MESSAGES_TR: Readonly<Partial<Record<DatabaseHint, string>>> = Object.freeze({
+  support_access_unknown_grant: 'Bu Destek Erişimi kaydı bulunamadı.',
+  support_access_wrong_admin: REVEAL_DENIAL_MESSAGES_TR.wrong_admin,
+  support_access_wrong_subject: REVEAL_DENIAL_MESSAGES_TR.wrong_subject,
+  support_access_grant_not_live: REVEAL_DENIAL_MESSAGES_TR.grant_not_live,
+  support_access_scope_denied: REVEAL_DENIAL_MESSAGES_TR.scope_denied,
+  support_access_permission_lost: REVEAL_DENIAL_MESSAGES_TR.permission_denied,
+})
+
+/**
+ * The sentence for a refusal Postgres named, or the sentence for the error code
+ * when it named nothing. A raw database message never reaches a screen.
+ */
+export function revealRefusalMessage(hint: DatabaseHint | null, code: ErrorCode): string {
+  if (hint !== null) {
+    const named = REVEAL_REFUSAL_MESSAGES_TR[hint]
+    if (named !== undefined) return named
+  }
+  return failureMessage(code)
 }
 
 // ===========================================================================
@@ -363,6 +396,172 @@ export const supportAccessMessages = {
     wholeScope: 'Kapsamın tamamı',
   },
 
+  /**
+   * The one screen in this console that renders another person's own words.
+   *
+   * Every sentence here is written to be read by somebody who is about to do
+   * that, and none of it is reassuring. The operator is not "checking a record"
+   * — they are reading a stranger's mail under a permission a second
+   * administrator granted them, for a window that is running down, and the
+   * record of it outlives both of them.
+   */
+  reveal: {
+    title: 'İçerik görüntüleme',
+    description:
+      'Bu ekran, onaylanmış bir Destek Erişimi izniyle tek bir kaydı açar. Açtığınız her kayıt tek tek kaydedilir ve bu kayıt silinemez.',
+    open: 'İçerik görüntüle',
+    openHint:
+      'Bu izin size ait ve şu anda kullanılabilir. Kapsamdaki kayıtları tek tek açabilirsiniz.',
+    backToGrant: 'İzin kaydına dön',
+
+    noticeTitle: 'Başka bir kişinin özel verisine bakmak üzeresiniz',
+    notices: [
+      'Aşağıda göreceğiniz her şey, adı geçen kullanıcının kendi yazdığı ya da kendisine ait olan veridir. Onun izniyle değil, ikinci bir yöneticinin onayıyla açılıyor.',
+      'Açtığınız her kayıt ayrı bir satır olarak kaydedilir: hangi kayıt, ne zaman, hangi gerekçeyle ve kimin adına. Bu satırlar sizin adınıza yazılır ve silinemez.',
+      'Yalnızca aşağıda listelenen kapsamları ve yalnızca bu tek kullanıcıyı açabilirsiniz. Kapsam genişletilemez; süre dolduğunda bu ekranla tek bir kayıt bile açılamaz.',
+      'Soru bağlantı durumu, senkronizasyon zamanı veya sayılarla yanıtlanabiliyorsa hiçbir kaydı açmayın; bu sayfadan geri dönün.',
+    ] as readonly string[],
+
+    remaining: 'Kalan süre',
+    remainingHint: 'Süre dolduğunda erişim kendiliğinden kapanır.',
+    spent: 'Açtığınız kayıt',
+    spentHint: (calls: number): string => `${calls} görüntüleme çağrısında`,
+    scopesTile: 'Açabildiğiniz kapsam',
+    scopesTileHint: (granted: number): string => `İzin ${granted} kapsam içeriyor`,
+    expires: 'Bitiş',
+
+    grantTitle: 'Bu izin ne diyor',
+    grantDescription:
+      'Talebi açarken yazdığınız gerekçe. Her görüntüleme bu cümleyle birlikte kayda geçiyor.',
+
+    scopePickerTitle: 'Ne açmak istiyorsunuz?',
+    scopePickerDescription:
+      'Tek seferde tek bir kapsam açılır. Listede yalnızca bu iznin kapsadığı türler var; en dar olanla başlayın.',
+    scopeSelected: 'Seçili',
+    scopeSpent: (count: number): string =>
+      count === 0 ? 'Bu izinle hiç açılmadı' : `Bu izinle ${count} kez açıldı`,
+    scopeNotChosen:
+      'Yukarıdan bir kapsam seçin. Kapsam seçmek hiçbir şeyi açmaz; kaydı yalnızca aşağıdaki düğme açar.',
+    scopeRejected:
+      'Adresteki kapsam bu iznin kapsamında değil, bu yüzden açılmadı. Bir iznin kapsamı sonradan genişletilemez; o tür için yeni bir talep açmanız gerekir.',
+
+    formTitle: (label: string): string => `${label}: tek kayıt aç`,
+    recordLabel: 'Kayıt kimliği',
+    recordLabels: {
+      email_body: 'Mesaj kimliği',
+      assistant_conversation: 'Konuşma kimliği',
+      capture_content: 'Yakalama kimliği',
+      approval_payload: 'Onay kimliği',
+      notification_content: 'Bildirim kimliği',
+    } as Readonly<Record<string, string>>,
+    recordDescription:
+      'Açmak istediğiniz tek kaydın UUID değeri. Kimlik bu kullanıcıya ait değilse hiçbir şey dönmez, görüntüleme yine de kayda geçer.',
+    recordInvalid: 'Geçerli bir kayıt kimliği (UUID) girin.',
+
+    limitLabel: 'Kaç başlık',
+    limitDescription:
+      'Konu başlıkları en yeniden eskiye doğru listelenir. Kaç başlık açtığınız da kayda geçer; en küçük yeterli sayıyı seçin.',
+    limitOption: (limit: number): string => `${limit} başlık`,
+
+    fromLabel: 'Başlangıç günü',
+    toLabel: 'Bitiş günü',
+    rangeDescription: (days: number): string =>
+      `Etkinlikler Europe/Istanbul gününe göre listelenir. Aralıktaki her etkinlik açılmış sayılır, bu yüzden en fazla ${days} günlük aralık açılabilir.`,
+    rangeInvalid: 'Geçerli bir gün girin (YYYY-AA-GG).',
+    rangeBackwards: 'Bitiş günü başlangıç gününden önce olamaz.',
+    rangeTooWide: (days: number): string => `Aralık en fazla ${days} gün olabilir.`,
+
+    identityDescription:
+      'Bu kapsamda açılacak tek bir kayıt vardır: kullanıcının kimlik bilgileri. Ek bir kimlik girmeniz gerekmez.',
+
+    submit: 'Kaydı aç ve kayda geçir',
+    submitting: 'Açılıyor…',
+
+    resultTitle: 'Açılan kayıt',
+    resultLogged: (count: number): string =>
+      `${count} kayıt açıldı ve görüntüleme kaydına yazıldı. Bu satır geri alınamaz.`,
+    resultEmpty:
+      'Bu kimlikle bu kullanıcıya ait bir kayıt bulunamadı. Görüntüleme denemesi yine de kayda geçti.',
+    resultRequestId: 'İstek kimliği',
+    resultAt: 'Görüntüleme zamanı',
+    resultHide: 'Ekrandan gizle',
+    resultHidden: 'İçerik ekrandan kaldırıldı. Görüntüleme kaydı yerinde duruyor ve silinemez.',
+
+    logTitle: 'Bu izinle şimdiye kadar açtıklarınız',
+    logDescription:
+      'Her görüntüleme çağrısı için bir satır. Hangi kaydın açıldığını gösterir, ne gösterildiğini değil.',
+
+    refusedTitle: 'Bu izinle şu anda hiçbir kayıt açılamaz',
+    refusedHint:
+      'Bu ekran erişim vermez; yalnızca zaten verilmiş bir izni kullanır. Durumu izin kaydından görebilirsiniz.',
+    rateLimited:
+      'Bu izinle saatte açılabilecek kayıt sayısı aşıldı. Bir izin, tek bir sorunun yanıtı içindir; bir posta kutusunu kayıt kayıt gezmek için değil.',
+
+    /** Field labels for the records themselves. The only content on this page. */
+    fields: {
+      identity: {
+        displayName: 'Ad',
+        email: 'E-posta adresi',
+        givenName: 'Verilen ad',
+        locale: 'Dil',
+        timeZone: 'Saat dilimi',
+        createdAt: 'Kayıt tarihi',
+      },
+      emailSubject: {
+        subject: 'Konu',
+        summary: 'Özet',
+        category: 'Kategori',
+        importance: 'Önem',
+        messageCount: 'Mesaj',
+        lastMessageAt: 'Son mesaj',
+      },
+      emailMessage: {
+        from: 'Gönderen',
+        to: 'Alıcılar',
+        subject: 'Konu',
+        sentAt: 'Gönderim',
+        snippet: 'Önizleme',
+        body: 'Gövde',
+        thread: 'Konuşma kimliği',
+      },
+      calendar: {
+        title: 'Başlık',
+        description: 'Açıklama',
+        location: 'Konum',
+        organizer: 'Düzenleyen',
+        startsAt: 'Başlangıç',
+        endsAt: 'Bitiş',
+      },
+      assistant: { role: 'Taraf', content: 'Mesaj', model: 'Model', createdAt: 'Zaman' },
+      capture: {
+        kind: 'Tür',
+        status: 'Durum',
+        rawText: 'Ham metin',
+        extracted: 'Çıkarılan alanlar',
+        sourceUrl: 'Kaynak bağlantısı',
+        storagePath: 'Saklama yolu',
+        createdAt: 'Oluşturma',
+      },
+      approval: {
+        type: 'İşlem türü',
+        status: 'Durum',
+        what: 'Ne yapılacak',
+        why: 'Neden',
+        payload: 'İçerik',
+        originalPayload: 'Kullanıcı düzenlemeden önce',
+        createdAt: 'Oluşturma',
+      },
+      notification: {
+        category: 'Kategori',
+        title: 'Başlık',
+        body: 'Gövde',
+        scheduledFor: 'Planlanan',
+        sentAt: 'Gönderim',
+        failedAt: 'Başarısız',
+      },
+    },
+  },
+
   trail: {
     columns: {
       time: 'Zaman',
@@ -460,9 +659,16 @@ export const supportAccessMessages = {
     },
   },
 
-  /** The line that appears wherever this area could be mistaken for a viewer. */
+  /**
+   * The line that appears wherever this area could be mistaken for a viewer.
+   *
+   * It says "this screen" rather than "these screens" because one screen in the
+   * area — the reveal console — is exactly the exception, and a blanket promise
+   * that the section never shows content would be false the moment an operator
+   * opened it. The sentence names where the exception lives instead.
+   */
   boundaryNote:
-    'Bu ekranlar erişimi yönetir, içerik göstermez. Hiçbir sayfası bir e-posta gövdesi, takvim ayrıntısı ya da asistan konuşması render etmez.',
+    'Bu ekran erişimi yönetir, içerik göstermez: burada hiçbir e-posta gövdesi, takvim ayrıntısı ya da asistan konuşması render edilmez. İçerik yalnızca ayrı görüntüleme ekranında, tek tek ve her seferinde kayda geçerek açılır.',
 } as const
 
 export type SupportAccessOutcomeKey = keyof typeof supportAccessMessages.outcomes

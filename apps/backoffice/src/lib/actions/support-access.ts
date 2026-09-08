@@ -16,10 +16,19 @@ import { requirePermissionAction, type AdminSession } from '@/lib/auth'
 import {
   insertRow,
   resolveAdminById,
+  revealApproval,
+  revealAssistantThread,
+  revealCalendarEvents,
+  revealCapture,
+  revealEmailMessage,
+  revealEmailSubjects,
+  revealIdentity,
+  revealNotification,
   updateRows,
   type AdminActor,
   type SupportAccessScope,
 } from '@/lib/db'
+import { grantBucket } from '@/lib/rate-limit'
 import { isSupportAccessScope } from '@/lib/redact'
 import {
   APPROVAL_CEILING_MS,
@@ -39,17 +48,32 @@ import {
   grantHref,
   initialRequestFormState,
   isUuidParam,
+  revealHref,
   withOutcome,
   type RequestFormState,
 } from '@/components/support-access/contract'
 import {
+  MAX_REVEAL_LISTING_LIMIT,
+  MAX_REVEAL_RANGE_DAYS,
+  REVEAL_FIELDS,
+  SCOPE_INPUT_KIND,
+  clampRevealLimit,
+  initialRevealFormState,
+  resolveRevealRange,
+  type RevealFormState,
+  type RevealPayload,
+  type RevealRangeIssue,
+} from '@/components/support-access/reveal'
+import {
   failureMessage,
+  revealRefusalMessage,
   supportAccessMessages,
   type SupportAccessOutcomeKey,
 } from '@/lib/messages/support-access'
 
 /**
- * The four privileged operations of the Support Access mechanism.
+ * The five privileged operations of the Support Access mechanism: request,
+ * approve, deny, revoke — and the one the other four exist to control, reveal.
  *
  * ---------------------------------------------------------------------------
  * EVERY ONE OF THEM GOES THROUGH `runAdminAction`
@@ -81,6 +105,14 @@ import {
  * Turkish sentence naming the actual rule instead of "bir hata oluştu" — or,
  * worse, a raw constraint name on screen.
  *
+ * `revealAction` is the same principle at its sharpest. `sa_assert_grant()`
+ * proves six things before a single row is returned — the grant exists, it is
+ * this admin's, it is live, it covers the scope, and the admin's role still
+ * carries `support.access.reveal` — and this file checks none of them. It hands
+ * the call to Postgres and translates whatever comes back. The screen decides
+ * which controls to *draw* from the same guard (`revealAvailability`), but a
+ * drawn control is not an authorisation and nothing here treats it as one.
+ *
  * ---------------------------------------------------------------------------
  * WHAT CANNOT TRAVEL THROUGH HERE
  * ---------------------------------------------------------------------------
@@ -109,6 +141,16 @@ const DECISION_RATE_LIMIT = {
 } as const
 
 /**
+ * Reveals per grant, not per admin.
+ *
+ * The grant is already scoped, approved and time-limited; this is the thing
+ * that stops one legitimate grant being spent record by record until a mailbox
+ * has been walked. Keyed on the grant for that reason — an operator holding two
+ * grants gets sixty reveals on each, and neither subsidises the other.
+ */
+const REVEAL_RATE_LIMIT = { scope: 'support_access.reveal', limit: 60, window: '1 hour' } as const
+
+/**
  * A grant approved with less than this left is refused rather than created.
  *
  * A request that has been sitting for twenty-four hours has no window left
@@ -118,6 +160,30 @@ const DECISION_RATE_LIMIT = {
 const MINIMUM_USEFUL_WINDOW_MS = 60_000
 
 const ENTITY_TYPE = 'support_access_grant'
+
+/**
+ * What the audit row for a reveal is *about*.
+ *
+ * Not the grant: the grant already has its own column on the row
+ * (`support_access_grant_id`), and using it here would leave the trail unable
+ * to distinguish the decision to allow a reveal from the reveal itself. The
+ * record that was opened is named in `entity_id`, exactly as
+ * `support_access_reveals` names it.
+ */
+const REVEAL_ENTITY_TYPE = 'support_access_reveal'
+
+/**
+ * The justification on a reveal's audit row is the grant's own written reason.
+ *
+ * `admin_sensitive_actions` marks `support_access.revealed` as requiring one,
+ * and the honest answer is already on file: the paragraph the requester wrote
+ * and a second administrator weighed before approving. Asking an operator to
+ * retype a justification for each individual record would produce a trail full
+ * of "as above" — and the reason a reveal is permitted genuinely is the grant's,
+ * which is why `bo_support_access_reveals` projects it as `grant_reason`.
+ */
+const UNREADABLE_GRANT_REASON =
+  'Destek Erişimi görüntüleme denemesi: izin kaydı okunamadı, çağrı yine de veritabanına gönderildi.'
 
 // ===========================================================================
 // Input
@@ -558,6 +624,330 @@ export async function revokeGrantAction(formData: FormData): Promise<void> {
     return refusal === 'unknown' ? null : refusal
   })
   finish(grantId, outcome)
+}
+
+// ===========================================================================
+// The reveal
+//
+// One call, one record, one log row, one audit row. Everything above this line
+// governs whether this may happen; this is the thing being governed.
+// ===========================================================================
+
+/** The four shapes the eight functions take, keyed by the scope that takes it. */
+const revealBaseSchema = z.object({
+  grantId: uuid,
+  /** For the audit row's subject column; null when the grant could not be read. */
+  subjectUserId: uuid.nullable(),
+  reason: z
+    .string()
+    .trim()
+    .min(MIN_REASON_LENGTH, { message: `Gerekçe en az ${MIN_REASON_LENGTH} karakter olmalıdır.` })
+    .max(MAX_REASON_LENGTH),
+  /** Correlates the reveal row, the audit row and this render. */
+  requestId: uuid,
+})
+
+const recordIdSchema = uuid.describe('record')
+const isoInstant = z.string().datetime({ offset: true })
+
+/**
+ * Discriminated on the scope itself, so `run()` cannot reach for a message id
+ * on a calendar reveal: the shape a scope needs is part of what a scope *is*.
+ */
+const revealSchema = z.discriminatedUnion('scope', [
+  revealBaseSchema.extend({ scope: z.literal('identity') }),
+  revealBaseSchema.extend({
+    scope: z.literal('email_subject'),
+    limit: z.number().int().min(1).max(MAX_REVEAL_LISTING_LIMIT),
+  }),
+  revealBaseSchema.extend({ scope: z.literal('email_body'), recordId: recordIdSchema }),
+  revealBaseSchema.extend({
+    scope: z.literal('calendar_detail'),
+    from: isoInstant,
+    to: isoInstant,
+  }),
+  revealBaseSchema.extend({
+    scope: z.literal('assistant_conversation'),
+    recordId: recordIdSchema,
+  }),
+  revealBaseSchema.extend({ scope: z.literal('capture_content'), recordId: recordIdSchema }),
+  revealBaseSchema.extend({ scope: z.literal('approval_payload'), recordId: recordIdSchema }),
+  revealBaseSchema.extend({ scope: z.literal('notification_content'), recordId: recordIdSchema }),
+])
+
+type RevealInput = z.infer<typeof revealSchema>
+
+interface RevealOutcome {
+  readonly payload: RevealPayload
+  /** Rows actually returned. Zero is a real answer and is still logged. */
+  readonly itemCount: number
+  readonly revealedAt: string
+}
+
+/** The record this reveal named, or null where it opened a whole scope. */
+function revealedEntityId(input: RevealInput): string | null {
+  switch (input.scope) {
+    case 'email_body':
+    case 'assistant_conversation':
+    case 'capture_content':
+    case 'approval_payload':
+    case 'notification_content':
+      return input.recordId
+    case 'identity':
+    case 'email_subject':
+    case 'calendar_detail':
+      return null
+  }
+}
+
+const revealSpec: AdminActionSpec<RevealInput, RevealOutcome> = {
+  action: 'support_access.revealed',
+  permission: 'support.access.reveal',
+  input: revealSchema,
+  rateLimit: REVEAL_RATE_LIMIT,
+  // Keyed on the grant rather than the operator, which is what makes the limit
+  // a cap on how far one approved grant can be walked.
+  rateLimitSubject: (_actor, input) => grantBucket(readGrantId(input)),
+  entityType: REVEAL_ENTITY_TYPE,
+  subject: (input) => ({ userId: input.subjectUserId, entityId: revealedEntityId(input) }),
+  supportAccessGrantId: (input) => input.grantId,
+  detail: (input, result) => ({
+    scope: input.scope,
+    item_count: result.itemCount,
+    request_id: input.requestId,
+  }),
+  run: async (context, input) => {
+    const args = { actor: context.actor, grantId: input.grantId, requestId: input.requestId }
+
+    // Not one branch here checks anything. `sa_assert_grant()` runs inside every
+    // one of these functions and refuses with a named hint; the trigger on
+    // `support_access_reveals` refuses again on the log row. A guard repeated
+    // here would be a fourth answer to a question that already has three, and
+    // the only one of the four that could disagree with the data.
+    const payload: RevealPayload = await (async () => {
+      switch (input.scope) {
+        case 'identity':
+          return { scope: input.scope, rows: await revealIdentity(args) }
+        case 'email_subject':
+          return {
+            scope: input.scope,
+            rows: await revealEmailSubjects({ ...args, limit: input.limit }),
+          }
+        case 'email_body':
+          return {
+            scope: input.scope,
+            rows: await revealEmailMessage({ ...args, messageId: input.recordId }),
+          }
+        case 'calendar_detail':
+          return {
+            scope: input.scope,
+            rows: await revealCalendarEvents({ ...args, from: input.from, to: input.to }),
+          }
+        case 'assistant_conversation':
+          return {
+            scope: input.scope,
+            rows: await revealAssistantThread({ ...args, threadId: input.recordId }),
+          }
+        case 'capture_content':
+          return {
+            scope: input.scope,
+            rows: await revealCapture({ ...args, captureId: input.recordId }),
+          }
+        case 'approval_payload':
+          return {
+            scope: input.scope,
+            rows: await revealApproval({ ...args, approvalId: input.recordId }),
+          }
+        case 'notification_content':
+          return {
+            scope: input.scope,
+            rows: await revealNotification({ ...args, deliveryId: input.recordId }),
+          }
+      }
+    })()
+
+    return {
+      payload,
+      itemCount: payload.rows.length,
+      revealedAt: context.now.toISOString(),
+    }
+  },
+}
+
+/**
+ * Open one record under a grant.
+ *
+ * Returns a state rather than redirecting, and the rows travel in that state:
+ * a redirect would have to carry the content on the URL, where it would land in
+ * the browser's history, the access log and the next request's referrer.
+ *
+ * The grant is read once before the call, for two things the audit row needs
+ * and neither of which is a permission: the user the reveal is about, and the
+ * written reason the grant carries. Nothing here decides whether the reveal may
+ * happen — a grant that has vanished still goes through the runner with a
+ * fallback reason, so Postgres refuses it and the refusal is recorded rather
+ * than swallowed by an early return.
+ */
+export async function revealAction(
+  _previous: RevealFormState,
+  formData: FormData,
+): Promise<RevealFormState> {
+  let session: AdminSession
+  try {
+    session = await requirePermissionAction('support.access.reveal', formData)
+  } catch {
+    return revealFailure(supportAccessMessages.outcomes.forbidden.body)
+  }
+
+  const actor = await resolveAdminById(session.adminUserId, session.sessionId).catch(() => null)
+  if (actor === null) return revealFailure(supportAccessMessages.outcomes.forbidden.body)
+
+  const grantId = readField(formData, REVEAL_FIELDS.grantId)
+  const scopeRaw = readField(formData, REVEAL_FIELDS.scope)
+  if (!isUuidParam(grantId) || !isSupportAccessScope(scopeRaw)) {
+    return revealFailure(failureMessage('validation_failed'))
+  }
+  const scope: SupportAccessScope = scopeRaw
+
+  const grant = await loadGrant(grantId).catch(() => null)
+
+  // Shape only: is this a uuid, is this a date, is this range one the console
+  // will open. Whether the grant covers the scope is Postgres's answer.
+  const parameters = readRevealParameters(formData, scope)
+  if ('issue' in parameters) {
+    return { ...initialRevealFormState, status: 'error', issues: parameters.issue }
+  }
+
+  // Minted here rather than by the database, so the reveal row, the audit row
+  // and the panel the operator is looking at all carry the same correlation id.
+  const requestId = crypto.randomUUID()
+
+  const result = await runAdminAction(actor, revealSpec, {
+    grantId,
+    subjectUserId: grant?.subject_user_id ?? null,
+    reason: grant?.reason ?? UNREADABLE_GRANT_REASON,
+    requestId,
+    scope,
+    ...parameters.args,
+  })
+
+  if (result.status === 'success') {
+    // The counters and the log on this page and on the grant record have both
+    // moved; the row itself is immutable, so nothing else needs re-reading.
+    revalidatePath(revealHref(grantId))
+    revalidatePath(grantHref(grantId))
+    return {
+      status: 'revealed',
+      message: null,
+      issues: {},
+      payload: result.data.payload,
+      requestId,
+      revealedAt: result.data.revealedAt,
+    }
+  }
+
+  if (result.status === 'denied')
+    return revealFailure(supportAccessMessages.outcomes.forbidden.body)
+  if (result.status === 'rate_limited')
+    return revealFailure(supportAccessMessages.reveal.rateLimited)
+  if (result.status === 'invalid') {
+    const issues: Record<string, string> = {}
+    let general: string | null = null
+    for (const issue of result.issues) {
+      const field = revealIssuePath(issue.path)
+      if (field === null) general ??= issue.message
+      else issues[field] ??= issue.message
+    }
+    return {
+      ...initialRevealFormState,
+      status: 'error',
+      message:
+        general ?? (Object.keys(issues).length === 0 ? failureMessage('validation_failed') : null),
+      issues,
+    }
+  }
+
+  // The read happened and the trail did not. The rows are deliberately not
+  // returned: an unrecorded reveal is the one outcome this screen must not
+  // quietly complete.
+  if (result.effectApplied && !result.auditWritten) {
+    return revealFailure(supportAccessMessages.outcomes.auditMissing.body)
+  }
+  return revealFailure(revealRefusalMessage(result.hint, result.code))
+}
+
+/**
+ * The scope's own parameters, or the field message that stops the call.
+ *
+ * Everything refused here is a shape the database could not use — a record id
+ * that is not a uuid, a day that is not a day, a range wider than this console
+ * opens in one reveal. None of it is a permission question.
+ */
+function readRevealParameters(
+  formData: FormData,
+  scope: SupportAccessScope,
+): { args: Record<string, unknown> } | { issue: Record<string, string> } {
+  switch (SCOPE_INPUT_KIND[scope]) {
+    case 'none':
+      return { args: {} }
+    case 'record': {
+      const recordId = readField(formData, REVEAL_FIELDS.recordId)
+      if (!isUuidParam(recordId)) {
+        return { issue: { [REVEAL_FIELDS.recordId]: supportAccessMessages.reveal.recordInvalid } }
+      }
+      return { args: { recordId } }
+    }
+    case 'listing':
+      return { args: { limit: clampRevealLimit(Number(readField(formData, REVEAL_FIELDS.limit))) } }
+    case 'range': {
+      const range = resolveRevealRange(
+        readField(formData, REVEAL_FIELDS.from),
+        readField(formData, REVEAL_FIELDS.to),
+      )
+      if (!range.ok) {
+        return { issue: { [REVEAL_FIELDS.from]: revealRangeMessage(range.issue) } }
+      }
+      return { args: { from: range.from, to: range.to } }
+    }
+  }
+}
+
+function revealRangeMessage(issue: RevealRangeIssue): string {
+  switch (issue) {
+    case 'invalid':
+      return supportAccessMessages.reveal.rangeInvalid
+    case 'backwards':
+      return supportAccessMessages.reveal.rangeBackwards
+    case 'too_wide':
+      return supportAccessMessages.reveal.rangeTooWide(MAX_REVEAL_RANGE_DAYS)
+  }
+}
+
+/** Zod paths back onto the control that produced them. */
+function revealIssuePath(path: string): string | null {
+  const head = path.split('.')[0] ?? ''
+  switch (head) {
+    case 'recordId':
+      return REVEAL_FIELDS.recordId
+    case 'limit':
+      return REVEAL_FIELDS.limit
+    case 'from':
+    case 'to':
+      return REVEAL_FIELDS.from
+    default:
+      return null
+  }
+}
+
+/** The grant id off unvalidated input, for the rate-limit bucket. */
+function readGrantId(input: unknown): string {
+  if (typeof input !== 'object' || input === null) return 'unknown'
+  const value = (input as { grantId?: unknown }).grantId
+  return typeof value === 'string' && value !== '' ? value : 'unknown'
+}
+
+function revealFailure(message: string): RevealFormState {
+  return { ...initialRevealFormState, status: 'error', message }
 }
 
 // ===========================================================================

@@ -2694,7 +2694,15 @@ export async function verifyAccessToken(accessToken: string): Promise<Authentica
   }
 }
 
-/** Exchanges credentials for a session. Null when the credentials are wrong. */
+/**
+ * Exchanges credentials for a session. Null when the credentials are wrong.
+ *
+ * @deprecated Use `signInAdmin()` in `@/lib/auth`.
+ *
+ * It authenticates and stops there — no rate limit, no `admin_users`
+ * resolution, no MFA policy — which is why the console's sign-in no longer
+ * starts here. No caller remains in the application.
+ */
 export async function signInWithPassword(
   email: string,
   password: string,
@@ -2766,6 +2774,13 @@ export interface StaffMemberRecord {
   disabledAt: IsoInstantString | null
 }
 
+/**
+ * @deprecated Authorisation is `admin_resolve_by_auth_user()`; see `@/lib/auth`.
+ *
+ * No caller remains: sign-in stopped consulting the 0017 roster when it moved
+ * onto `signInAdmin()`, so a `staff_members` row no longer grants anything. The
+ * table itself is still read by `bo_staff`.
+ */
 export async function findStaffMember(userId: string): Promise<StaffMemberRecord | null> {
   try {
     const { data, error } = await service()

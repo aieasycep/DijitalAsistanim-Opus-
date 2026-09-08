@@ -86,6 +86,14 @@ export default tseslint.config(
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
+    // Playwright works out which fixtures a test wants by parsing the
+    // destructuring pattern of its first argument, so a fixture that depends on
+    // nothing has to be written `async ({}, use)`. There is no other spelling of
+    // it, and the runner refuses a plain parameter name.
+    files: ['apps/backoffice/e2e/**/*.ts'],
+    rules: { 'no-empty-pattern': 'off' },
+  },
+  {
     files: ['**/*.test.ts', '**/*.test.tsx', '**/__tests__/**/*.{ts,tsx}', 'scripts/**/*.mjs'],
     rules: {
       'no-console': 'off',

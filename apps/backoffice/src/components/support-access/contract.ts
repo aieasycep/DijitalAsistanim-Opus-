@@ -43,6 +43,20 @@ export function grantHref(grantId: string): string {
   return `${SUPPORT_ACCESS_PATH}/${grantId}`
 }
 
+/**
+ * The one screen in the console that renders a user's own words.
+ *
+ * It hangs off the grant rather than standing on its own, because a reveal is
+ * meaningless without one: the route carries the grant id that will be spent,
+ * and the scope — when the operator has chosen one — says which of the eight
+ * `sa_reveal_*` functions the form will call. Both are read back through a
+ * closed set, so neither can be turned into free text.
+ */
+export function revealHref(grantId: string, scope?: SupportAccessScope): string {
+  const base = `${grantHref(grantId)}/reveal`
+  return scope === undefined ? base : `${base}?${REVEAL_SCOPE_PARAM}=${scope}`
+}
+
 /** The user record, which is where an operator should look first. */
 export function userHref(userId: string): string {
   return `/users/${userId}`
@@ -63,6 +77,9 @@ export const LIST_PARAMS = {
 
 /** The reveal log's own pager, so it does not fight the grant list's `page`. */
 export const REVEAL_PAGE_PARAM = 'reveals'
+
+/** Which scope the reveal console is currently pointed at. One of the eight. */
+export const REVEAL_SCOPE_PARAM = 'scope'
 
 /**
  * What a Server Action reports back through the URL.

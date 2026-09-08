@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { Badge, Card, CardError, PageHeader, StatGrid, StatTile } from '@/components/ui'
+import { Badge, Button, Card, CardError, PageHeader, StatGrid, StatTile } from '@/components/ui'
 import { DecisionPanel } from '@/components/support-access/DecisionPanel'
 import { DecisionTrail } from '@/components/support-access/DecisionTrail'
 import { FactList, PanelNote, type Fact } from '@/components/support-access/Facts'
@@ -21,9 +21,11 @@ import {
   isLapsedButUnswept,
   isUuidParam,
   orderedScopes,
+  revealHref,
   toQueryRecord,
   userHref,
 } from '@/components/support-access/contract'
+import { revealAvailability } from '@/components/support-access/reveal'
 import { csrfField, requirePermission, sessionCan } from '@/lib/auth'
 import { describeEnvironment, dangerousActionNote } from '@/lib/env'
 import { formatCompact, formatDateTime, formatRelative } from '@/lib/format'
@@ -83,7 +85,10 @@ export const dynamic = 'force-dynamic'
  *     redacted address.
  *
  * Not one of those is content. This page governs access; it does not exercise
- * it, and no code path from here reaches an `sa_reveal_*` function.
+ * it. Nothing rendered here comes from an `sa_reveal_*` function, and no form on
+ * it posts to one — the single link to the screen that does is drawn only for an
+ * operator who could actually spend the grant, and following it opens nothing by
+ * itself.
  */
 export default async function SupportAccessGrantPage({
   params,
@@ -136,6 +141,17 @@ export default async function SupportAccessGrantPage({
   const status = effectiveStatus(grant, now)
   const lapsed = isLapsedButUnswept(grant, now)
   const environment = describeEnvironment()
+
+  // The same question the reveal screen asks, asked here only to decide whether
+  // to draw a link to it. `sa_assert_grant()` is what actually decides, on every
+  // single reveal, and this cannot widen its answer — only decline to offer a
+  // door that is already locked.
+  const canReveal = revealAvailability({
+    row: grant,
+    viewerAdminUserId: session.adminUserId,
+    permissions: session.permissions,
+    now,
+  }).permitted
 
   const facts: readonly Fact[] = [
     {
@@ -309,6 +325,27 @@ export default async function SupportAccessGrantPage({
                 environmentNote={dangerousActionNote(environment)}
               />
             </Card>
+
+            {/*
+              The door to the one screen that exercises this grant, offered only
+              where opening it would actually do something: the holder, holding
+              `support.access.reveal`, while the clock still says the grant is
+              live. An approver looking at somebody else's grant sees no link,
+              because `sa_assert_grant()` would refuse them and a link into a
+              refusal is a dead control.
+            */}
+            {canReveal ? (
+              <Card title={supportAccessMessages.reveal.title}>
+                <div className="flex flex-col items-start gap-2">
+                  <p className="text-[13px] text-muted">{supportAccessMessages.reveal.openHint}</p>
+                  <Button asChild size="md" variant="danger">
+                    <Link href={revealHref(grant.grant_id)}>
+                      {supportAccessMessages.reveal.open}
+                    </Link>
+                  </Button>
+                </div>
+              </Card>
+            ) : null}
           </div>
         </div>
 

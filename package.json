@@ -2,7 +2,7 @@
   "name": "dijital-asistan",
   "version": "1.0.0",
   "private": true,
-  "description": "Dijital Asistan — proactive personal command center for email, calendar and commitments.",
+  "description": "Dijital Asistan \u2014 proactive personal command center for email, calendar and commitments.",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20.11.0"
@@ -19,6 +19,7 @@
     "build:web": "pnpm --filter @da/web run build",
     "dev:backoffice": "pnpm --filter @da/backoffice run dev",
     "build:backoffice": "pnpm --filter @da/backoffice run build",
+    "test:backoffice-e2e": "pnpm --filter @da/backoffice run test:e2e",
     "verify:mobile": "pnpm --filter @da/mobile run verify",
     "verify:supabase": "node scripts/validate-supabase.mjs",
     "verify:i18n": "node scripts/check-i18n-keys.mjs",
@@ -26,8 +27,9 @@
     "verify:wiring": "node scripts/check-wiring.mjs",
     "verify:no-dead-code": "node scripts/check-no-dead-code.mjs",
     "verify:secrets": "node scripts/check-secrets.mjs",
+    "verify:rbac-doc": "node scripts/check-rbac-doc.mjs",
     "assets:generate": "node scripts/generate-brand-assets.mjs",
-    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:mobile && pnpm run verify:supabase && pnpm run verify:i18n && pnpm run verify:e2e-ids && pnpm run verify:wiring && pnpm run verify:no-dead-code && pnpm run verify:secrets"
+    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:mobile && pnpm run verify:supabase && pnpm run verify:i18n && pnpm run verify:e2e-ids && pnpm run verify:wiring && pnpm run verify:no-dead-code && pnpm run verify:secrets && pnpm run verify:rbac-doc"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

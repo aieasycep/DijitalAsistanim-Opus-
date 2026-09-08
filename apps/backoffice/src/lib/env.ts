@@ -52,6 +52,7 @@ export const ENV_VARIABLES = [
   'SUPABASE_ANON_KEY',
   'BACKOFFICE_ENV',
   'BACKOFFICE_HASH_SALT',
+  'BACKOFFICE_MFA_POLICY',
   'BACKOFFICE_RELEASE',
 ] as const
 
@@ -288,6 +289,30 @@ export interface SecretStatus {
   fallbackNote: string | null
 }
 
+/**
+ * The two spellings `mfaPolicy()` in `auth.ts` accepts, repeated rather than
+ * imported: `auth.ts` imports this module, and the dependency runs one way.
+ */
+const MFA_POLICIES: readonly string[] = ['enrolled', 'required']
+
+/**
+ * What the MFA policy variable is actually doing.
+ *
+ * `mfaPolicy()` treats every value that is not exactly `required` as
+ * `enrolled`, so a typo is a quietly weaker policy that still looks deliberate
+ * on a config page. This reads the raw value the same way — untrimmed, because
+ * that is the comparison being made — and says which policy is in force instead
+ * of showing a green tick for a string nothing recognises.
+ */
+function mfaPolicyNote(): string | null {
+  const raw = process.env['BACKOFFICE_MFA_POLICY']
+  if (raw === undefined || raw.trim() === '') {
+    return 'Ayarlanmamış; enrolled uygulanıyor: yöntemi olan yönetici ikinci adımı geçmek zorunda, olmayan parolayla giriyor.'
+  }
+  if (MFA_POLICIES.includes(raw)) return null
+  return 'Tanınmayan değer; enrolled uygulanıyor. Katı politika için tam olarak "required" yazılmalı.'
+}
+
 export function secretInventory(): readonly SecretStatus[] {
   return [
     {
@@ -333,6 +358,13 @@ export function secretInventory(): readonly SecretStatus[] {
       fallbackNote: hasDedicatedHashSalt()
         ? null
         : 'Ayarlanmamış; servis anahtarı geçici olarak kullanılıyor. Kendi değerinizi tanımlayın.',
+    },
+    {
+      variable: 'BACKOFFICE_MFA_POLICY',
+      configured: optional('BACKOFFICE_MFA_POLICY') !== undefined,
+      required: false,
+      description: 'İkinci adım politikası (enrolled / required).',
+      fallbackNote: mfaPolicyNote(),
     },
     {
       variable: 'BACKOFFICE_RELEASE',

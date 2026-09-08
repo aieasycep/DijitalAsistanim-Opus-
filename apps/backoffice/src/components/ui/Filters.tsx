@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTransition } from 'react'
 import { messages } from '@/lib/messages'
 import { PAGINATION_RESET_PARAMS } from './table-url.ts'
@@ -11,9 +11,17 @@ import { PAGINATION_RESET_PARAMS } from './table-url.ts'
  * fetched, and no control that only looks like it does something.
  *
  * Current values arrive as props from the Server Component that already parsed
- * `searchParams`. That keeps the URL the single source of truth (a filtered
- * view is linkable and shareable between operators) and avoids
- * `useSearchParams`, which would force a Suspense boundary on every page.
+ * `searchParams`. That keeps the URL the single source of truth: a filtered view
+ * is linkable and shareable between operators.
+ *
+ * The one thing the props cannot answer is whether the operator has actually
+ * filtered anything, because a page hands down its *defaults* too — "newest
+ * first", "hide deleted" — and those look identical to a choice. `Reset` needs
+ * that answer or it renders on an unfiltered list and navigates to the address
+ * the operator is already on, which is a control that looks pressable and is
+ * not. So the query string is read directly. `useSearchParams` needs a Suspense
+ * boundary only where a page could be prerendered, and every console page is
+ * `force-dynamic`.
  */
 
 export interface FilterOption {
@@ -63,14 +71,19 @@ export interface FiltersProps {
 export function Filters({ controls, values, resetParams = PAGINATION_RESET_PARAMS }: FiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const search = useSearchParams()
   const [pending, startTransition] = useTransition()
 
-  function navigate(next: Record<string, string>): void {
+  function queryFor(next: Record<string, string>): string {
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(next)) {
       if (value !== '') params.set(key, value)
     }
-    const query = params.toString()
+    return params.toString()
+  }
+
+  function navigate(next: Record<string, string>): void {
+    const query = queryFor(next)
     startTransition(() => {
       router.replace(query === '' ? pathname : `${pathname}?${query}`)
     })
@@ -87,11 +100,12 @@ export function Filters({ controls, values, resetParams = PAGINATION_RESET_PARAM
   function reset(): void {
     const next: Record<string, string> = { ...values }
     for (const control of controls) delete next[control.param]
-    for (const cleared of resetParams) delete next[cleared]
+    for (const parameter of resetParams) delete next[parameter]
     navigate(next)
   }
 
-  const isFiltered = controls.some((control) => (values[control.param] ?? '') !== '')
+  /** Offered only when the operator has put one of these parameters on the URL. */
+  const isFiltered = controls.some((control) => search.get(control.param) !== null)
 
   return (
     <div

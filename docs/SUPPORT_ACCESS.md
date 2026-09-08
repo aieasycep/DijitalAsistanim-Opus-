@@ -243,10 +243,12 @@ It never holds what was shown. `entity_id`, `entity_type` and `request_id` all
 pass through `bo_identifier()` on the way in, so a caller cannot smuggle a subject
 line into the log while pretending it is an identifier.
 
-Alongside it, `lib/support-access.ts` writes an `audit_logs` row —
-`support_access.revealed`, carrying `support_access_grant_id`, the scope, the item
-count and the request id — after the call returns, so a refusal inside Postgres
-does not leave an audit row claiming a reveal that never happened.
+Alongside it, `runAdminAction` writes an `audit_logs` row — `support_access.revealed`,
+carrying `support_access_grant_id`, the scope, the item count and the request id
+— after the call returns, so a refusal inside Postgres does not leave an audit
+row claiming a reveal that never happened. Its written justification is the
+grant's own reason, which is the sentence a second administrator already weighed
+and is what `bo_support_access_reveals` quotes back as `grant_reason`.
 
 Rate limit: 60 reveals per grant per hour (`support_access.reveal`). The grant is
 already scoped, approved and time-limited; this is what stops one legitimate
@@ -264,19 +266,46 @@ grant being used to walk an entire mailbox message by message inside its window.
   look, and it has to outlive the looking. `admin_cleanup_expired()` moves lapsed
   grants to `expired`; it deletes neither grants nor reveals.
 
-### What the console does and does not do today
+### Where the reveal actually happens
 
-The request, approval, denial, revocation and review screens exist and are wired:
-`/support/access`, `/support/access/new`, `/support/access/[grantId]`.
+`/support/access/[grantId]/reveal`, which needs `support.access.reveal` — held
+by `super_admin` and `support`, and deliberately not by `operations`: the role
+that authorises a grant does not spend one.
 
-**No page or Server Action in the console currently calls a `sa_reveal_*`
-function.** The eight wrappers in `apps/backoffice/src/lib/support-access.ts` are
-written, guarded and tested, and nothing references them. In practice that means
-a grant approved today authorises reveals that the interface has no button for;
-the reveal log on the detail page will read _"Bu izinle henüz hiçbir kayıt
-görüntülenmedi."_ until a reveal surface is built on those wrappers. Everything in
-sections 5, and the audit queries below, describes what happens the moment one
-is — the guarantees are in the database and the library, not in the screen.
+The screen is reached from the grant record, and the link is drawn only for an
+operator who could actually use it — the holder, with the permission, while the
+timestamps still say the grant is live. It opens nothing by itself. What it
+shows before anything is revealed is the grant, the operator's own written
+reason, the countdown, how many records they have already opened under this
+grant and the log of which ones; none of that is content, and all of it comes
+from the two `bo_*` views.
+
+The scope picker lists only the scopes **this** grant carries. That list is
+derived from `evaluateReveal()` in `lib/redact.ts` — the same guard the reveal
+path passes through — asked once per scope while the page renders, so a scope
+outside the grant is never offered as a control that would then be refused. A
+scope typed into the URL is refused the same way, with the sentence that a
+grant's scopes are never widened.
+
+Choosing a scope draws one form, whose shape follows the function's own
+signature: nothing for `identity`, one record id for the five single-record
+scopes, a listing size for `email_subject`, a date range for `calendar_detail`.
+Submitting it performs exactly one `sa_reveal_*` call through the wrapper in
+`lib/db.ts`, inside `runAdminAction`, which applies the rate limit, re-asks
+`admin_has_permission()` and writes the `support_access.revealed` audit row on
+the success path and on the failure path both.
+
+The Server Action checks none of the six things `sa_assert_grant()` checks. It
+makes the call and renders whatever comes back: each of the six `P0001` hints
+maps to one Turkish sentence, and a raw Postgres message never reaches a screen.
+A reveal that returned no rows still happened and still logged — the screen says
+so rather than implying nothing was spent.
+
+Two bounds on that screen are the console's own rather than the database's. A
+listing is capped at 200 subjects, which mirrors what `sa_reveal_email_subjects`
+already does to `p_limit`; a calendar range is capped at 31 days, which mirrors
+nothing — the function accepts any range, and one call over five years would
+open five years of somebody's diary as a single logged reveal.
 
 ---
 
@@ -501,11 +530,12 @@ reports the timestamps rather than the column. The detail page says so out loud:
 > temizlik işi henüz çalışmadı. Süre dolduğu için bu izinle içerik
 > görüntülenemez.
 
-**The sweep is not currently scheduled.** `0014_cron_jobs.sql` schedules the
-product's five jobs and does not schedule `admin_cleanup_expired()`, and no
-console screen calls it. Until one of those changes, lapsed grants keep reading
-`active` indefinitely and the note above is what the operator sees. To run it by
-hand:
+`0020_admin_cleanup_schedule.sql` schedules the sweep hourly, on the half hour,
+so the window between a lapse and the status catching up is at most an hour and
+the note above is what the operator sees inside it. The schedule is not what
+protects the data and is not described as though it were: `sa_assert_grant()`
+re-checks `expires_at` on every single reveal, so a lapsed grant opens nothing
+whether or not the sweep has run. To run it by hand:
 
 ```sql
 select public.admin_cleanup_expired();
@@ -585,13 +615,16 @@ Consequences, in order of what to try:
 
 ### A reveal returned rows and the audit row did not land
 
-`lib/support-access.ts` writes the `audit_logs` row after the reveal returns, so
-the ordering is: the reveal is logged by Postgres in the same statement as the
-read, and the audit row follows. If the audit write fails, the
+`runAdminAction` writes the `audit_logs` row after the reveal returns, so the
+ordering is: the reveal is logged by Postgres in the same statement as the read,
+and the audit row follows. If the audit write fails, the
 `support_access_reveals` row still exists — the accountability record is intact,
-the cross-reference is not. Run the "reveal with no matching audit row" query
-above; a hit means the trail is incomplete for that reveal and it should be
-reconciled by hand from the reveal row, which is the authoritative one.
+the cross-reference is not. The screen does not pretend otherwise: it withholds
+the rows it just read and tells the operator that a privileged read went
+unrecorded and infrastructure must be told, rather than rendering the record
+under a green banner. Run the "reveal with no matching audit row" query above; a
+hit means the trail is incomplete for that reveal and it should be reconciled by
+hand from the reveal row, which is the authoritative one.
 
 ### An audit row looks wrong
 

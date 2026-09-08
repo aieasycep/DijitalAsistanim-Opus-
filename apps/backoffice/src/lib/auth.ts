@@ -1115,6 +1115,23 @@ export async function startMfaChallenge(
   }
 }
 
+/**
+ * A challenge on the half-finished sign-in sitting in the cookie jar.
+ *
+ * The challenge is created immediately before the code is answered rather than
+ * carried around in the form's state: GoTrue expires a challenge on its own
+ * schedule, and a form holding a stale one would refuse a correct code and read
+ * as "wrong code" to the person typing it. Null when the password step's access
+ * cookie is gone, which is a sign-in that has to start again rather than an
+ * error.
+ */
+export async function challengeMfaFactor(factorId: string): Promise<MfaChallenge | null> {
+  const store = await cookies()
+  const accessToken = store.get(ACCESS_COOKIE)?.value
+  if (accessToken === undefined || accessToken === '') return null
+  return startMfaChallenge(accessToken, factorId)
+}
+
 export interface MfaEnrolment {
   readonly factorId: string
   /** The `otpauth://` URI an authenticator app scans. Shown once, never stored. */
@@ -1612,9 +1629,11 @@ export interface StaffSessionTokens {
 /**
  * @deprecated Use `signInAdmin()`.
  *
- * Kept because the first-pass sign-in action hands over GoTrue tokens it
- * obtained itself. It does the one thing that action cannot: turns those tokens
- * into a console session, refusing outright if the account is not an admin.
+ * No caller remains: the sign-in form moved onto `signInAdmin()`, which rate
+ * limits, resolves the admin and applies the MFA policy before it issues
+ * anything. This turns tokens somebody else obtained into a console session,
+ * which is exactly the step that must not be reachable on its own — delete it
+ * with `StaffSessionTokens` once nothing imports either name.
  */
 export async function establishSession(
   tokens: StaffSessionTokens,

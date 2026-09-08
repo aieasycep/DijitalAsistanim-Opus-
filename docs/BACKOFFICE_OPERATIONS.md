@@ -94,21 +94,24 @@ commit, shown truncated to twelve characters in the environment chip's tooltip.
 When absent the chip simply omits it, and an incident report cannot say which
 build produced the behaviour. Cheap to set; set it.
 
+**`BACKOFFICE_MFA_POLICY`** — `required` means nobody signs in without an
+enrolled, verified second factor. Anything else — including absent — means
+`enrolled`: an admin who has enrolled MFA must present it, one who has not signs
+in with a password, and the roster shows the warning rather than a tick. There is
+deliberately no `off`. `mfaPolicy()` compares the raw value against exactly
+`required`, so a typo is a quietly weaker policy; the config page says so rather
+than showing a tick, with
+`Tanınmayan değer; enrolled uygulanıyor. Katı politika için tam olarak "required" yazılmalı.`
+
 ### Read but not declared
 
-Three more variables affect the console and are **not** in `ENV_VARIABLES`, so
+Two more variables affect the console and are **not** in `ENV_VARIABLES`, so
 `secretInventory()` does not report them and the config page does not show them.
 
-| Variable                | Read by                    | Effect                                                                                                                                                                                                                                                                                                          |
-| ----------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BACKOFFICE_MFA_POLICY` | `mfaPolicy()` in `auth.ts` | `required` means nobody signs in without an enrolled, verified second factor. Anything else — including absent — means `enrolled`: an admin who has enrolled MFA must present it, one who has not signs in with a password and the roster shows the warning rather than a tick. There is deliberately no `off`. |
-| `AI_PROVIDER`           | the `model_provider` probe | `anthropic` or `openai` selects which endpoint is probed. Absent or anything else records the target as `unknown` with the error code `provider_not_selected` — never as healthy.                                                                                                                               |
-| `EXPO_PUSH_URL`         | the `push` probe           | Overrides the probe endpoint, but only when it parses as an absolute `https:` URL. A misconfigured value falls back to Expo's published address rather than turning a health probe into a request to whatever the string says.                                                                                  |
-
-`BACKOFFICE_MFA_POLICY` not appearing on `/health/config` is worth knowing: an
-operator cannot confirm from the console which MFA policy is in force. Check the
-deployment's environment directly. (See also the discrepancy note under
-[Signing in](#the-shipped-sign-in-path).)
+| Variable        | Read by                    | Effect                                                                                                                                                                                                                         |
+| --------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AI_PROVIDER`   | the `model_provider` probe | `anthropic` or `openai` selects which endpoint is probed. Absent or anything else records the target as `unknown` with the error code `provider_not_selected` — never as healthy.                                              |
+| `EXPO_PUSH_URL` | the `push` probe           | Overrides the probe endpoint, but only when it parses as an absolute `https:` URL. A misconfigured value falls back to Expo's published address rather than turning a health probe into a request to whatever the string says. |
 
 ### What the config page will and will not tell you
 
@@ -170,8 +173,10 @@ nobody can sign in. Bootstrap it directly, once:
 -- 0. Create the GoTrue account first (Supabase dashboard → Authentication, or
 --    the admin API). Note its user id. Do not put a password in this file.
 
--- 1. The 0017 roster row. The shipped sign-in path still consults it — see
---    "The shipped sign-in path" below.
+-- 1. The 0017 roster row. Optional: sign-in no longer consults staff_members
+--    (see "The shipped sign-in path" below) and a row here grants nothing. It
+--    is still what `bo_staff` counts, so without it the overview reports no
+--    active staff.
 insert into public.staff_members (user_id, role)
 values ('<auth user id>', 'admin')
 on conflict (user_id) do update set role = 'admin', disabled_at = null;
@@ -191,36 +196,55 @@ where role = 'super_admin';
 `admin_users_active_needs_auth_user` refuses `status = 'active'` without a bound
 `user_id`, so step 0 genuinely has to come first.
 
-Then enrol a second factor from the console, and **create a second
+Then enrol a second factor for that account in the Supabase identity dashboard —
+the console has no enrolment screen, deliberately — and **create a second
 `super_admin` before you do anything else.** The last-super_admin trigger means a
 single one is a single point of failure you cannot repair from the console; see
 [SUPPORT_ACCESS.md](SUPPORT_ACCESS.md#the-last-super_admin-is-unavailable).
 
 ### The shipped sign-in path
 
-Worth knowing exactly, because two paths exist in `auth.ts` and only one is
-wired.
-
 `signInAction` in `app/session-actions.ts` — the action the sign-in form posts —
-does this: `signInWithPassword()` against GoTrue, then `findStaffMember()`
-against **`staff_members`**, then `establishSession()`, which resolves the admin
-through `admin_resolve_by_auth_user()` and refuses outright if the account is not
-an active administrator, then issues the console session and writes
-`staff.signed_in`.
+calls `signInAdmin()` and nothing else. That one call applies, in order: the
+`admin.sign_in` rate limit (8 attempts per 15 minutes, bucketed by hashed address
+_and_ by hashed client IP), the password against GoTrue,
+`admin_resolve_by_auth_user()` against **`admin_users`**, and
+`BACKOFFICE_MFA_POLICY`. The console session is issued only after every one of
+them passes. **`staff_members` is not consulted at sign-in at all**; a row there
+grants nothing.
 
-The practical consequence: **an operator today needs both a `staff_members` row
-and an active `admin_users` row.** An `admin_users` row alone gets past
-authorization and fails at `findStaffMember()` with
-`Bu hesabın backoffice yetkisi yok.`
+It answers with one of six outcomes, and `lib/sign-in-state.ts` maps each to what
+the form shows. That mapping is pure and covered by
+`lib/__tests__/sign-in-state.test.ts`:
 
-`signInAdmin()` and `completeMfaSignIn()` — the path that applies the
-`admin.sign_in` rate limit (8 attempts per 15 minutes, bucketed by address and by
-client IP) and enforces `BACKOFFICE_MFA_POLICY` — are implemented, tested and
-**not referenced by any route**. Until the form is moved onto them, sign-in is
-limited only by GoTrue's own throttle (a 429 from GoTrue is surfaced as
-`Çok fazla deneme yapıldı. Bir süre sonra tekrar dene.`) and the MFA policy is
-not consulted at sign-in. Everything after sign-in — the console session, the
-permission checks, the audit trail — is unaffected.
+| Outcome                  | The operator sees                                                                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `signed_in`              | The overview. `admin.signed_in` is written with them as actor.                                                                                  |
+| `mfa_required`           | The code step, with a chooser when more than one factor is verified.                                                                            |
+| `mfa_enrolment_required` | A terminal explanation and one working button — see below.                                                                                      |
+| `invalid_credentials`    | `E-posta veya parola hatalı.` on the password step; `Kod doğrulanmadı…` on the code step.                                                       |
+| `not_admin`              | `Bu hesabın backoffice yetkisi yok.`, and an `auth.admin_sign_in_denied` row with no actor and the outcome `not_staff`.                         |
+| `rate_limited`           | `Çok fazla giriş denemesi yapıldı. Bu bir parola hatası değil: en fazla 15 dakika bekleyip tekrar dene.` — a wait, never a password accusation. |
+
+An unknown address, an address that is not an address, and a wrong password all
+produce the same sentence: the form is deliberately not an account-existence
+oracle.
+
+The second step is challenge-and-verify in one request. The form holds a factor
+id, never a challenge — GoTrue expires a challenge on its own schedule, and a
+form carrying a stale one would refuse a correct code. Both steps count against
+the same limiter, the MFA step bucketed by the authenticated subject.
+
+**`mfa_enrolment_required` is terminal on purpose.** It means the policy demands
+a second factor and GoTrue reports no verified one — either never enrolled, or
+enrolled and since removed upstream, which the console treats as owed rather than
+waving through. The screen explains that and offers no enrolment control: a
+sign-in page that let whoever knows the password bind their own second factor
+would be a policy any stolen password walks through. Enrolment is done in the
+Supabase identity dashboard by a `super_admin`; see step 4 of
+[An administrator is locked out](#an-administrator-is-locked-out). The one button
+on the screen — `Baştan başla` — clears the half-finished GoTrue session
+server-side and returns to the password form.
 
 ### Inviting an administrator
 
@@ -531,17 +555,28 @@ Work through this in order; most lockouts stop at step 2.
    again. `admin_touch_session()` decides this, not the cookie, so clearing
    browser storage changes nothing.
 
-4. **MFA.** If `BACKOFFICE_MFA_POLICY=required` and their factor is gone, the
-   remedy is in GoTrue — remove the stale factor from the Supabase dashboard and
-   have them enrol again. Nothing in `admin_users` needs to change. Note that
-   `admin_users.mfa_enrolled_at` is the console's _mirror_ of a fact GoTrue owns;
+4. **MFA.** They reach the password step, it is accepted, and the screen says
+   `Bu konsol ikinci adım olmadan açılmıyor ve hesabında tanımlı bir doğrulama yöntemi yok.`
+   The remedy is in GoTrue — remove any stale factor in the Supabase identity
+   dashboard and enrol a fresh one for them; the console has no enrolment screen,
+   because a sign-in page that let whoever holds the password bind a second
+   factor would be a policy any stolen password walks through. Nothing in
+   `admin_users` needs to change.
+
+   This is not only a `BACKOFFICE_MFA_POLICY=required` problem.
+   `admin_users.mfa_enrolled_at` is the console's _mirror_ of a fact GoTrue owns:
    it is stamped the first time an `aal2` sign-in is seen, and a factor removed
-   upstream leaves the mirror stale. The roster's MFA column can therefore show a
-   tick for an account with no working factor.
+   upstream leaves the mirror stale. Under the default `enrolled` policy a
+   stamped mirror with no verified factor is treated as owed rather than waved
+   through, so the same screen appears — and the roster's MFA column still shows
+   a tick for an account with no working factor.
 
 5. **They can authenticate but the console says
-   `Bu hesabın backoffice yetkisi yok.`** They have an `admin_users` row and no
-   `staff_members` row. See [the shipped sign-in path](#the-shipped-sign-in-path).
+   `Bu hesabın backoffice yetkisi yok.`** `admin_resolve_by_auth_user()` returned
+   no row for their GoTrue subject: no `admin_users` row, a row whose `user_id`
+   points at a different auth user, or a status that is not `active`. The refusal
+   is in `audit_logs` as `auth.admin_sign_in_denied` with the outcome
+   `not_staff`. See [the shipped sign-in path](#the-shipped-sign-in-path).
 
 6. **The last `super_admin` is gone.** Do not `delete from public.admin_users` —
    the audit-bearing foreign keys carry `on delete restrict` so that fails
