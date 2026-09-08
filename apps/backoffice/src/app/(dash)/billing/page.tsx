@@ -25,7 +25,7 @@ import {
   StatTile,
   countTone,
 } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatNumber, formatPercent } from '@/lib/format'
 import { messages } from '@/lib/messages'
 import {
@@ -70,7 +70,7 @@ export default async function BillingSubscriptionsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('billing.read')
   const params = await searchParams
   const granularity = parseCohort(params[COHORT_PARAM])
 

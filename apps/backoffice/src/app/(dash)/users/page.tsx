@@ -22,7 +22,7 @@ import {
   parseUserListParams,
   userListParamValues,
 } from '@/components/users/params'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { listUsers, settle } from '@/lib/queries/users'
 import { enumLabels, labelFor, messages } from '@/lib/messages'
 
@@ -58,7 +58,7 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireStaff('support')
+  await requirePermission('users.read')
   const rawParams = await searchParams
   const params = parseUserListParams(rawParams)
   const values = userListParamValues(params)

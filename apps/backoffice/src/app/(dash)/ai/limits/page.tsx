@@ -28,7 +28,7 @@ import {
   type SpendWindowKey,
 } from '@/components/ai'
 import { Card, CardError, type FilterControl, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatCostMicros } from '@/lib/format'
 import { messages } from '@/lib/messages'
 import { loadCeilingPage, loadCeilingSummary, settle, type CeilingQuery } from '@/lib/queries/ai'
@@ -110,7 +110,7 @@ export default async function AiCeilingPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('ai.read')
   const params = await searchParams
 
   const windowKey = parseWindow(params[AI_PARAMS.window])

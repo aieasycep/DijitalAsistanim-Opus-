@@ -19,7 +19,7 @@ import {
   type DayWindowKey,
 } from '@/components/ai'
 import { Card, CardError, Filters, Mono, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatNumber } from '@/lib/format'
 import { messages } from '@/lib/messages'
 import {
@@ -71,7 +71,7 @@ export default async function AiSpendPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('ai.read')
   const params = await searchParams
   const windowKey = parseWindow(params[AI_PARAMS.days])
   const dayCount = DAY_WINDOWS[windowKey]

@@ -28,7 +28,7 @@ import {
   type ParamValues,
 } from '@/components/audit'
 import { type FilterControl, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { OPS_TIME_ZONE } from '@/lib/format'
 import {
   loadActionBreakdown,
@@ -81,7 +81,7 @@ export default async function AuditBreakdownPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('audit.read')
   const params = await searchParams
   const clock = systemClock
 

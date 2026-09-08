@@ -27,7 +27,7 @@ import {
 import { userMessages } from '@/components/users/messages'
 import { isUserId } from '@/components/users/params'
 import { MAX_REASON_LENGTH } from '@/lib/audit'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { shortId } from '@/lib/format'
 import {
   deriveEntitlements,
@@ -74,7 +74,7 @@ export async function generateMetadata({
  * something a user wrote or received — the views have no such column to offer.
  */
 export default async function UserDetailPage({ params }: { params: Promise<{ userId: string }> }) {
-  await requireStaff('support')
+  await requirePermission('users.read')
   const { userId } = await params
 
   if (!isUserId(userId)) notFound()

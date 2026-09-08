@@ -17,7 +17,7 @@ import {
   type ReconciliationRuleId,
 } from '@/components/billing'
 import { Card, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { listReconciliation, loadRuleCounts, reconcile, settle } from '@/lib/queries/billing'
 import { refreshBillingAction } from '../actions'
 
@@ -57,7 +57,7 @@ export default async function BillingReconciliationPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('billing.read')
   const params = await searchParams
 
   const ruleId = parseRule(params[RULE_PARAM])

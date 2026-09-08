@@ -19,7 +19,7 @@ import {
   privacyMessages,
 } from '@/components/privacy'
 import { type FilterControl, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { enumLabels, labelFor } from '@/lib/messages'
 import {
   loadRequestQueue,
@@ -65,7 +65,7 @@ export default async function PrivacyRequestsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('support')
+  await requirePermission('privacy.read')
   const params = await searchParams
 
   const statusRaw = firstValue(params[QUEUE_PARAMS.status])

@@ -25,7 +25,7 @@ import {
   type ReviewOutcome,
 } from '@/components/approvals'
 import { Card, type FilterControl, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatNumber } from '@/lib/format'
 import { messages } from '@/lib/messages'
 import {
@@ -88,7 +88,7 @@ export default async function ApprovalFailuresPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('integration.read')
   const params = await searchParams
 
   const windowKey = parseWindow(params[APPROVAL_PARAMS.window])

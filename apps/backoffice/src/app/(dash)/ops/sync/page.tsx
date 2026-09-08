@@ -14,7 +14,7 @@ import {
   type ResyncOutcome,
 } from '@/components/ops'
 import { Card, CardError, type FilterControl, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatNumber } from '@/lib/format'
 import { enumLabels, labelFor, messages } from '@/lib/messages'
 import {
@@ -67,7 +67,7 @@ export default async function OpsSyncQueuePage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('integration.read')
   const params = await searchParams
 
   const providerRaw = firstValue(params[QUEUE_PARAMS.provider])

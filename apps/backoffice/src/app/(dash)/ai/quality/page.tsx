@@ -18,7 +18,7 @@ import {
   type DayWindowKey,
 } from '@/components/ai'
 import { Card, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import {
   loadBriefingQuality,
   loadCaptureQuality,
@@ -70,7 +70,7 @@ export default async function AiQualityPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('ai.read')
   const params = await searchParams
   const windowKey = parseWindow(params[AI_PARAMS.days])
   const dayCount = DAY_WINDOWS[windowKey]

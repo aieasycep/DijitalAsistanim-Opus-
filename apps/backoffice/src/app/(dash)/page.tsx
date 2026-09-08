@@ -14,7 +14,7 @@ import {
   connectionTone,
   countTone,
 } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import {
   queryView,
   queryViewOne,
@@ -78,7 +78,7 @@ export default async function OverviewPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireStaff()
+  await requirePermission('system.health.read')
   const params = await searchParams
   const windowKey = parseWindow(params[WINDOW_PARAM])
   const since = new Date(

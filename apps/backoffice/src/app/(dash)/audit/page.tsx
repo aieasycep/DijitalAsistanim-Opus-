@@ -40,7 +40,7 @@ import {
   type ParamValues,
 } from '@/components/audit'
 import { type FilterControl, type FilterOption, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { OPS_TIME_ZONE } from '@/lib/format'
 import { messages } from '@/lib/messages'
 import {
@@ -98,7 +98,7 @@ export default async function AuditLogPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('audit.read')
   const params = await searchParams
   const clock = systemClock
 

@@ -15,8 +15,9 @@
  * None of these is a type error. A string that names something absent looks
  * exactly like a string that names something present, so each kind of name is
  * resolved here against the filesystem: edge-function slugs, navigation
- * targets, the scripts CI invokes, the console's sidebar links, and the
- * packages the mobile build configuration names.
+ * targets, the scripts CI invokes, the console's sidebar links and the
+ * permission each one advertises, and the packages the mobile build
+ * configuration names.
  *
  * The last of those was added after `babel.config.js` spent the whole project
  * naming a preset the app did not depend on. It resolved on every machine where
@@ -222,14 +223,14 @@ const navFile = path.join(root, 'apps', 'backoffice', 'src', 'lib', 'nav.ts')
 
 let navRefs = 0
 if (existsSync(navFile) && existsSync(backofficeApp)) {
-  const consoleRoutes = new Set()
+  const consoleRoutes = new Map()
   for (const file of walk(backofficeApp, new Set(['.tsx']))) {
     if (path.basename(file) !== 'page.tsx') continue
     const segments = path
       .relative(backofficeApp, path.dirname(file))
       .split(path.sep)
       .filter((segment) => segment !== '.' && !/^\(.*\)$/.test(segment))
-    consoleRoutes.add('/' + segments.join('/'))
+    consoleRoutes.set('/' + segments.join('/'), file)
   }
 
   const navSource = readFileSync(navFile, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
@@ -241,6 +242,46 @@ if (existsSync(navFile) && existsSync(backofficeApp)) {
       problems.push({
         at: path.relative(root, navFile),
         rule: `sidebar entry points at "${href}", which has no page.tsx under apps/backoffice/src/app`,
+      })
+    }
+  }
+
+  // ── 3b. And the page enforces the permission the entry advertises ─────────
+  //
+  // Drawing an entry is a promise that whoever can see it can open it. Eleven
+  // page groups still called the deprecated `requireStaff(tier)` bridge, which
+  // maps every tier to one arbitrary permission — `ops` became
+  // `integration.resync` — so `/ai`, `/billing` and `/audit` demanded a resync
+  // permission to be *read*, and were unreachable for the analyst and finance
+  // roles whose sidebar drew all three. Nothing failed: the operator saw the
+  // link, clicked it, and got a 403.
+  //
+  // The sidebar and the page had no reason to agree, so they stopped. This is
+  // the reason they have to.
+
+  for (const entry of navSource.matchAll(/href:\s*'(\/[^']*)'[^}]*?requires:\s*'([^']+)'/gs)) {
+    const [, href, required] = entry
+    const file = href ? consoleRoutes.get(href) : undefined
+    if (!file || !required) continue
+
+    const source = readFileSync(file, 'utf8')
+    const single = /requirePermission\(\s*'([^']+)'/.exec(source)
+    const anyOf = /requirePermission\(\s*\{[^}]*anyOf:\s*\[([^\]]*)\]/s.exec(source)
+    const enforced = anyOf?.[1]
+      ? [...anyOf[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+      : single?.[1]
+        ? [single[1]]
+        : []
+
+    if (enforced.length === 0) {
+      problems.push({
+        at: path.relative(root, file),
+        rule: `the sidebar offers this page to anyone holding "${required}", but the page calls no requirePermission — so what it actually enforces cannot be read here`,
+      })
+    } else if (!enforced.includes(required)) {
+      problems.push({
+        at: path.relative(root, file),
+        rule: `the sidebar offers this page to anyone holding "${required}", but the page requires ${enforced.map((p) => `"${p}"`).join(' or ')} — everyone with the advertised permission gets a 403`,
       })
     }
   }
@@ -280,7 +321,10 @@ for (const file of walk(workflowsDir, new Set(['.yml', '.yaml']))) {
         if (!script) continue
         ciRefs++
         if (!packageScripts.has(script)) {
-          problems.push({ at, rule: `workflow runs "pnpm run ${script}", which package.json does not define` })
+          problems.push({
+            at,
+            rule: `workflow runs "pnpm run ${script}", which package.json does not define`,
+          })
         }
       }
     })

@@ -11,7 +11,7 @@ import {
   privacyMessages,
 } from '@/components/privacy'
 import { Card, StatGrid, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatNumber, formatRelative } from '@/lib/format'
 import { loadRetentionHealth, loadSweepHealth, settle } from '@/lib/queries/privacy'
 import { refreshPrivacyAction } from '../actions'
@@ -39,7 +39,7 @@ export const metadata: Metadata = { title: privacyMessages.retention.title }
 export const dynamic = 'force-dynamic'
 
 export default async function RetentionPage() {
-  await requireStaff('support')
+  await requirePermission('privacy.read')
 
   const [sweep, retention] = await Promise.all([
     settle(() => loadSweepHealth(SWEEP_RUN_LIMIT)),

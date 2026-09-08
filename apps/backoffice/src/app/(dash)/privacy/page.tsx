@@ -28,7 +28,7 @@ import {
   type PrivacyWindowKey,
 } from '@/components/privacy'
 import { Card, CardError, type FilterControl, Filters, PageHeader } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatDate, formatNumber, formatRelative } from '@/lib/format'
 import {
   loadDeadlineBoard,
@@ -88,7 +88,7 @@ export default async function PrivacyPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('support')
+  await requirePermission('privacy.read')
   const params = await searchParams
 
   const windowRaw = firstValue(params[PRIVACY_PARAMS.window])

@@ -38,7 +38,7 @@ import {
   type SeriesGranularity,
 } from '@/components/billing'
 import { Card, Filters, PageHeader, StatGrid, StatTile, countTone } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatNumber } from '@/lib/format'
 import {
   REFERRAL_LIMIT,
@@ -116,7 +116,7 @@ export default async function BillingReferralsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('billing.read')
   const params = await searchParams
 
   const granularity = parseSeries(params[SERIES_PARAM])

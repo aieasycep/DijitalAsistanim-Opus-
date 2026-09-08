@@ -30,7 +30,7 @@ import {
   StatTile,
   countTone,
 } from '@/components/ui'
-import { requireStaff } from '@/lib/auth'
+import { requirePermission } from '@/lib/auth'
 import { formatCostMicros, formatDateTime, formatNumber } from '@/lib/format'
 import { messages } from '@/lib/messages'
 import {
@@ -86,7 +86,7 @@ export default async function OpsDashboardPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireStaff('ops')
+  await requirePermission('system.health.read')
   const params = await searchParams
 
   const autoRefresh = parseAutoRefresh(params[AUTO_REFRESH_PARAM])
