@@ -57,6 +57,12 @@ import { refreshAuditAction } from '../actions'
  * the page prints total-minus-counted rather than implying that the tokens it
  * knows about are all the tokens there are.
  *
+ * There is deliberately no access receipt here, unlike the log. The receipt
+ * records that an operator read individual rows of the trail; this page never
+ * shows one — it shows counts of them — and filing an `audit.log_inspected` row
+ * for every glance at a bar chart would bury the readings that actually
+ * disclosed something under the ones that did not.
+ *
  * Three independent loads, each settled on its own.
  */
 
