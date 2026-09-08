@@ -155,6 +155,15 @@ export default async function UsersPage({
       </PageHeader>
 
       <div className="flex flex-col gap-3">
+        {refusal ? (
+          <p
+            role="status"
+            className="rounded-md bg-warning-soft px-3 py-2 text-[12px] text-warning-text"
+          >
+            {refusal}
+          </p>
+        ) : null}
+
         <UserListTable
           rows={rows}
           total={total}
