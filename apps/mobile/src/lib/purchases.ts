@@ -2,7 +2,7 @@ import { AppError } from '@da/domain'
 import { formatMoney } from '@da/i18n'
 import { NativeModules, Platform } from 'react-native'
 import { useSessionStore } from '../stores/session'
-import { env, integrations } from './env'
+import { env, integrations, isDemoMode } from './env'
 import { reportError } from './error-reporting'
 
 /**
@@ -120,7 +120,7 @@ function apiKey(): string | undefined {
 
 /** True when this build can actually take a payment. */
 export function purchasesAvailable(): boolean {
-  if (env.demoMode) return true
+  if (isDemoMode()) return true
   return integrations.revenueCat && loadSdk() !== null
 }
 
@@ -197,7 +197,7 @@ function toPackage(pkg: RevenueCatPackage): StorePackage {
 }
 
 export async function loadPackages(): Promise<StorePackage[]> {
-  if (env.demoMode) return [...DEMO_PACKAGES]
+  if (isDemoMode()) return [...DEMO_PACKAGES]
   if (!purchasesAvailable()) return []
   try {
     const client = await ensureConfigured()
@@ -211,7 +211,7 @@ export async function loadPackages(): Promise<StorePackage[]> {
 }
 
 export async function purchase(packageId: string): Promise<PurchaseResult> {
-  if (env.demoMode) {
+  if (isDemoMode()) {
     if (!DEMO_PACKAGES.some((pkg) => pkg.id === packageId)) {
       throw new AppError('subscription_error', { detail: 'unknown package' })
     }
@@ -238,7 +238,7 @@ export async function restore(): Promise<PurchaseResult> {
   // The demo store front holds no purchase for the demo account, so restoring
   // honestly finds nothing — which is the answer the screens have to be able to
   // show, and the one flow L exercises.
-  if (env.demoMode) return { isPro: false }
+  if (isDemoMode()) return { isPro: false }
 
   const client = await ensureConfigured()
   const info = await client.restorePurchases()

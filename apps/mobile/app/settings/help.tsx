@@ -12,7 +12,7 @@ import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
 import { Text } from '../../src/components/ui/Text'
 import { useT } from '../../src/i18n/I18nProvider'
-import { env, integrations } from '../../src/lib/env'
+import { env, integrations, isDemoMode } from '../../src/lib/env'
 
 /**
  * Help and about.
@@ -33,7 +33,7 @@ export default function HelpSettingsScreen() {
     `app: ${version} (${build})`,
     `platform: ${Platform.OS} ${Device.osVersion ?? ''}`.trim(),
     `device: ${Device.modelName ?? 'unknown'}`,
-    `mode: ${env.demoMode ? 'demo' : 'live'}`,
+    `mode: ${isDemoMode() ? 'demo' : 'live'}`,
     `analytics: ${integrations.analytics ? 'on' : 'off'}`,
   ].join('\n')
 

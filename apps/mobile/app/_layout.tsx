@@ -9,6 +9,7 @@ import { FONT_ASSETS, setFontsLoaded } from '../src/theme/fonts'
 import { parseDeepLink, targetToRoute } from '../src/lib/deep-links'
 import { useSessionStore } from '../src/stores/session'
 import { ErrorBoundary as AppErrorBoundary } from '../src/components/ErrorBoundary'
+import { DemoModeFrame } from '../src/components/DemoModeFrame'
 
 // Keep the native splash up until fonts have settled, so the first frame is
 // already using the real type rather than flashing a system fallback.
@@ -102,7 +103,9 @@ export default function RootLayout() {
 
   return (
     <AppProviders>
-      <RootNavigator />
+      <DemoModeFrame>
+        <RootNavigator />
+      </DemoModeFrame>
     </AppProviders>
   )
 }

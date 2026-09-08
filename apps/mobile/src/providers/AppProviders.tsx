@@ -18,7 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { Button } from '../components/ui/Button'
 import { Screen } from '../components/ui/Screen'
 import { Text } from '../components/ui/Text'
-import { env } from '../lib/env'
+import { env, isDemoMode } from '../lib/env'
 import { initAnalytics } from '../lib/analytics'
 import { initErrorReporting, reportError } from '../lib/error-reporting'
 import { createQueryClient } from '../lib/query-client'
@@ -178,7 +178,7 @@ export function AppProviders({ children }: AppProvidersProps) {
         supabaseAnonKey: env.supabaseAnonKey,
         getAccessToken,
         clock: systemClock,
-        mode: env.demoMode || !env.supabaseUrl ? 'demo' : 'live',
+        mode: isDemoMode() ? 'demo' : 'live',
       }),
     [getAccessToken],
   )

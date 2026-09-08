@@ -6,9 +6,25 @@ import {
   type RenderOptions,
   type RenderResult,
 } from '@testing-library/react-native'
+import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context'
 import { I18nProvider, type LanguagePreference } from './i18n/I18nProvider'
 import type { ColorSchemePreference } from '@da/design-tokens'
 import { ThemeProvider } from './theme/ThemeProvider'
+
+/**
+ * A device with a notch and a home indicator.
+ *
+ * `useSafeAreaInsets` throws without a provider, and on a real device the
+ * provider resolves its values asynchronously from the native side — so a test
+ * without these renders a component that has not been told where the screen
+ * edges are. Both insets are deliberately non-zero: a component that forgets to
+ * account for one is only wrong on hardware that has it, and zeroes here would
+ * hide exactly that class of bug.
+ */
+const DEVICE_METRICS: Metrics = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+}
 
 /**
  * Render a component inside the providers it actually runs under.
@@ -38,9 +54,11 @@ export async function renderWithProviders(
   }: WrapperOptions & Omit<RenderOptions, 'wrapper'> = {},
 ): Promise<RenderResult> {
   const Wrapper = ({ children }: { children: ReactNode }) => (
-    <ThemeProvider initialPreference={colorScheme} initialReduceMotion={reduceMotion}>
-      <I18nProvider initialPreference={locale}>{children}</I18nProvider>
-    </ThemeProvider>
+    <SafeAreaProvider initialMetrics={DEVICE_METRICS}>
+      <ThemeProvider initialPreference={colorScheme} initialReduceMotion={reduceMotion}>
+        <I18nProvider initialPreference={locale}>{children}</I18nProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   )
   return render(ui, { wrapper: Wrapper, ...options })
 }

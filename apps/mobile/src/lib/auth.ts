@@ -1,6 +1,6 @@
 import { createDemoStore } from '@da/api-client'
 import { AppError, type Profile, systemClock } from '@da/domain'
-import { env } from './env'
+import { env, isDemoMode } from './env'
 import type { StoredSession } from '../stores/session'
 
 /**
@@ -35,7 +35,7 @@ function authUrl(path: string): string {
 
 /** True when the app has no backend configured, so auth is simulated locally. */
 export function isDemoAuth(): boolean {
-  return env.supabaseUrl === '' || env.supabaseAnonKey === '' || env.demoMode
+  return isDemoMode()
 }
 
 async function postAuth<T>(path: string, body: Record<string, unknown>): Promise<T> {

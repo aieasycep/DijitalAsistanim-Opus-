@@ -30,10 +30,13 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.1.16",
     "@types/node": "^22.19.1",
+    "@types/pg": "^8.23.1",
     "@types/react": "~19.2.0",
     "@types/react-dom": "~19.2.0",
+    "pg": "^8.23.0",
     "tailwindcss": "^4.1.16",
     "typescript": "5.9.3"
   }

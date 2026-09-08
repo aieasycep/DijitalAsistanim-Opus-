@@ -1,3 +1,4 @@
+import type { RenderResult } from '@testing-library/react-native'
 import { flattenStyle, press, renderWithProviders } from '../../test-utils'
 import { EmptyState, ErrorState, Skeleton, SkeletonCard } from './States'
 
@@ -73,14 +74,35 @@ describe('ErrorState', () => {
   })
 })
 
+type Rendered = ReturnType<RenderResult['toJSON']>
+
+/** First node in the rendered tree whose props satisfy `match`. */
+function findNode(
+  tree: Rendered,
+  match: (props: Record<string, unknown>) => boolean,
+): { props: Record<string, unknown> } | null {
+  if (tree === null) return null
+  const nodes = Array.isArray(tree) ? tree : [tree]
+  for (const node of nodes) {
+    if (node === null || typeof node !== 'object') continue
+    if (match(node.props as Record<string, unknown>)) {
+      return node as unknown as { props: Record<string, unknown> }
+    }
+    const found = findNode(node.children as Rendered, match)
+    if (found) return found
+  }
+  return null
+}
+
 describe('Skeleton', () => {
   it('takes the size it is told to and is hidden from a screen reader', async () => {
     // A loading placeholder read aloud as a row of empty boxes is noise, so the
     // component carries no label and no testID — it is queried through the tree.
+    // Searched for rather than read off the root, because what sits at the root
+    // is the test wrapper's business and not this component's.
     const view = await renderWithProviders(<Skeleton width={120} height={20} />)
-    const root = view.toJSON()
-    const node = Array.isArray(root) ? root[0] : root
-    expect(node?.props.accessible).toBe(false)
+    const node = findNode(view.toJSON(), (props) => props.accessible === false)
+    expect(node).not.toBeNull()
     const style = flattenStyle(node?.props.style)
     expect(style.width).toBe(120)
     expect(style.height).toBe(20)

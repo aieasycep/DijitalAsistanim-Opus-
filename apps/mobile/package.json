@@ -11,8 +11,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
-    "verify": "expo config --type public",
-    "e2e": "maestro test .maestro"
+    "verify": "pnpm run verify:config && pnpm run verify:bundle",
+    "e2e": "maestro test .maestro",
+    "verify:config": "expo config --type public",
+    "verify:bundle": "expo export --platform android --no-minify --output-dir .expo/bundle-check"
   },
   "dependencies": {
     "@da/api-client": "workspace:*",
@@ -20,6 +22,7 @@
     "@da/domain": "workspace:*",
     "@da/i18n": "workspace:*",
     "@da/validation": "workspace:*",
+    "@expo/metro-runtime": "~57.0.15",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "2.0.2",
