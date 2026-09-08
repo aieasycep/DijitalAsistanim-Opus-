@@ -14,6 +14,7 @@ import {
 } from '@da/domain'
 import { createClient, type PostgrestError, type SupabaseClient } from '@supabase/supabase-js'
 import { readEnv, readHashKey } from './env'
+import { sha256Bytea, toHex } from './tokens'
 import {
   buildKeysetPage,
   planKeyset,
@@ -2192,16 +2193,14 @@ export async function revokeAdminSessions(
 // to 64 lowercase hex precisely so a raw address or IP cannot be written into
 // them. An unkeyed SHA-256 of an email address is reversible with a word list,
 // so the hash is keyed with server-side material that never leaves this process.
+//
+// The unkeyed token digest is not here: `sha256Bytea` in `./tokens` is what a
+// session and an invite are stored as, and it lives in a module with no
+// dependencies so that "only the digest is stored" is a property with a test
+// rather than a line of prose.
 // ---------------------------------------------------------------------------
 
 const encoder = new TextEncoder()
-
-function toHex(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
-  let hex = ''
-  for (const byte of bytes) hex += byte.toString(16).padStart(2, '0')
-  return hex
-}
 
 /** 64 lowercase hex, keyed. The shape the schema's constraints require. */
 export async function hashIdentifier(scope: string, value: string): Promise<string> {
@@ -2214,17 +2213,6 @@ export async function hashIdentifier(scope: string, value: string): Promise<stri
   )
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${scope}:${value}`))
   return toHex(signature)
-}
-
-/** `\x…` literal for a `bytea` argument. Used for session and invite tokens. */
-async function sha256Bytea(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(value))
-  return `\\x${toHex(digest)}`
-}
-
-/** The 32-byte SHA-256 of a token, in the form the schema stores. */
-export async function tokenHashLiteral(rawToken: string): Promise<string> {
-  return sha256Bytea(rawToken)
 }
 
 /**

@@ -92,6 +92,66 @@ export const TRAIL_LIMIT = 25
 export const SUBJECT_HISTORY_LIMIT = 5
 
 // ===========================================================================
+// Bounds
+//
+// The request form is a Client Component, so the bounds it renders — the
+// reason floor, the window options, the ceiling sentence — have to live
+// somewhere both sides can read; a `server-only` module is not that.
+//
+// They live here, which also makes them the one copy: the request action
+// validates against these same constants, so a form that accepted a window the
+// server would refuse is not expressible. What a window may be is still
+// `support_access_grants_window_is_short`, and what a reason must be is still
+// `support_access_grants_reason_is_written`; these mirror those so an operator
+// is told before they submit rather than after.
+// ===========================================================================
+
+/** `support_access_grants_reason_is_written`: at least twenty characters. */
+export const MIN_SUPPORT_ACCESS_REASON = 20
+/** Long enough for a paragraph, short enough to read on the approval screen. */
+export const MAX_SUPPORT_ACCESS_REASON = 500
+
+/** `support_access_grants_window_is_short`: never more than twenty-four hours. */
+export const MAX_SUPPORT_ACCESS_WINDOW_MINUTES = 24 * 60
+export const DEFAULT_SUPPORT_ACCESS_WINDOW_MINUTES = 60
+
+/** The windows the request form offers, shortest first. */
+export const SUPPORT_ACCESS_WINDOW_OPTIONS: readonly number[] = Object.freeze([
+  15,
+  30,
+  60,
+  120,
+  240,
+  480,
+  MAX_SUPPORT_ACCESS_WINDOW_MINUTES,
+])
+
+export function isValidSupportAccessReason(reason: string): boolean {
+  const trimmed = reason.trim()
+  return trimmed.length >= MIN_SUPPORT_ACCESS_REASON && trimmed.length <= MAX_SUPPORT_ACCESS_REASON
+}
+
+/**
+ * A requested window, brought inside the range the database will accept.
+ *
+ * Every out-of-range answer is a *shorter* grant, never a longer one: a value
+ * past the ceiling comes back at the ceiling, a fraction is floored, anything
+ * below a minute becomes one minute, and something that is not a number at all
+ * falls back to the default rather than to the maximum. `support_access_grants_
+ * window_is_short` refuses the row either way; this exists so a mistyped window
+ * is a one-hour grant rather than a refused request an operator retries during
+ * an incident.
+ */
+export function clampWindowMinutes(minutes: number): number {
+  if (!Number.isFinite(minutes)) return DEFAULT_SUPPORT_ACCESS_WINDOW_MINUTES
+  const whole = Math.floor(minutes)
+  if (whole < 1) return 1
+  return Math.min(whole, MAX_SUPPORT_ACCESS_WINDOW_MINUTES)
+}
+
+export const REASON_HELP_TR = `Gerekçe en az ${MIN_SUPPORT_ACCESS_REASON} karakter olmalıdır: bir denetçinin tartabileceği bir cümle yazın.`
+
+// ===========================================================================
 // Form fields
 // ===========================================================================
 

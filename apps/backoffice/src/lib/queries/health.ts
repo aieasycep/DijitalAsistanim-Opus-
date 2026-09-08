@@ -4,6 +4,7 @@ import { isAppError } from '@da/domain'
 import {
   HEALTH_TARGETS,
   PLATFORM_SECRETS,
+  effectiveHealthOf,
   healthTargetSpec,
   isHealthTarget,
   type EffectiveHealth,
@@ -24,15 +25,11 @@ import { healthFailureMessage } from '@/lib/messages/health'
  * Nothing in this file computes a verdict. `bo_system_health` collapses
  * `system_health_checks` to the latest row per target and carries the 24-hour
  * window beside it, and 0019's own constraints already make an unmeasured
- * "operational" impossible to insert. What this module does is the one piece of
- * reading the view cannot do for itself: decide that a *missing* row and a
- * *stale* row are both "nobody knows", rather than letting either fall through
- * to something that renders green.
- *
- * `is_stale` is the whole reason that matters. A probe that stopped running
- * keeps its last answer in the table forever; rendering that answer would put a
- * green dot on a page consulted during an incident, describing a platform
- * nobody has measured since Tuesday.
+ * "operational" impossible to insert. The one piece of reading the view cannot
+ * do for itself — that a *missing* row and a *stale* row are both "nobody
+ * knows", rather than either falling through to something that renders green —
+ * is `effectiveHealthOf` in `@/components/health/contract`, which this module
+ * applies and does not restate.
  *
  * ---------------------------------------------------------------------------
  * WHERE THE SCHEDULED-JOB NUMBERS COME FROM
@@ -106,13 +103,6 @@ export interface DependencyStatus {
  * list is bounded rather than unbounded, which is the safe direction.
  */
 export const HEALTH_TARGET_LIMIT = 200
-
-function effectiveHealthOf(row: BoSystemHealthRow | null): EffectiveHealth {
-  if (row === null) return 'unmeasured'
-  // A probe that stopped running is unobserved, never its last green answer.
-  if (row.is_stale) return 'unmeasured'
-  return row.status
-}
 
 /**
  * Every dependency, roster first, with its latest measurement.

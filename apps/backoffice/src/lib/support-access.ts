@@ -27,6 +27,13 @@ import {
   type SupportAccessStatus,
 } from './redact.ts'
 import { RATE_LIMITS, adminBucket, assertRateLimit, grantBucket } from './rate-limit.ts'
+import {
+  DEFAULT_SUPPORT_ACCESS_WINDOW_MINUTES,
+  MAX_SUPPORT_ACCESS_REASON,
+  MAX_SUPPORT_ACCESS_WINDOW_MINUTES,
+  MIN_SUPPORT_ACCESS_REASON,
+  clampWindowMinutes,
+} from '@/components/support-access/contract'
 
 /**
  * Support Access: the one controlled route by which an operator may see a
@@ -61,45 +68,6 @@ import { RATE_LIMITS, adminBucket, assertRateLimit, grantBucket } from './rate-l
  * the grant is there for the day consent becomes mandatory; recording it today
  * strengthens a grant, and nothing here weakens one.
  */
-
-// ===========================================================================
-// 1. Bounds
-// ===========================================================================
-
-/** `support_access_grants_reason_is_written`: at least twenty characters. */
-export const MIN_SUPPORT_ACCESS_REASON = 20
-/** Long enough for a paragraph, short enough to read on the approval screen. */
-export const MAX_SUPPORT_ACCESS_REASON = 500
-
-/** `support_access_grants_window_is_short`: never more than twenty-four hours. */
-export const MAX_SUPPORT_ACCESS_WINDOW_MINUTES = 24 * 60
-export const DEFAULT_SUPPORT_ACCESS_WINDOW_MINUTES = 60
-
-/** The windows the request form offers, shortest first. */
-export const SUPPORT_ACCESS_WINDOW_OPTIONS: readonly number[] = Object.freeze([
-  15,
-  30,
-  60,
-  120,
-  240,
-  480,
-  MAX_SUPPORT_ACCESS_WINDOW_MINUTES,
-])
-
-export function isValidSupportAccessReason(reason: string): boolean {
-  const trimmed = reason.trim()
-  return trimmed.length >= MIN_SUPPORT_ACCESS_REASON && trimmed.length <= MAX_SUPPORT_ACCESS_REASON
-}
-
-/** Clamp a requested window into the range the database will accept. */
-export function clampWindowMinutes(minutes: number): number {
-  if (!Number.isFinite(minutes)) return DEFAULT_SUPPORT_ACCESS_WINDOW_MINUTES
-  const whole = Math.floor(minutes)
-  if (whole < 1) return 1
-  return Math.min(whole, MAX_SUPPORT_ACCESS_WINDOW_MINUTES)
-}
-
-export const REASON_HELP_TR = `Gerekçe en az ${MIN_SUPPORT_ACCESS_REASON} karakter olmalıdır: bir denetçinin tartabileceği bir cümle yazın.`
 
 // ===========================================================================
 // 2. Rows

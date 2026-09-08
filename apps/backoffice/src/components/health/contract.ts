@@ -130,6 +130,19 @@ export function isAnsweringStatus(httpStatus: number): boolean {
 }
 
 /**
+ * A dependency that answered, judged against its own declared threshold.
+ *
+ * The threshold is per target rather than global because the round trips are
+ * not comparable: the console's own database read and a TLS handshake with a
+ * model provider on another continent are both healthy at very different
+ * numbers, and one shared ceiling would either excuse a slow database or
+ * condemn a normal provider.
+ */
+export function latencyVerdict(latencyMs: number, degradedMs: number): SystemHealthStatus {
+  return latencyMs > degradedMs ? 'degraded' : 'operational'
+}
+
+/**
  * The verdict as an operator should read it.
  *
  * `unmeasured` is not a status the database stores. It is what the console says
@@ -142,6 +155,38 @@ export function isAnsweringStatus(httpStatus: number): boolean {
  * nothing that reaches `@/lib/db` and a Client Component may import it freely.
  */
 export type EffectiveHealth = SystemHealthStatus | 'unmeasured'
+
+/**
+ * The columns of a measurement that decide how it reads.
+ *
+ * Declared structurally rather than imported from `@/lib/db`, so the rule below
+ * can be applied on both sides of the client boundary. `BoSystemHealthRow` is
+ * assignable to it.
+ */
+export interface HealthMeasurement {
+  readonly status: SystemHealthStatus
+  /** `bo_system_health.is_stale`: the last probe is older than the window. */
+  readonly is_stale: boolean
+}
+
+/**
+ * What a target reads as, given its latest measurement or the absence of one.
+ *
+ * This is the rule the whole health area exists to hold: **a target nobody has
+ * measured is never green.** A missing row and a stale row are both
+ * `unmeasured`, because a probe that stopped running keeps its last answer in
+ * the table forever, and rendering that answer would put a green dot on a page
+ * consulted during an incident, describing a platform nobody has measured since
+ * Tuesday.
+ *
+ * It lives here rather than in `@/lib/queries/health` so it is a decision with
+ * a name and a test rather than a branch inside a database read.
+ */
+export function effectiveHealthOf(measurement: HealthMeasurement | null): EffectiveHealth {
+  if (measurement === null) return 'unmeasured'
+  if (measurement.is_stale) return 'unmeasured'
+  return measurement.status
+}
 
 // ===========================================================================
 // Form fields and result parameters

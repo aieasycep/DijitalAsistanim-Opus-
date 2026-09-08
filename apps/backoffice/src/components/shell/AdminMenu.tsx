@@ -96,7 +96,20 @@ export function AdminMenu({
           <DropdownMenuSeparator />
 
           <form action={signOutAction}>
-            <DropdownMenuItem asChild>
+            {/*
+              Selecting a menu item closes the menu, and closing it unmounts this
+              form — which cancelled the submission before it left the browser
+              ("Form submission canceled because the form is not connected") and
+              left an operator clicking a sign-out button that did nothing.
+              Preventing the default keeps the panel mounted long enough for the
+              action to run; the redirect it ends with is what closes the menu.
+            */}
+            <DropdownMenuItem
+              asChild
+              onSelect={(event) => {
+                event.preventDefault()
+              }}
+            >
               <button type="submit" className="w-full text-left">
                 <LogOut aria-hidden="true" />
                 {messages.nav.signOut}

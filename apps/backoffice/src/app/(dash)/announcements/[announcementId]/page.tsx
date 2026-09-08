@@ -14,6 +14,7 @@ import {
   TargetingSummary,
   TrailTable,
   announcementPath,
+  announcementState,
   isAnnouncementLocale,
   panelError,
   toLocalInput,
@@ -28,7 +29,6 @@ import {
   type AnnouncementOutcome,
 } from '@/lib/messages/announcements'
 import {
-  announcementState,
   estimateReach,
   loadAnnouncement,
   loadAnnouncementAdmins,

@@ -435,6 +435,41 @@ export function isFeatureName(value: string): boolean {
  */
 export type DiffBaselineKind = 'active' | 'previous' | 'none'
 
+/** The two things choosing a baseline needs to know about a version. */
+export interface VersionRef {
+  readonly id: string
+}
+
+export interface DiffBaseline<T extends VersionRef> {
+  readonly kind: DiffBaselineKind
+  /** The version the diff is taken against, or null when there is none. */
+  readonly baseline: T | null
+}
+
+/**
+ * Which version this one is read against.
+ *
+ * Expressed over the two candidates rather than over two queries, so the rule
+ * the detail page's heading states is a function with a name:
+ *
+ *   - a draft or an archived version is read against the **active** version —
+ *     "what would change if I pressed the button";
+ *   - the active version is read against the **previous** one, because
+ *     comparing it with itself would show nothing and what matters then is what
+ *     changed when it went live;
+ *   - the first version of a feature has no baseline, and `none` is what says
+ *     so — an empty diff would read as "no changes", which is a different and
+ *     much more dangerous claim.
+ */
+export function chooseDiffBaseline<T extends VersionRef>(
+  record: VersionRef,
+  active: T | null,
+  previous: T | null,
+): DiffBaseline<T> {
+  if (active !== null && active.id !== record.id) return { kind: 'active', baseline: active }
+  return { kind: previous === null ? 'none' : 'previous', baseline: previous }
+}
+
 /** A short label for a version, used in headings and in the diff's column heads. */
 export function versionLabel(version: number): string {
   return `v${version}`

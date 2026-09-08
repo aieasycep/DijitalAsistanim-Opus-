@@ -9,8 +9,13 @@ import { ScopeChips } from '@/components/support-access/ScopeList'
 import { SubjectLookupForm } from '@/components/support-access/SubjectLookupForm'
 import { SubjectOperationsPanel } from '@/components/support-access/SubjectOperationsPanel'
 import {
+  DEFAULT_SUPPORT_ACCESS_WINDOW_MINUTES,
+  MAX_SUPPORT_ACCESS_REASON,
+  MAX_SUPPORT_ACCESS_WINDOW_MINUTES,
+  MIN_SUPPORT_ACCESS_REASON,
   NEW_SUBJECT_PARAM,
   SUPPORT_ACCESS_PATH,
+  SUPPORT_ACCESS_WINDOW_OPTIONS,
   firstParam,
   grantHref,
   isUuidParam,
@@ -26,13 +31,6 @@ import {
   loadSubjectSummary,
   settle,
 } from '@/lib/queries/support-access'
-import {
-  DEFAULT_SUPPORT_ACCESS_WINDOW_MINUTES,
-  MAX_SUPPORT_ACCESS_REASON,
-  MAX_SUPPORT_ACCESS_WINDOW_MINUTES,
-  MIN_SUPPORT_ACCESS_REASON,
-  SUPPORT_ACCESS_WINDOW_OPTIONS,
-} from '@/lib/support-access'
 
 export const metadata: Metadata = { title: supportAccessMessages.request.title }
 export const dynamic = 'force-dynamic'
@@ -65,8 +63,8 @@ export const dynamic = 'force-dynamic'
  *      second one, so it is better to know now than after writing a paragraph.
  *   4. The form.
  *
- * The bounds it renders are read from `@/lib/support-access` and passed down as
- * props rather than restated: the twenty-character reason floor and the
+ * The bounds it renders are read from the area's own contract and passed down
+ * as props rather than restated: the twenty-character reason floor and the
  * twenty-four hour ceiling are database constraints, and a form that disagreed
  * with them would be a form whose submissions fail.
  */

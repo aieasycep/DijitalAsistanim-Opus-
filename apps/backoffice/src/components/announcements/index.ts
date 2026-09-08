@@ -23,4 +23,12 @@ export {
   AnnouncementFormSkeleton,
   AnnouncementListSkeleton,
 } from './Skeletons'
-export { STATE_TONES, auditActionLabel, panelError, sharePercent, stateLabel } from './presentation'
+export {
+  STATE_TONES,
+  announcementState,
+  auditActionLabel,
+  panelError,
+  sharePercent,
+  stateLabel,
+  type AnnouncementWindow,
+} from './presentation'

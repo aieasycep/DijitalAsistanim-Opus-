@@ -1,6 +1,6 @@
 'use server'
 
-import { AppError, DAY_MS } from '@da/domain'
+import { AppError } from '@da/domain'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -18,10 +18,11 @@ import {
   queryTableOne,
   resolveAdminById,
   revokeAdminSessions,
-  tokenHashLiteral,
   updateRows,
   type AdminActor,
 } from '@/lib/db'
+import { expiresAfterDays } from '@/lib/expiry'
+import { newInviteToken, sha256Bytea } from '@/lib/tokens'
 import {
   ADMIN_ENTITY_TYPE,
   INVITE_ENTITY_TYPE,
@@ -113,11 +114,11 @@ import {
  * ---------------------------------------------------------------------------
  *
  * Uuids, members of `admin_role`, a small integer, a colleague's work address
- * and an operator's own written reason. The invite token is generated here,
- * hashed here, and returned to exactly one caller — the form that asked for it.
- * It is never written to the database in the clear, never put on a URL, never
- * placed in an audit detail and never read back: `admin_invites.token_hash` is
- * on `@/lib/db`'s unreadable-column list, and a query naming it throws.
+ * and an operator's own written reason. The invite token is minted and digested
+ * by `@/lib/tokens` and returned to exactly one caller — the form that asked for
+ * it. It is never written to the database in the clear, never put on a URL,
+ * never placed in an audit detail and never read back: `admin_invites.token_hash`
+ * is on `@/lib/db`'s unreadable-column list, and a query naming it throws.
  */
 
 // ===========================================================================
@@ -139,9 +140,6 @@ const DESTRUCTIVE_LIMIT = { scope: 'admin.destructive', limit: 30, window: '5 mi
 
 /** Invites and their revocations. Twenty an hour is far past a real onboarding. */
 const INVITE_LIMIT = { scope: 'admin.invite', limit: 20, window: '1 hour' } as const
-
-/** 32 bytes of entropy, base64url — 43 characters an operator can copy once. */
-const INVITE_TOKEN_BYTES = 32
 
 // ===========================================================================
 // Input
@@ -232,40 +230,6 @@ function field(formData: FormData, name: string): string {
 function numberField(formData: FormData, name: string): number {
   const raw = field(formData, name)
   return raw === '' ? Number.NaN : Number(raw)
-}
-
-// ===========================================================================
-// The invite token
-//
-// Generated in this process, shown once, and never stored. Only its SHA-256
-// reaches `admin_invites.token_hash`, which means a full database dump grants
-// nobody access — the token exists in the operator's clipboard and in the mail
-// they send, and nowhere else.
-// ===========================================================================
-
-const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
-
-function base64Url(bytes: Uint8Array): string {
-  let out = ''
-  for (let index = 0; index < bytes.length; index += 3) {
-    const first = bytes[index] ?? 0
-    const second = bytes[index + 1]
-    const third = bytes[index + 2]
-
-    out += B64URL.charAt(first >> 2)
-    out += B64URL.charAt(((first & 0x03) << 4) | ((second ?? 0) >> 4))
-    if (second === undefined) break
-    out += B64URL.charAt(((second & 0x0f) << 2) | ((third ?? 0) >> 6))
-    if (third === undefined) break
-    out += B64URL.charAt(third & 0x3f)
-  }
-  return out
-}
-
-function newInviteToken(): string {
-  const bytes = new Uint8Array(INVITE_TOKEN_BYTES)
-  crypto.getRandomValues(bytes)
-  return base64Url(bytes)
 }
 
 // ===========================================================================
@@ -704,7 +668,7 @@ const inviteSpec: AdminActionSpec<InviteInput, InviteResult> = {
   }),
   run: async (context, input) => {
     const token = newInviteToken()
-    const expiresAt = new Date(context.now.getTime() + input.ttlDays * DAY_MS).toISOString()
+    const expiresAt = expiresAfterDays(context.now, input.ttlDays).toISOString()
 
     const row = await insertRow(
       'admin_invites',
@@ -714,7 +678,7 @@ const inviteSpec: AdminActionSpec<InviteInput, InviteResult> = {
         role: input.role,
         // Only the digest. `admin_invites_token_hash_is_sha256` checks that it
         // is 32 bytes, and `@/lib/db` refuses to select this column back.
-        token_hash: await tokenHashLiteral(token),
+        token_hash: await sha256Bytea(token),
         invited_by: context.actor.adminUserId,
         expires_at: expiresAt,
       },

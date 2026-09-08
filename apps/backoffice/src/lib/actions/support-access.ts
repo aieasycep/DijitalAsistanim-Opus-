@@ -30,12 +30,10 @@ import {
   resolveTicketReference,
 } from '@/lib/queries/support-access'
 import {
+  DECISION_FIELDS,
   MAX_SUPPORT_ACCESS_REASON,
   MAX_SUPPORT_ACCESS_WINDOW_MINUTES,
   MIN_SUPPORT_ACCESS_REASON,
-} from '@/lib/support-access'
-import {
-  DECISION_FIELDS,
   REQUEST_FIELDS,
   SUPPORT_ACCESS_PATH,
   grantHref,

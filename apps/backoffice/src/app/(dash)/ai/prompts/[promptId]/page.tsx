@@ -16,6 +16,7 @@ import {
   TrailTable,
   UsagePanel,
   VersionsTable,
+  chooseDiffBaseline,
   diffPromptBodies,
   firstParam,
   hrefWithQuery,
@@ -68,15 +69,8 @@ export const dynamic = 'force-dynamic'
  *
  * Nobody should activate a prompt they have not compared with what is serving
  * today, so the baseline is chosen for the question the operator is actually
- * asking:
- *
- *   - a draft or an archived version is read against the **active** version —
- *     "what would change if I pressed the button";
- *   - the active version is read against the **previous** one — comparing it
- *     with itself would show nothing, and what matters then is what changed when
- *     it went live;
- *   - the first version of a feature has no baseline, and the page says so
- *     rather than rendering an empty diff that looks like "no changes".
+ * asking. `chooseDiffBaseline` states that rule and this page applies it; the
+ * reads below only fetch the two candidates it decides between.
  *
  * ---------------------------------------------------------------------------
  * SEVEN LOADS, SETTLED SEPARATELY
@@ -328,13 +322,9 @@ async function resolveComparison(record: PromptRecord): Promise<Comparison> {
     active === null ? null : { version: active.version, fingerprint: active.body_fingerprint }
 
   if (active !== null && active.id !== record.id) {
-    return { kind: 'active', baseline: active, active: summary }
+    return { ...chooseDiffBaseline(record, active, null), active: summary }
   }
 
   const previous = await loadPreviousRecord(record.feature, record.version)
-  return {
-    kind: previous === null ? 'none' : 'previous',
-    baseline: previous,
-    active: summary,
-  }
+  return { ...chooseDiffBaseline(record, active, previous), active: summary }
 }

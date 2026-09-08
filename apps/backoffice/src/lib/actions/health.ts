@@ -16,6 +16,7 @@ import {
   REFRESH_FIELDS,
   healthTargetSpec,
   isAnsweringStatus,
+  latencyVerdict,
   type CheckOutcome,
   type HealthTarget,
 } from '@/components/health/contract'
@@ -221,11 +222,6 @@ async function discardBody(response: Response): Promise<void> {
   }
 }
 
-/** Answered inside its threshold, answered late, or did not answer. */
-function verdict(latencyMs: number, degradedMs: number): SystemHealthStatus {
-  return latencyMs > degradedMs ? 'degraded' : 'operational'
-}
-
 async function probeHttp(url: string, degradedMs: number, clock: Clock): Promise<Measurement> {
   const started = clock.now().getTime()
   let response: Response
@@ -252,7 +248,7 @@ async function probeHttp(url: string, degradedMs: number, clock: Clock): Promise
   if (!isAnsweringStatus(response.status)) {
     return { status: 'down', latencyMs, errorCode: `http_${response.status}` }
   }
-  return { status: verdict(latencyMs, degradedMs), latencyMs, errorCode: null }
+  return { status: latencyVerdict(latencyMs, degradedMs), latencyMs, errorCode: null }
 }
 
 /**
@@ -274,7 +270,7 @@ async function probeDatabase(degradedMs: number, clock: Clock): Promise<Measurem
     }
   }
   const latencyMs = clock.now().getTime() - started
-  return { status: verdict(latencyMs, degradedMs), latencyMs, errorCode: null }
+  return { status: latencyVerdict(latencyMs, degradedMs), latencyMs, errorCode: null }
 }
 
 async function probe(target: HealthTarget, clock: Clock): Promise<Measurement> {

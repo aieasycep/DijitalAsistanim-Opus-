@@ -33,6 +33,44 @@ export function stateLabel(state: AnnouncementState): string {
 }
 
 /**
+ * The columns that decide a state.
+ *
+ * Declared structurally rather than imported from `@/lib/db`, so this module
+ * stays importable from either side of the client boundary.
+ * `AnnouncementTableRow` is assignable to it.
+ */
+export interface AnnouncementWindow {
+  readonly published_at: string | null
+  readonly starts_at: string
+  readonly ends_at: string | null
+}
+
+/**
+ * The state one announcement is in at a given instant.
+ *
+ * `published_at is null` wins over everything, exactly as the table's own
+ * comment says it must: **a draft is never served, whatever its window says.**
+ * The two dates are only consulted once publication has been established, which
+ * is why a scheduled row and a draft with the same window are different states
+ * rather than the same one.
+ *
+ * An unparseable instant falls through rather than deciding: a row whose
+ * `starts_at` cannot be read is still published, and reporting it as a draft
+ * would hide a live notice from the person looking for it.
+ */
+export function announcementState(row: AnnouncementWindow, now: Date): AnnouncementState {
+  if (row.published_at === null) return 'draft'
+
+  const startsAt = Date.parse(row.starts_at)
+  if (Number.isFinite(startsAt) && startsAt > now.getTime()) return 'scheduled'
+
+  if (row.ends_at === null) return 'open_ended'
+  const endsAt = Date.parse(row.ends_at)
+  if (Number.isFinite(endsAt) && endsAt <= now.getTime()) return 'ended'
+  return 'live'
+}
+
+/**
  * The Turkish label for an audit action, falling back to the raw token.
  *
  * A trail that hid an action it did not recognise would be a trail that hid

@@ -8,7 +8,8 @@ import {
   announcementMessages,
   localeLabel,
 } from '@/lib/messages/announcements'
-import { announcementState, type AnnouncementListRow } from '@/lib/queries/announcements'
+import type { AnnouncementListRow } from '@/lib/queries/announcements'
+import { announcementState } from './presentation'
 import { StateBadge } from './StateBadge'
 import { ANNOUNCEMENT_PAGE_SIZES, announcementPath } from './contract'
 

@@ -1,6 +1,6 @@
 'use server'
 
-import { AppError, DAY_MS } from '@da/domain'
+import { AppError } from '@da/domain'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -13,6 +13,7 @@ import {
 } from '@/lib/admin-action'
 import { requirePermissionAction, type AdminSession } from '@/lib/auth'
 import { deleteRows, insertRow, resolveAdminById, updateRows, type AdminActor } from '@/lib/db'
+import { expiresAfterDaysOrNever } from '@/lib/expiry'
 import {
   FLAG_ENTITY_TYPE,
   loadFlag,
@@ -779,9 +780,7 @@ const overrideSpec: AdminActionSpec<
     // from the injected clock, so the operator's browser timezone cannot move
     // an expiry three hours.
     const expiresAt =
-      input.durationDays === 0
-        ? null
-        : new Date(context.now.getTime() + input.durationDays * DAY_MS).toISOString()
+      expiresAfterDaysOrNever(context.now, input.durationDays)?.toISOString() ?? null
 
     const existing = await loadOverride(input.flagId, input.userId)
 

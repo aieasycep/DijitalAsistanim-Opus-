@@ -1,6 +1,6 @@
 'use server'
 
-import { AppError, DAY_MS } from '@da/domain'
+import { AppError } from '@da/domain'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -13,6 +13,7 @@ import {
 } from '@/lib/admin-action'
 import { requirePermissionAction, type AdminSession } from '@/lib/auth'
 import { insertRow, resolveAdminById, updateRows, type AdminActor } from '@/lib/db'
+import { expiresAfterDays } from '@/lib/expiry'
 import { GRANT_ENTITY_TYPE, loadGrant, userExists } from '@/lib/queries/grants'
 import { grantFailureMessage, grantMessages, grantOutcomeMessages } from '@/lib/messages/grants'
 import {
@@ -311,7 +312,7 @@ const grantSpec: AdminActionSpec<GrantInput, { grantId: string; expiresAt: strin
     // `expires_at > granted_at` and the length bound are still checked by the
     // database; a `days` that fails either is refused there.
     const grantedAt = context.now
-    const expiresAt = new Date(grantedAt.getTime() + input.days * DAY_MS)
+    const expiresAt = expiresAfterDays(grantedAt, input.days)
 
     const row = await insertRow(
       'admin_entitlement_grants',

@@ -230,6 +230,36 @@ export interface AnnouncementDraft {
 }
 
 // ===========================================================================
+// Targeting
+// ===========================================================================
+
+/** The dimensions a notice is narrowed by, and what the reach estimate reads. */
+export interface AnnouncementTargeting {
+  audience: AnnouncementAudienceValue
+  platforms: readonly AnnouncementPlatformValue[]
+  locale: string
+  minAppVersion: string | null
+}
+
+/**
+ * The platforms the targeting actually narrows by.
+ *
+ * The `ios` and `android` audiences *are* a platform filter — the
+ * `announcements_one_platform_filter` constraint refuses a row that carries
+ * both kinds — so they resolve here to the same thing an explicit `platforms`
+ * array would. Written once, because a preview that read the audience and an
+ * estimate that read only the array would disagree about who a notice reaches,
+ * and the estimate is the number the publish dialog states.
+ */
+export function targetedPlatforms(
+  targeting: AnnouncementTargeting,
+): readonly AnnouncementPlatformValue[] {
+  if (targeting.audience === 'ios') return ['ios']
+  if (targeting.audience === 'android') return ['android']
+  return targeting.platforms
+}
+
+// ===========================================================================
 // Result links
 // ===========================================================================
 

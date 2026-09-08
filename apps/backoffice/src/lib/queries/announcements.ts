@@ -13,11 +13,13 @@ import {
   ANNOUNCEMENT_TRAIL_LIMIT,
   DEVICE_PLATFORMS,
   isDevicePlatform,
+  targetedPlatforms,
   type AnnouncementAudienceValue,
   type AnnouncementLocaleValue,
   type AnnouncementPlatformValue,
   type AnnouncementSortKey,
   type AnnouncementStateFilter,
+  type AnnouncementTargeting,
   type DevicePlatform,
   type DismissibleFilter,
 } from '@/components/announcements/contract'
@@ -65,12 +67,12 @@ import {
  *
  * An announcement's state is a function of two nullable timestamps and the
  * clock: draft, scheduled, live, open-ended, ended. The badge on a row computes
- * it from the row (`announcementState`), and the list filter computes it as a
- * set of SQL predicates (`stateFilters`) because a filter that ran in
- * JavaScript would page over the wrong rows. Both are in this file, next to each
- * other, and `__the same instant__` is passed to both by the caller — so a row
- * that the filter selected as "live" can never be badged "ended" two lines
- * later.
+ * it from the row (`announcementState` in `@/components/announcements/
+ * presentation`), and the list filter computes it as a set of SQL predicates
+ * (`stateFilters`, below) because a filter that ran in JavaScript would page
+ * over the wrong rows. `__The same instant__` is passed to both by the caller —
+ * so a row that the filter selected as "live" can never be badged "ended" two
+ * lines later.
  *
  * The one predicate that cannot be expressed as a single SQL comparison is
  * "published, started, and not ended", because "not ended" is
@@ -156,28 +158,7 @@ export type AnnouncementListRow = Pick<AnnouncementTableRow, (typeof LIST_COLUMN
 // ===========================================================================
 
 /**
- * The state one announcement is in at a given instant.
- *
- * `published_at is null` wins over everything, exactly as the table's own
- * comment says it must: a draft is never served, whatever its window says.
- */
-export function announcementState(
-  row: Pick<AnnouncementTableRow, 'published_at' | 'starts_at' | 'ends_at'>,
-  now: Date,
-): AnnouncementState {
-  if (row.published_at === null) return 'draft'
-
-  const startsAt = Date.parse(row.starts_at)
-  if (Number.isFinite(startsAt) && startsAt > now.getTime()) return 'scheduled'
-
-  if (row.ends_at === null) return 'open_ended'
-  const endsAt = Date.parse(row.ends_at)
-  if (Number.isFinite(endsAt) && endsAt <= now.getTime()) return 'ended'
-  return 'live'
-}
-
-/**
- * The same five states, as predicates Postgres can answer.
+ * The five states of `announcementState`, as predicates Postgres can answer.
  *
  * Each one is a conjunction, so the list is a single indexed query rather than
  * a page of rows filtered after the fact.
@@ -433,14 +414,6 @@ function planStatusSets(now: Date): {
   return { pro, free }
 }
 
-/** What the reach estimate is being asked about. */
-export interface AnnouncementTargeting {
-  audience: AnnouncementAudienceValue
-  platforms: readonly AnnouncementPlatformValue[]
-  locale: string
-  minAppVersion: string | null
-}
-
 /** A dimension of the targeting the console cannot count. */
 export type UnmeasuredDimension = 'min_app_version' | 'web_platform' | 'plan_source'
 
@@ -457,22 +430,6 @@ export interface AnnouncementReach {
   liveUsers: number
   /** What the estimate could not narrow by, in the operator's own words. */
   unmeasured: readonly UnmeasuredDimension[]
-}
-
-/**
- * The platforms the targeting actually narrows by.
- *
- * The `ios` and `android` audiences *are* a platform filter — the
- * `announcements_one_platform_filter` constraint refuses a row that carries
- * both kinds — so they resolve here to the same thing an explicit `platforms`
- * array would.
- */
-export function targetedPlatforms(
-  targeting: AnnouncementTargeting,
-): readonly AnnouncementPlatformValue[] {
-  if (targeting.audience === 'ios') return ['ios']
-  if (targeting.audience === 'android') return ['android']
-  return targeting.platforms
 }
 
 function planFilterValues(
