@@ -36,6 +36,52 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@20.0.3)(lightningcss@1.33.0)(terser@5.51.2)(yaml@2.9.0)
 
+  apps/backoffice:
+    dependencies:
+      '@da/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
+      '@da/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@da/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
+      '@supabase/supabase-js':
+        specifier: ^2.115.0
+        version: 2.115.0
+      next:
+        specifier: ^16.3.4
+        version: 16.3.4(@types/node@22.20.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.16
+        version: 4.3.3
+      '@types/node':
+        specifier: ^22.19.1
+        version: 22.20.1
+      '@types/react':
+        specifier: ~19.2.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ~19.2.0
+        version: 19.2.7(@types/react@19.2.18)
+      tailwindcss:
+        specifier: ^4.1.16
+        version: 4.3.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   apps/mobile:
     dependencies:
       '@da/api-client':
@@ -7357,7 +7403,9 @@ snapshots:
       metro-runtime: 0.84.6
     transitivePeerDependencies:
       - '@babel/core'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 

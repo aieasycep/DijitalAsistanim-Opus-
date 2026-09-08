@@ -1,0 +1,271 @@
+@import 'tailwindcss';
+@source '../../src';
+
+/*
+ * The same tokens as apps/web and @da/design-tokens, so the backoffice reads as
+ * the same company's software. What differs is density, not palette: an
+ * operations tool packs more rows per screen than a marketing page, so the base
+ * size drops to 13px and the radii tighten.
+ */
+:root {
+  color-scheme: light;
+
+  --da-bg: #f5f4f0;
+  --da-surface: #ffffff;
+  --da-surface-2: #f0efeb;
+  --da-paper: #fbfaf7;
+  --da-hairline: #e9e7e1;
+
+  --da-text: #1a1917;
+  --da-text-secondary: #6b6860;
+  --da-text-tertiary: #9b978e;
+  --da-text-disabled: #bdb9b0;
+
+  --da-primary: #5b5ce2;
+  --da-primary-pressed: #4b4ccb;
+  --da-primary-soft: #ededfc;
+  --da-primary-on-soft: #4547c9;
+  --da-on-primary: #ffffff;
+
+  --da-critical: #e0553f;
+  --da-critical-soft: #fcede9;
+  --da-critical-text: #c7432f;
+
+  --da-warning: #e09a1c;
+  --da-warning-soft: #fdf2dc;
+  --da-warning-text: #9a6300;
+
+  --da-success: #2fa062;
+  --da-success-soft: #e4f5ea;
+  --da-success-text: #1e7a47;
+
+  --da-info: #3b82e6;
+  --da-info-soft: #e7f0fd;
+  --da-info-text: #1f5fbe;
+
+  --da-scrim: rgb(26 25 23 / 0.48);
+  --da-skeleton: #eceae4;
+  --da-skeleton-highlight: #f7f6f2;
+
+  --da-shadow-card: 0 1px 2px rgb(26 25 23 / 0.04), 0 8px 24px rgb(26 25 23 / 0.06);
+  --da-shadow-lift: 0 2px 4px rgb(26 25 23 / 0.05), 0 18px 48px rgb(26 25 23 / 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --da-bg: #141311;
+    --da-surface: #1f1e1b;
+    --da-surface-2: #26251f;
+    --da-paper: #1a1916;
+    --da-hairline: #2e2c28;
+
+    --da-text: #f2f0eb;
+    --da-text-secondary: #a39f96;
+    --da-text-tertiary: #7c776e;
+    --da-text-disabled: #5c584f;
+
+    --da-primary: #8586f2;
+    --da-primary-pressed: #6f70e4;
+    --da-primary-soft: #23234a;
+    --da-primary-on-soft: #b9baf8;
+    --da-on-primary: #11102a;
+
+    --da-critical: #f07a63;
+    --da-critical-soft: #3a211b;
+    --da-critical-text: #f2a493;
+
+    --da-warning: #e9b455;
+    --da-warning-soft: #382a12;
+    --da-warning-text: #e8be72;
+
+    --da-success: #56bd83;
+    --da-success-soft: #17311f;
+    --da-success-text: #7ed4a5;
+
+    --da-info: #6ba4f0;
+    --da-info-soft: #16233b;
+    --da-info-text: #9cc4f7;
+
+    --da-scrim: rgb(0 0 0 / 0.62);
+    --da-skeleton: #26251f;
+    --da-skeleton-highlight: #322f29;
+
+    --da-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+    --da-shadow-lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 18px 48px rgb(0 0 0 / 0.5);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --da-bg: #141311;
+  --da-surface: #1f1e1b;
+  --da-surface-2: #26251f;
+  --da-paper: #1a1916;
+  --da-hairline: #2e2c28;
+
+  --da-text: #f2f0eb;
+  --da-text-secondary: #a39f96;
+  --da-text-tertiary: #7c776e;
+  --da-text-disabled: #5c584f;
+
+  --da-primary: #8586f2;
+  --da-primary-pressed: #6f70e4;
+  --da-primary-soft: #23234a;
+  --da-primary-on-soft: #b9baf8;
+  --da-on-primary: #11102a;
+
+  --da-critical: #f07a63;
+  --da-critical-soft: #3a211b;
+  --da-critical-text: #f2a493;
+
+  --da-warning: #e9b455;
+  --da-warning-soft: #382a12;
+  --da-warning-text: #e8be72;
+
+  --da-success: #56bd83;
+  --da-success-soft: #17311f;
+  --da-success-text: #7ed4a5;
+
+  --da-info: #6ba4f0;
+  --da-info-soft: #16233b;
+  --da-info-text: #9cc4f7;
+
+  --da-scrim: rgb(0 0 0 / 0.62);
+  --da-skeleton: #26251f;
+  --da-skeleton-highlight: #322f29;
+
+  --da-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+  --da-shadow-lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 18px 48px rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --color-bg: var(--da-bg);
+  --color-surface: var(--da-surface);
+  --color-surface2: var(--da-surface-2);
+  --color-paper: var(--da-paper);
+  --color-hairline: var(--da-hairline);
+
+  --color-ink: var(--da-text);
+  --color-muted: var(--da-text-secondary);
+  --color-faint: var(--da-text-tertiary);
+  --color-disabled: var(--da-text-disabled);
+
+  --color-primary: var(--da-primary);
+  --color-primary-pressed: var(--da-primary-pressed);
+  --color-primary-soft: var(--da-primary-soft);
+  --color-primary-on-soft: var(--da-primary-on-soft);
+  --color-on-primary: var(--da-on-primary);
+
+  --color-critical: var(--da-critical);
+  --color-critical-soft: var(--da-critical-soft);
+  --color-critical-text: var(--da-critical-text);
+
+  --color-warning: var(--da-warning);
+  --color-warning-soft: var(--da-warning-soft);
+  --color-warning-text: var(--da-warning-text);
+
+  --color-success: var(--da-success);
+  --color-success-soft: var(--da-success-soft);
+  --color-success-text: var(--da-success-text);
+
+  --color-info: var(--da-info);
+  --color-info-soft: var(--da-info-soft);
+  --color-info-text: var(--da-info-text);
+
+  --color-skeleton: var(--da-skeleton);
+  --color-skeleton-highlight: var(--da-skeleton-highlight);
+
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+
+  /* Tighter than the product surfaces: this is a console, not a card stack. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+
+  --shadow-card: var(--da-shadow-card);
+  --shadow-lift: var(--da-shadow-lift);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--da-bg);
+    color: var(--da-text);
+    font-family:
+      var(--font-geist),
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--da-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--da-primary-soft);
+    color: var(--da-primary-on-soft);
+  }
+
+  /* Counts, money and timestamps line up in columns or they are unreadable. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@utility bo-panel {
+  background-color: var(--da-surface);
+  border: 1px solid var(--da-hairline);
+  border-radius: 12px;
+}
+
+@utility bo-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--da-text-tertiary);
+}
+
+@keyframes bo-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@utility bo-skeleton {
+  background-color: var(--da-skeleton);
+  border-radius: 4px;
+  animation: bo-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -17,6 +17,8 @@
     "test:watch": "vitest --config vitest.config.ts",
     "test:mobile": "pnpm --filter @da/mobile run test",
     "build:web": "pnpm --filter @da/web run build",
+    "dev:backoffice": "pnpm --filter @da/backoffice run dev",
+    "build:backoffice": "pnpm --filter @da/backoffice run build",
     "verify:mobile": "pnpm --filter @da/mobile run verify",
     "verify:supabase": "node scripts/validate-supabase.mjs",
     "verify:i18n": "node scripts/check-i18n-keys.mjs",
