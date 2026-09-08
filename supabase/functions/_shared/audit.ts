@@ -18,6 +18,7 @@ export const AUDIT_ACTIONS = [
   'account.connected',
   'account.disconnected',
   'account.scope_granted',
+  'account.token_decrypted',
   'account.token_refreshed',
   'account.token_revoked',
   'sync.started',

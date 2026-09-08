@@ -8,6 +8,7 @@ import {
   initialScopes,
   scopesFor,
 } from './domain.ts'
+import { audit } from './audit.ts'
 import { bytesToHex, decryptSecret, encryptSecret, hexToBytes, randomToken } from './crypto.ts'
 import { dbError, serviceClient } from './db.ts'
 import { fetchWithLimits } from './http.ts'
@@ -266,6 +267,13 @@ export async function storeTokens(input: StoreTokensInput): Promise<void> {
     // A distinct nonce: reusing one across two ciphertexts under the same key
     // breaks AES-GCM's security guarantee.
     row.refresh_nonce = bytesToHex(refreshBlob.nonce)
+    // And its own key version. `key_version` above tracks the access token,
+    // which is re-encrypted hourly; the refresh token is re-encrypted only
+    // when the provider issues a new one. Sharing one column meant an hourly
+    // access-token refresh re-stamped the row with the current key while
+    // leaving the refresh ciphertext under the old one, so a key rotation
+    // bricked every account within the hour.
+    row.refresh_key_version = refreshBlob.keyVersion
   }
 
   const { error } = await client
@@ -280,6 +288,7 @@ interface StoredCredentials {
   nonce: string
   refreshNonce: string | null
   keyVersion: number
+  refreshKeyVersion: number
   accessTokenExpiresAt: string | null
   grantedScopes: string[]
 }
@@ -288,7 +297,7 @@ async function loadCredentials(connectedAccountId: string): Promise<StoredCreden
   const { data, error } = await serviceClient()
     .from('oauth_credentials')
     .select(
-      'encrypted_access_token, encrypted_refresh_token, nonce, refresh_nonce, key_version, access_token_expires_at, granted_scopes',
+      'encrypted_access_token, encrypted_refresh_token, nonce, refresh_nonce, key_version, refresh_key_version, access_token_expires_at, granted_scopes',
     )
     .eq('connected_account_id', connectedAccountId)
     .maybeSingle()
@@ -302,6 +311,10 @@ async function loadCredentials(connectedAccountId: string): Promise<StoredCreden
     nonce: data.nonce as string,
     refreshNonce: (data.refresh_nonce as string | null) ?? null,
     keyVersion: (data.key_version as number | null) ?? 1,
+    // Rows written before the column existed shared one version, and at that
+    // time the shared value was correct for both ciphertexts.
+    refreshKeyVersion:
+      (data.refresh_key_version as number | null) ?? (data.key_version as number | null) ?? 1,
     accessTokenExpiresAt: (data.access_token_expires_at as string | null) ?? null,
     grantedScopes: (data.granted_scopes as string[] | null) ?? [],
   }
@@ -344,7 +357,19 @@ export async function getAccessToken(
   const refreshToken = await decryptSecret({
     ciphertext: hexToBytes(stored.refreshTokenCiphertext),
     nonce: hexToBytes(stored.refreshNonce),
-    keyVersion: stored.keyVersion,
+    keyVersion: stored.refreshKeyVersion,
+  })
+
+  // Every refresh-token decryption is recorded. This is the control the
+  // privacy documentation and the Google restricted-scope assessment both
+  // describe, so it has to exist rather than be asserted. The row names the
+  // account and the key version and never the token.
+  await audit({
+    userId,
+    action: 'account.token_decrypted',
+    entityType: 'connected_account',
+    entityId: connectedAccountId,
+    metadata: { provider, key_version: stored.refreshKeyVersion, reason: 'access_token_refresh' },
   })
 
   let tokens: TokenSet

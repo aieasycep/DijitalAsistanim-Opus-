@@ -66,29 +66,32 @@ begin
   $tpl$;
 
   -- -------------------------------------------------------------------------
-  -- Incremental mail + calendar sync, every 15 minutes.
+  -- Incremental mail + calendar sync, every 15 minutes. Covers accounts whose
+  -- provider webhook is absent or has lapsed; where push works this is a no-op.
   -- No SQL fallback: syncing means talking to Google/Microsoft.
   -- -------------------------------------------------------------------------
   if v_has_net then
     perform cron.schedule(
       'da_sync_incremental',
       '*/15 * * * *',
-      format(v_invoke, 'sync-incremental', '{"mode":"incremental","source":"cron"}')
+      format(v_invoke, 'sync-start', '{"mode":"incremental","source":"cron"}')
     );
   else
     raise notice 'pg_net missing; da_sync_incremental not scheduled (requires an HTTP call).';
   end if;
 
   -- -------------------------------------------------------------------------
-  -- Briefing dispatcher, every 5 minutes. The function itself selects the users
-  -- whose local briefing time has just passed, so the schedule stays timezone
-  -- agnostic and a user in any offset gets their briefing within five minutes.
+  -- Notification dispatcher, every 5 minutes. `notification-scheduler` selects
+  -- the users whose local briefing time has just passed and the reminders now
+  -- due, so the schedule stays timezone agnostic and a user in any offset is
+  -- served within five minutes. This is the ONLY caller of sendPush: nothing
+  -- else in the system delivers a notification.
   -- -------------------------------------------------------------------------
   if v_has_net then
     perform cron.schedule(
       'da_briefing_dispatch',
       '*/5 * * * *',
-      format(v_invoke, 'briefing-dispatch', '{"source":"cron"}')
+      format(v_invoke, 'notification-scheduler', '{"source":"cron"}')
     );
   else
     raise notice 'pg_net missing; da_briefing_dispatch not scheduled (requires an HTTP call).';
@@ -102,7 +105,7 @@ begin
     perform cron.schedule(
       'da_follow_up_detection',
       '0 * * * *',
-      format(v_invoke, 'follow-up-detect', '{"source":"cron"}')
+      format(v_invoke, 'detect-followups', '{"source":"cron"}')
     );
   else
     raise notice 'pg_net missing; da_follow_up_detection not scheduled (requires an HTTP call).';
@@ -117,7 +120,7 @@ begin
     '*/10 * * * *',
     case
       when v_has_net
-        then format(v_invoke, 'approval-expire', '{"source":"cron"}')
+        then format(v_invoke, 'approvals-expire', '{"source":"cron"}')
       else 'select public.expire_stale_approvals();'
     end
   );
@@ -141,20 +144,19 @@ begin
   -- deletes the generated archives from storage, which needs the edge function;
   -- without pg_net we at least flip the rows so no stale download link is offered.
   -- -------------------------------------------------------------------------
+  -- Pure SQL: expiring a stale download link needs no edge function, and the
+  -- archive itself is removed by the storage lifecycle rule, so there is
+  -- nothing here that requires pg_net.
   perform cron.schedule(
     'da_export_cleanup',
     '45 3 * * *',
-    case
-      when v_has_net
-        then format(v_invoke, 'export-cleanup', '{"source":"cron"}')
-      else $sql$
-        update public.data_export_requests
-        set status = 'expired'
-        where status = 'ready'
-          and expires_at is not null
-          and expires_at <= now();
-      $sql$
-    end
+    $sql$
+      update public.data_export_requests
+      set status = 'expired'
+      where status = 'ready'
+        and expires_at is not null
+        and expires_at <= now();
+    $sql$
   );
 end;
 $$;
