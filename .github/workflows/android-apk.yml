@@ -81,19 +81,25 @@ jobs:
           # exactly what a first test build should do.
           EXPO_NO_TELEMETRY: '1'
 
+      # Secrets arrive through `env` rather than `${{ }}` inside the script: an
+      # expression is substituted into the shell source before it runs, so a
+      # value containing a quote would be executed rather than compared.
       - name: Resolve the signing key
         id: signing
         working-directory: apps/mobile/android/app
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.jks
-            {
-              echo "store_password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
-              echo "key_alias=${{ secrets.ANDROID_KEY_ALIAS }}"
-              echo "key_password=${{ secrets.ANDROID_KEY_PASSWORD }}"
-              echo "provided=true"
-            } >> "$GITHUB_OUTPUT"
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > release.jks
+            store_password="$KEYSTORE_PASSWORD"
+            key_alias="$KEY_ALIAS"
+            key_password="$KEY_PASSWORD"
+            echo "provided=true" >> "$GITHUB_OUTPUT"
             echo "Using the keystore from repository secrets."
           else
             # A throwaway identity, good for installing and testing only.
@@ -103,37 +109,38 @@ jobs:
               -keyalg RSA -keysize 2048 -validity 3650 \
               -storepass throwaway -keypass throwaway \
               -dname "CN=Dijital Asistan Test, OU=Test, O=Dijital Asistan, L=Istanbul, C=TR"
-            {
-              echo "store_password=throwaway"
-              echo "key_alias=throwaway"
-              echo "key_password=throwaway"
-              echo "provided=false"
-            } >> "$GITHUB_OUTPUT"
+            store_password=throwaway
+            key_alias=throwaway
+            key_password=throwaway
+            echo "provided=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Signed with a generated throwaway key. Uninstall any previous build before installing this one."
           fi
+          # Delimited form, so a value containing a newline cannot append
+          # arbitrary variables to the environment file.
+          {
+            echo "DA_UPLOAD_STORE_FILE=release.jks"
+            for pair in "DA_UPLOAD_STORE_PASSWORD:$store_password" \
+                        "DA_UPLOAD_KEY_ALIAS:$key_alias" \
+                        "DA_UPLOAD_KEY_PASSWORD:$key_password"; do
+              echo "${pair%%:*}<<__DA_SIGNING_EOF__"
+              echo "${pair#*:}"
+              echo "__DA_SIGNING_EOF__"
+            done
+          } >> "$GITHUB_ENV"
 
-      - name: Point Gradle at the key
-        working-directory: apps/mobile/android
+      # Two files have to agree — gradle.properties must carry the four values,
+      # and app/build.gradle must both declare a release signingConfig AND
+      # repoint buildTypes.release at it. Expo's template ships neither: its
+      # gradle.properties has no trailing newline (so a plain append corrupts
+      # the last property) and its release variant signs with the DEBUG
+      # keystore, whose private key is public. Doing only half the job produces
+      # a build that succeeds and is signed with the wrong key, so the script
+      # verifies its own result and its self-test runs against the genuine
+      # generated template rather than an invented one.
+      - name: Configure release signing
         run: |
-          cat >> gradle.properties <<EOF
-          DA_UPLOAD_STORE_FILE=release.jks
-          DA_UPLOAD_STORE_PASSWORD=${{ steps.signing.outputs.store_password }}
-          DA_UPLOAD_KEY_ALIAS=${{ steps.signing.outputs.key_alias }}
-          DA_UPLOAD_KEY_PASSWORD=${{ steps.signing.outputs.key_password }}
-          EOF
-
-      # Expo's template wires the release variant to a `release` signing
-      # config that defaults to the DEBUG keystore. Repoint it at ours.
-      #
-      # This is a checked-in script rather than an inline heredoc because a
-      # Gradle snippet contains lines indented less than a YAML block scalar,
-      # which silently truncates the block and makes the whole workflow file
-      # unparseable. It also means the rewrite is unit-tested.
-      - name: Use the key for the release variant
-        run: |
-          node scripts/ci/inject-android-signing.mjs --self-test
-          node scripts/ci/inject-android-signing.mjs apps/mobile/android/app/build.gradle
-          grep -A 10 'signingConfigs' apps/mobile/android/app/build.gradle
+          node scripts/ci/configure-android-signing.mjs --self-test
+          node scripts/ci/configure-android-signing.mjs apps/mobile/android
 
       - name: Assemble
         working-directory: apps/mobile/android
@@ -155,6 +162,26 @@ jobs:
           cp "$APK" "dist/dijital-asistan-${{ github.sha }}.apk"
           ls -la dist
           echo "size=$(du -h "$APK" | cut -f1)" >> "$GITHUB_OUTPUT"
+          echo "apk=dist/dijital-asistan-${{ github.sha }}.apk" >> "$GITHUB_OUTPUT"
+
+      # Read the signature back off the finished APK rather than trusting the
+      # configuration that produced it. A release build signed with the
+      # template's debug key installs and runs perfectly and is visible nowhere
+      # in a build log — this is the step that makes it visible. `CN=Android
+      # Debug` is the certificate every React Native project ships and whose
+      # private key is public, so a release variant carrying it is a failure.
+      - name: Verify what the APK is signed with
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          test -n "$APKSIGNER"
+          CERTS=$("$APKSIGNER" verify --print-certs "${{ steps.collect.outputs.apk }}")
+          echo "$CERTS"
+          VARIANT="${{ github.event.inputs.variant || 'release' }}"
+          if [ "$VARIANT" != "debug" ] && echo "$CERTS" | grep -q 'CN=Android Debug'; then
+            echo "::error::The release APK is signed with the template's public debug key."
+            exit 1
+          fi
 
       - name: Summary
         run: |
