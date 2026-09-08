@@ -129,6 +129,8 @@ export const messages = {
       'Hesabın geçerli ama backoffice erişimi tanımlı değil. Erişim gerekiyorsa bir yöneticiden staff_members kaydı açmasını iste.',
     unauthorizedRoleBody:
       'Bu sayfa daha yüksek bir yetki seviyesi istiyor. Mevcut seviyen bu işlem için yeterli değil.',
+    neededPermission: 'Gereken yetki',
+    neededAnyPermission: 'Şu yetkilerden biri',
     backToOverview: 'Genel bakışa dön',
   },
 

@@ -36,6 +36,8 @@ import {
   REFRESH_COOKIE_MAX_AGE,
   SIGN_IN_PATH,
   UNAUTHORIZED_PATH,
+  DENIAL_NEEDED_PARAM,
+  DENIAL_REASON_PARAM,
   clientIpFromHeaders,
   constantTimeEqual,
   deriveCsrfToken,
@@ -788,7 +790,10 @@ function refuse(reason: AccessDenialReason, requirement: PermissionRequirement):
     redirect(`${SIGN_IN_PATH}?reason=${reason}`)
   }
   const needed = requirementNames(requirement)
-  redirect(`${UNAUTHORIZED_PATH}?reason=${reason}&needed=${encodeURIComponent(needed)}`)
+  redirect(
+    `${UNAUTHORIZED_PATH}?${DENIAL_REASON_PARAM}=${reason}` +
+      `&${DENIAL_NEEDED_PARAM}=${encodeURIComponent(needed)}`,
+  )
 }
 
 /** The same refusal for a Server Action, which cannot redirect mid-POST. */

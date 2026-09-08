@@ -15,6 +15,7 @@ import {
   isAdminPermission,
   isAdminRole,
   isAdminStatus,
+  isAccessDenialReason,
   isRecoverableBySigningIn,
   permissionsForRole,
   requirementPermissions,
@@ -407,6 +408,24 @@ describe('decideAccess — deny by default at the decision layer', () => {
     expect(isRecoverableBySigningIn('mfa_required')).toBe(true)
     expect(isRecoverableBySigningIn('permission_denied')).toBe(false)
     expect(isRecoverableBySigningIn('admin_disabled')).toBe(false)
+  })
+
+  it('recognises every denial reason, and none of the names the 403 page used to expect', () => {
+    for (const reason of Object.keys(DENIAL_MESSAGES_TR)) {
+      expect(isAccessDenialReason(reason)).toBe(true)
+    }
+
+    // The 403 page compared the incoming reason against 'rol' and 'askida' —
+    // Turkish values from an earlier pass that `refuse()` never sent. Nothing
+    // failed: the comparison simply never matched, so every denial rendered the
+    // generic body and named neither the reason nor the missing permission.
+    // These are asserted as *not* reasons so a future rename cannot quietly
+    // reintroduce a vocabulary only one side of the redirect believes in.
+    for (const stale of ['rol', 'askida', 'admin', 'ops', 'support', '']) {
+      expect(isAccessDenialReason(stale)).toBe(false)
+    }
+
+    expect(isAccessDenialReason('__proto__')).toBe(false)
   })
 
   it('decides the same way for every role against every permission', () => {

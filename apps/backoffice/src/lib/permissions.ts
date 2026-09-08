@@ -527,6 +527,18 @@ export const DENIAL_MESSAGES_TR: Readonly<Record<AccessDenialReason, string>> = 
 })
 
 /**
+ * Whether a string is a denial reason this console knows.
+ *
+ * The reason travels to the 403 page as a query parameter, which means it
+ * arrives as an arbitrary string that anybody can type. Validated against the
+ * message table rather than a second hand-written list, so a reason added to
+ * the union without a sentence cannot reach the page unlabelled.
+ */
+export function isAccessDenialReason(value: string): value is AccessDenialReason {
+  return Object.prototype.hasOwnProperty.call(DENIAL_MESSAGES_TR, value)
+}
+
+/**
  * Denials the operator can fix by signing in again, as opposed to ones that
  * need somebody else to change something. `auth.ts` routes the first group to
  * the sign-in page and the second to the 403 page.

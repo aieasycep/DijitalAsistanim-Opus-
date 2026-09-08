@@ -61,6 +61,18 @@ export const SIGN_IN_PATH = '/sign-in'
 export const UNAUTHORIZED_PATH = '/forbidden'
 
 /**
+ * The query keys `refuse()` appends and the 403 page reads.
+ *
+ * Constants rather than literals because they were not always the same two
+ * strings: the page read `neden` and `gerekli` while the redirect wrote
+ * `reason` and `needed`, so every denial arrived unexplained and nothing —
+ * not the type checker, not a test — could see it. Two files agreeing on a
+ * string is not something to leave to memory.
+ */
+export const DENIAL_REASON_PARAM = 'reason'
+export const DENIAL_NEEDED_PARAM = 'needed'
+
+/**
  * Routes that render for a visitor holding no session cookie at all. Everything
  * else is redirected to sign-in by the proxy before it reaches a page.
  */
