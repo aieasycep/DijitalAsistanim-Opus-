@@ -117,7 +117,7 @@ export function ReferralRiskTable({
       header: billingMessages.referrals.columnReferrer,
       cell: (entry) => (
         <Link
-          href={`/kullanicilar/${entry.row.user_id}`}
+          href={`/users/${entry.row.user_id}`}
           className="flex flex-col hover:text-primary-on-soft"
         >
           <Mono>{shortId(entry.row.user_id)}</Mono>
@@ -331,10 +331,7 @@ export function RevokeOrdersTable({
       header: billingMessages.referrals.ordersReferrer,
       cell: (row) =>
         row.subject_user_id === null ? null : (
-          <Link
-            href={`/kullanicilar/${row.subject_user_id}`}
-            className="hover:text-primary-on-soft"
-          >
+          <Link href={`/users/${row.subject_user_id}`} className="hover:text-primary-on-soft">
             <Mono>{shortId(row.subject_user_id)}</Mono>
           </Link>
         ),

@@ -17,8 +17,8 @@ import { EXPORT_STATUSES, type ExportStatus } from '@da/domain'
 // ---------------------------------------------------------------------------
 
 export const PRIVACY_PATH = '/privacy'
-export const PRIVACY_REQUESTS_PATH = '/privacy/talepler'
-export const PRIVACY_RETENTION_PATH = '/privacy/saklama'
+export const PRIVACY_REQUESTS_PATH = '/privacy/requests'
+export const PRIVACY_RETENTION_PATH = '/privacy/retention'
 
 /** Redirect allowlist for every Server Action in this area. */
 export const PRIVACY_RETURN_PATHS = [
@@ -30,7 +30,7 @@ export const PRIVACY_RETURN_PATHS = [
 export type PrivacyReturnPath = (typeof PRIVACY_RETURN_PATHS)[number]
 
 export function userDetailHref(userId: string): string {
-  return `/kullanicilar/${userId}`
+  return `/users/${userId}`
 }
 
 // ---------------------------------------------------------------------------

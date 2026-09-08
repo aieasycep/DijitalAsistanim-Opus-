@@ -21,7 +21,7 @@ const columns: readonly Column<BoUserRow>[] = [
     header: messages.fields.userId,
     cell: (row) => (
       <Link
-        href={`/kullanicilar/${row.user_id}`}
+        href={`/users/${row.user_id}`}
         className="flex flex-col rounded-sm hover:text-primary-on-soft"
         title={userMessages.list.openUser}
       >

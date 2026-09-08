@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { NavShell } from '@/components/NavShell'
 import {
   AI_PARAMS,
   AI_PATH,
@@ -72,7 +71,7 @@ export default async function AiSpendPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const session = await requireStaff('ops')
+  await requireStaff('ops')
   const params = await searchParams
   const windowKey = parseWindow(params[AI_PARAMS.days])
   const dayCount = DAY_WINDOWS[windowKey]
@@ -89,7 +88,7 @@ export default async function AiSpendPage({
   ])
 
   return (
-    <NavShell session={session}>
+    <>
       <PageHeader
         title={aiMessages.spend.title}
         description={aiMessages.spend.description}
@@ -215,6 +214,6 @@ export default async function AiSpendPage({
 
         <p className="text-[11px] text-faint">{aiMessages.area.provenance}</p>
       </div>
-    </NavShell>
+    </>
   )
 }

@@ -17,8 +17,8 @@
 // ===========================================================================
 
 export const BILLING_PATH = '/billing'
-export const BILLING_RECONCILIATION_PATH = '/billing/mutabakat'
-export const BILLING_REFERRALS_PATH = '/billing/davetler'
+export const BILLING_RECONCILIATION_PATH = '/billing/reconciliation'
+export const BILLING_REFERRALS_PATH = '/billing/invites'
 
 /** The redirect allowlist for every Server Action in this area. */
 export const BILLING_RETURN_PATHS = [

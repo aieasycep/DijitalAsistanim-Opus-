@@ -12,7 +12,7 @@
 
 /** Routes in the ops area. Also the redirect allowlist for the resync action. */
 export const OPS_PATH = '/ops'
-export const OPS_QUEUE_PATH = '/ops/senkronizasyon'
+export const OPS_QUEUE_PATH = '/ops/sync'
 
 export const OPS_RETURN_PATHS = [OPS_PATH, OPS_QUEUE_PATH] as const
 export type OpsReturnPath = (typeof OPS_RETURN_PATHS)[number]

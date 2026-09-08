@@ -9,7 +9,13 @@
  *     re-runnable, which is what makes a partial failure recoverable);
  *   - every Postgres enum matches the TypeScript union it mirrors;
  *   - RLS is enabled and forced on every user table, and every table that is
- *     supposed to be client-readable actually has a policy.
+ *     supposed to be client-readable actually has a policy;
+ *   - the backoffice views (0017) are content-blind and service-role only;
+ *   - the admin platform (0019) actually enforces its invariants — the last
+ *     super_admin cannot be removed, a feature has at most one active prompt,
+ *     a sensitive audit row cannot be written without an actor and a reason,
+ *     and user content cannot be revealed without an approved, unexpired,
+ *     four-eyes Support Access grant that logs the reveal.
  *
  * It needs a reachable PostgreSQL 15+ (`SUPABASE_DB_URL`, or the local
  * defaults). Without one it skips with a clear message rather than failing —
@@ -43,6 +49,31 @@ function psqlFile(file, database) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   })
+}
+
+/**
+ * Run `sql` expecting the database to REFUSE it.
+ *
+ * The admin platform's guarantees are triggers and constraints, and a trigger
+ * that was dropped, or a constraint written with a typo that makes it always
+ * true, both look perfectly healthy in the catalogue. The only honest test is to
+ * attempt the forbidden thing and require an error mentioning the rule that
+ * should have stopped it.
+ *
+ * Returns null when the statement was correctly rejected, or a message
+ * describing what went wrong.
+ */
+function expectRejected(sql, expectedFragment, database) {
+  try {
+    psql(sql, { database })
+    return `was accepted; expected a rejection mentioning "${expectedFragment}"`
+  } catch (error) {
+    const text = String(error.stderr ?? error.message)
+    if (!text.includes(expectedFragment)) {
+      return `was rejected, but not by "${expectedFragment}":\n      ${text.trim().split('\n')[0]}`
+    }
+    return null
+  }
 }
 
 function canConnect() {
@@ -179,6 +210,128 @@ try {
   }
   if (enumMismatches === 0) ok(`${Object.keys(ENUM_MAP).length} enums match packages/domain`)
 
+  // ── Admin platform enums (0019) ───────────────────────────────────────────
+  //
+  // These are asserted against a literal list rather than against a TypeScript
+  // constant, because this file IS the contract the app packages are written
+  // against. Where the matching constant already exists in packages/domain the
+  // two are compared as well, so the day someone adds `ADMIN_ROLES` with the
+  // members in a different order, the build says so instead of the decoder
+  // silently mapping `finance` onto `ai_ops`.
+  const ADMIN_ENUMS = {
+    admin_role: {
+      tsConst: 'ADMIN_ROLES',
+      members: ['super_admin', 'operations', 'support', 'finance', 'ai_ops', 'analyst', 'readonly'],
+    },
+    admin_status: { tsConst: 'ADMIN_STATUSES', members: ['invited', 'active', 'disabled'] },
+    support_ticket_status: {
+      tsConst: 'SUPPORT_TICKET_STATUSES',
+      members: ['open', 'in_progress', 'waiting_user', 'resolved', 'closed'],
+    },
+    support_ticket_priority: {
+      tsConst: 'SUPPORT_TICKET_PRIORITIES',
+      members: ['low', 'normal', 'high', 'critical'],
+    },
+    support_ticket_category: {
+      tsConst: 'SUPPORT_TICKET_CATEGORIES',
+      members: [
+        'account',
+        'integration',
+        'sync',
+        'billing',
+        'ai_quality',
+        'notification',
+        'privacy',
+        'other',
+      ],
+    },
+    app_platform: { tsConst: 'APP_PLATFORMS', members: ['ios', 'android', 'web'] },
+    app_plan: { tsConst: 'APP_PLANS', members: ['free', 'pro'] },
+    announcement_audience: {
+      tsConst: 'ANNOUNCEMENT_AUDIENCES',
+      members: ['all', 'free', 'pro', 'ios', 'android'],
+    },
+    prompt_status: { tsConst: 'PROMPT_STATUSES', members: ['draft', 'active', 'archived'] },
+    system_health_status: {
+      tsConst: 'SYSTEM_HEALTH_STATUSES',
+      members: ['operational', 'degraded', 'down', 'unknown'],
+    },
+    admin_grant_kind: {
+      tsConst: 'ADMIN_GRANT_KINDS',
+      members: ['trial_extension', 'goodwill', 'compensation', 'beta_access'],
+    },
+    support_access_scope: {
+      tsConst: 'SUPPORT_ACCESS_SCOPES',
+      members: [
+        'identity',
+        'email_subject',
+        'email_body',
+        'calendar_detail',
+        'assistant_conversation',
+        'capture_content',
+        'approval_payload',
+        'notification_content',
+      ],
+    },
+    support_access_status: {
+      tsConst: 'SUPPORT_ACCESS_STATUSES',
+      members: ['pending_approval', 'active', 'denied', 'expired', 'revoked'],
+    },
+  }
+
+  let adminEnumProblems = 0
+  for (const [pgEnum, spec] of Object.entries(ADMIN_ENUMS)) {
+    const actual = psql(
+      `select string_agg(e.enumlabel, ',' order by e.enumsortorder)
+       from pg_type t join pg_enum e on e.enumtypid = t.oid
+       where t.typname = '${pgEnum}'`,
+      { database: dbName },
+    ).trim()
+
+    if (!actual) {
+      fail(`enum ${pgEnum} does not exist in the database`)
+      adminEnumProblems++
+      continue
+    }
+    if (actual !== spec.members.join(',')) {
+      fail(`enum ${pgEnum} drifted\n      pg: ${actual}\n      expected: ${spec.members.join(',')}`)
+      adminEnumProblems++
+      continue
+    }
+
+    const ts = tsUnion(spec.tsConst)
+    if (ts && ts.join(',') !== spec.members.join(',')) {
+      fail(
+        `enum ${pgEnum} does not match packages/domain ${spec.tsConst}` +
+          `\n      pg: ${spec.members.join(',')}\n      ts: ${ts.join(',')}`,
+      )
+      adminEnumProblems++
+    }
+  }
+
+  // Every permission the schema knows about must be granted to super_admin and
+  // to nobody by accident: an enum member with no role behind it is a screen
+  // that can never be opened.
+  const orphanPermissions = psql(
+    `select string_agg(p::text, ', ')
+     from unnest(enum_range(null::admin_permission)) p
+     where not exists (
+       select 1 from public.admin_role_permissions rp where rp.permission = p
+     )`,
+    { database: dbName },
+  ).trim()
+
+  if (orphanPermissions) {
+    fail(`admin_permission members granted to no role: ${orphanPermissions}`)
+    adminEnumProblems++
+  }
+
+  if (adminEnumProblems === 0) {
+    ok(
+      `${Object.keys(ADMIN_ENUMS).length} admin-platform enums match 0019 and every permission is assigned`,
+    )
+  }
+
   // ── Row Level Security ────────────────────────────────────────────────────
   const USER_TABLES = [
     'profiles',
@@ -222,6 +375,25 @@ try {
     // The backoffice roster (0017). A staff member may read their own row and
     // nothing else; provisioning is service-role only.
     'staff_members',
+    // The admin platform (0019). None of these is part of the product, so all
+    // of them appear in SERVICE_ROLE_ONLY below as well: RLS on, zero policies.
+    'admin_roles',
+    'admin_role_permissions',
+    'admin_users',
+    'admin_invites',
+    'admin_sessions',
+    'admin_rate_limits',
+    'admin_sensitive_actions',
+    'support_tickets',
+    'support_notes',
+    'feature_flags',
+    'feature_flag_overrides',
+    'announcements',
+    'prompt_versions',
+    'system_health_checks',
+    'admin_entitlement_grants',
+    'support_access_grants',
+    'support_access_reveals',
   ]
 
   const rlsRows = psql(
@@ -266,6 +438,27 @@ try {
     'ai_usage_events',
     'rate_limit_counters',
     'notification_deliveries',
+    // The admin platform is not part of the product. A signed-in Dijital
+    // Asistan user must reach none of it — that separation IS the admin
+    // authorization layer, so a policy appearing on any of these is a defect,
+    // not a feature.
+    'admin_roles',
+    'admin_role_permissions',
+    'admin_users',
+    'admin_invites',
+    'admin_sessions',
+    'admin_rate_limits',
+    'admin_sensitive_actions',
+    'support_tickets',
+    'support_notes',
+    'feature_flags',
+    'feature_flag_overrides',
+    'announcements',
+    'prompt_versions',
+    'system_health_checks',
+    'admin_entitlement_grants',
+    'support_access_grants',
+    'support_access_reveals',
   ]
 
   let policyProblems = 0
@@ -345,6 +538,21 @@ try {
     'bo_capture_health',
     'bo_signup_daily',
     'bo_platform_overview',
+    // 0019 keeps the same prefix and the same rule: the admin platform's own
+    // views are blind too, so an operator reading the console never picks up a
+    // ticket body or a prompt through a side door.
+    'bo_admin_users',
+    'bo_admin_permissions',
+    'bo_admin_sessions',
+    'bo_support_ticket_stats',
+    'bo_support_access_grants',
+    'bo_support_access_reveals',
+    'bo_feature_flags',
+    'bo_feature_flag_overrides',
+    'bo_prompt_versions',
+    'bo_system_health',
+    'bo_entitlement_grants',
+    'bo_entitlement_sources',
   ]
 
   // Every column that carries something a person wrote, received, was told, or
@@ -420,6 +628,28 @@ try {
     connected_accounts: ['display_name', 'external_account_id'],
     data_export_requests: ['storage_path'],
     referral_credits: ['revoked_reason'],
+    // ── 0019 ────────────────────────────────────────────────────────────────
+    // A support ticket's subject and body are written by a person about their
+    // own problem and routinely quote a subject line or an address. They are
+    // readable from the ticket table by an operator working that ticket, and
+    // are never aggregated into a dashboard view.
+    support_tickets: ['subject', 'body', 'resolution_note', 'external_ref'],
+    support_notes: ['body'],
+    // The prompt body is company IP rather than user content, but it is long
+    // and has no business being carried in a list query.
+    prompt_versions: ['body'],
+    // Announcement copy is authored by the company and served to users by the
+    // app, not summarised in the operations console.
+    announcements: ['title', 'body'],
+    // A session token hash is a replayable secret if it ever leaves the server,
+    // and the user agent plus the IP hash are a device fingerprint.
+    admin_sessions: ['token_hash', 'ip_hash', 'user_agent'],
+    // An invite token hash is the invite. Projecting it would let a reader of
+    // the console mint an admin account.
+    admin_invites: ['token_hash'],
+    // Rate-limit subject keys are hashed identifiers; they are the limiter's
+    // business and nobody else's.
+    admin_rate_limits: ['subject_key'],
     // Token stores: no column of either is readable, so every column is listed
     // by wildcard below rather than enumerated here.
   }
@@ -458,6 +688,16 @@ try {
     'audit_logs.action': 'bo_identifier',
     'audit_logs.entity_type': 'bo_identifier',
     'audit_logs.entity_id': 'bo_identifier',
+    // 0019. An admin is a person too: their address is redacted in the console
+    // exactly as a user's is.
+    'admin_users.email': 'bo_redact_email',
+    // A probe failure quotes the request that failed, so it is classified.
+    'system_health_checks.error_code': 'bo_error_code',
+    // The reveal log records which record was opened. bo_identifier is what
+    // stops that column becoming a place to stash the content instead.
+    'support_access_reveals.entity_id': 'bo_identifier',
+    'support_access_reveals.entity_type': 'bo_identifier',
+    'support_access_reveals.request_id': 'bo_identifier',
   }
 
   let boProblems = 0
@@ -620,6 +860,510 @@ try {
 
   if (boProblems === 0) {
     ok(`${BO_VIEWS.length} backoffice views are content-blind and service-role only`)
+  }
+
+  // ── Admin platform: the invariants, exercised rather than inspected ───────
+  //
+  // 0019 makes four promises the product owner asked for by name, and every one
+  // of them is a trigger, a constraint or a partial index. A dropped trigger and
+  // a constraint written with a typo that makes it always true both look
+  // perfectly healthy in the catalogue, so this block attempts each forbidden
+  // thing against the throwaway database and requires the database to refuse it.
+
+  let adminProblems = 0
+
+  const adminFail = (message) => {
+    fail(message)
+    adminProblems++
+  }
+
+  // Columns whose NOT NULL is the whole point: an action nobody can justify in
+  // writing is an action that should not have a button.
+  const REQUIRED_NOT_NULL = [
+    ['support_access_grants', 'reason'],
+    ['admin_entitlement_grants', 'reason'],
+    ['feature_flag_overrides', 'reason'],
+    ['support_tickets', 'subject'],
+    ['support_notes', 'body'],
+    ['admin_users', 'email'],
+    ['admin_invites', 'token_hash'],
+    ['admin_sessions', 'token_hash'],
+    ['admin_sessions', 'expires_at'],
+    ['admin_sessions', 'absolute_expires_at'],
+    ['support_access_grants', 'expires_at'],
+    ['admin_entitlement_grants', 'granted_by'],
+    ['support_access_reveals', 'grant_id'],
+    ['support_access_reveals', 'admin_user_id'],
+    ['support_access_reveals', 'scope'],
+  ]
+
+  const nullableRows = new Set(
+    psql(
+      `select table_name || '.' || column_name
+       from information_schema.columns
+       where table_schema = 'public' and is_nullable = 'YES'`,
+      { database: dbName },
+    )
+      .trim()
+      .split('\n')
+      .filter(Boolean),
+  )
+
+  for (const [table, column] of REQUIRED_NOT_NULL) {
+    if (nullableRows.has(`${table}.${column}`)) {
+      adminFail(`${table}.${column} must be NOT NULL`)
+    }
+  }
+
+  // The one-active-prompt rule is a partial unique index, not application code.
+  const activePromptIndex = psql(
+    `select coalesce(pg_get_indexdef(i.indexrelid), '')
+     from pg_index i
+     join pg_class c on c.oid = i.indexrelid
+     where c.relname = 'prompt_versions_one_active_per_feature'`,
+    { database: dbName },
+  ).trim()
+
+  if (
+    !/unique/i.test(activePromptIndex) ||
+    !/where.*status.*=.*'active'/is.test(activePromptIndex)
+  ) {
+    adminFail(
+      `prompt_versions_one_active_per_feature is not a partial unique index on status = 'active': ${activePromptIndex || 'missing'}`,
+    )
+  }
+
+  // Nothing in the admin platform may be reachable from a client role — not the
+  // tables, and not the functions that decide authorization or return content.
+  const leakedAdminGrants = psql(
+    `select table_name || ' -> ' || grantee
+     from information_schema.role_table_grants
+     where table_schema = 'public'
+       and grantee in ('anon', 'authenticated', 'PUBLIC')
+       and table_name in (
+         'admin_roles', 'admin_role_permissions', 'admin_users', 'admin_invites',
+         'admin_sessions', 'admin_rate_limits', 'admin_sensitive_actions',
+         'support_tickets', 'support_notes', 'feature_flags', 'feature_flag_overrides',
+         'announcements', 'prompt_versions', 'system_health_checks',
+         'admin_entitlement_grants', 'support_access_grants', 'support_access_reveals'
+       )`,
+    { database: dbName },
+  )
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+
+  if (leakedAdminGrants.length > 0) {
+    adminFail(`admin platform tables granted to a client role: ${leakedAdminGrants.join(', ')}`)
+  }
+
+  const leakedFunctions = psql(
+    `select string_agg(p.oid::regprocedure::text, ', ' order by p.oid::regprocedure::text)
+     from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and (
+         p.proname like 'sa\\_%'
+         or p.proname like 'admin\\_%'
+         or p.proname like 'bo\\_%'
+         or p.proname like 'support\\_access\\_%'
+         or p.proname like 'audit\\_logs\\_%'
+         or p.proname like 'feature\\_flag\\_%'
+       )
+       and (
+         has_function_privilege('anon', p.oid, 'EXECUTE')
+         or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+       )`,
+    { database: dbName },
+  ).trim()
+
+  if (leakedFunctions) {
+    adminFail(`admin platform functions executable by a client role: ${leakedFunctions}`)
+  }
+
+  // Every one of the actions the specification names must be classified as
+  // sensitive, or the accountability trigger will wave it through.
+  const REQUIRED_SENSITIVE_ACTIONS = [
+    'admin.signed_in',
+    'admin.role_changed',
+    'admin.disabled',
+    'user.disabled',
+    'integration.disconnected',
+    'integration.force_resync',
+    'entitlement.granted',
+    'feature_flag.changed',
+    'prompt.activated',
+    'ai.model_changed',
+    'deletion.retried',
+    'support_access.revealed',
+  ]
+
+  const knownSensitive = new Set(
+    psql(`select action from public.admin_sensitive_actions`, { database: dbName })
+      .trim()
+      .split('\n')
+      .filter(Boolean),
+  )
+
+  for (const action of REQUIRED_SENSITIVE_ACTIONS) {
+    if (!knownSensitive.has(action)) {
+      adminFail(
+        `admin_sensitive_actions is missing "${action}" — it would be audited without a reason`,
+      )
+    }
+  }
+
+  // ── Live probes ──────────────────────────────────────────────────────────
+  const SA1 = '00000000-0000-4000-9000-000000000001'
+  const SA2 = '00000000-0000-4000-9000-000000000002'
+  const SUP = '00000000-0000-4000-9000-000000000003'
+  const SUBJECT = '00000000-0000-4000-8000-000000000009'
+  const GRANT = '00000000-0000-4000-a000-000000000001'
+  const REVEAL_REASON = 'Kullanici mail senkronu calismiyor, DA-001 numarali talep'
+
+  psql(
+    `insert into auth.users (id, email) values
+       ('00000000-0000-4000-8000-000000000001', 'sa1@example.com'),
+       ('00000000-0000-4000-8000-000000000002', 'sa2@example.com'),
+       ('00000000-0000-4000-8000-000000000003', 'support@example.com'),
+       ('${SUBJECT}', 'kullanici@example.com');
+     insert into public.admin_users (id, user_id, email, role, status) values
+       ('${SA1}', '00000000-0000-4000-8000-000000000001', 'sa1@example.com', 'super_admin', 'active'),
+       ('${SA2}', '00000000-0000-4000-8000-000000000002', 'sa2@example.com', 'operations', 'active'),
+       ('${SUP}', '00000000-0000-4000-8000-000000000003', 'support@example.com', 'support', 'active');`,
+    { database: dbName },
+  )
+
+  /** Each probe attempts something the database must refuse. */
+  const REJECTIONS = [
+    [
+      'the last super_admin cannot be demoted',
+      `update public.admin_users set role = 'operations' where id = '${SA1}'`,
+      'admin_last_super_admin',
+    ],
+    [
+      'the last super_admin cannot be disabled',
+      `update public.admin_users set status = 'disabled', disabled_at = now(), disabled_reason = 'test' where id = '${SA1}'`,
+      'admin_last_super_admin',
+    ],
+    [
+      'the last super_admin cannot be deleted',
+      `delete from public.admin_users where id = '${SA1}'`,
+      'admin_last_super_admin',
+    ],
+    [
+      'the last super_admin cannot be unbound from its auth account',
+      `delete from auth.users where id = '00000000-0000-4000-8000-000000000001'`,
+      'admin_last_super_admin',
+    ],
+    [
+      'a sensitive action cannot be audited without an actor',
+      `insert into public.audit_logs (action) values ('entitlement.granted')`,
+      'audit_actor_required',
+    ],
+    [
+      'a destructive action cannot be audited without a reason',
+      `insert into public.audit_logs (action, actor_admin_user_id) values ('prompt.activated', '${SA1}')`,
+      'audit_reason_required',
+    ],
+    [
+      'an unlisted action in the admin. namespace is still accountable',
+      `insert into public.audit_logs (action) values ('admin.something_invented_later')`,
+      'audit_actor_required',
+    ],
+    [
+      'an unlisted action in the support_access. namespace is still accountable',
+      `insert into public.audit_logs (action, actor_admin_user_id) values ('support_access.exported', '${SA1}')`,
+      'audit_reason_required',
+    ],
+    [
+      'a Support Access reason shorter than a sentence is refused',
+      `insert into public.support_access_grants (admin_user_id, subject_user_id, scopes, reason, expires_at)
+       values ('${SUP}', '${SUBJECT}', array['identity']::support_access_scope[], 'gerekli', now() + interval '1 hour')`,
+      'support_access_grants_reason_is_written',
+    ],
+    [
+      'a Support Access window longer than 24 hours is refused',
+      `insert into public.support_access_grants (admin_user_id, subject_user_id, scopes, reason, expires_at)
+       values ('${SUP}', '${SUBJECT}', array['identity']::support_access_scope[], '${REVEAL_REASON}', now() + interval '25 hours')`,
+      'support_access_grants_window_is_short',
+    ],
+    [
+      'a Support Access grant cannot be approved by its own requester',
+      `insert into public.support_access_grants
+         (admin_user_id, subject_user_id, scopes, reason, expires_at, status, approved_by, approved_at, granted_at)
+       values ('${SUP}', '${SUBJECT}', array['identity']::support_access_scope[], '${REVEAL_REASON}',
+               now() + interval '1 hour', 'active', '${SUP}', now(), now())`,
+      'support_access_grants_four_eyes',
+    ],
+    [
+      'a temporary Pro grant cannot be made without a reason',
+      `insert into public.admin_entitlement_grants (user_id, days, granted_by, expires_at, reason)
+       values ('${SUBJECT}', 7, '${SA1}', now() + interval '7 days', '  ')`,
+      'admin_entitlement_grants_reason_not_blank',
+    ],
+    [
+      'a feature flag override cannot be pinned without a reason',
+      `insert into public.feature_flag_overrides (flag_id, user_id, enabled, reason, created_by)
+       values (gen_random_uuid(), '${SUBJECT}', true, '', '${SA1}')`,
+      'feature_flag_overrides_reason_not_blank',
+    ],
+    [
+      'a health check cannot claim operational without a measurement',
+      `insert into public.system_health_checks (target, status) values ('google_gmail', 'operational')`,
+      'system_health_checks_verdict_needs_measurement',
+    ],
+    [
+      'a health check cannot claim down without an error code',
+      `insert into public.system_health_checks (target, status, latency_ms) values ('google_gmail', 'down', 12)`,
+      'system_health_checks_down_needs_code',
+    ],
+    [
+      'an admin rate-limit subject must be a hash, never a raw identifier',
+      `select public.admin_enforce_rate_limit('admin.sign_in', 'ali@example.com', 5, interval '15 minutes')`,
+      'admin_rate_limits_subject_is_hash',
+    ],
+    [
+      'revoking every session requires a written reason',
+      `select public.admin_revoke_sessions('${SA1}', '')`,
+      'admin_reason_required',
+    ],
+    [
+      'an invite token must be stored as a sha256 digest',
+      `insert into public.admin_invites (email, role, token_hash, invited_by, expires_at)
+       values ('yeni@example.com', 'support', 'plain-token'::bytea, '${SA1}', now() + interval '1 day')`,
+      'admin_invites_token_hash_is_sha256',
+    ],
+  ]
+
+  for (const [label, sql, expected] of REJECTIONS) {
+    const problem = expectRejected(sql, expected, dbName)
+    if (problem) adminFail(`${label}: ${problem}`)
+  }
+
+  // The accountability trigger must not reach past the admin console. Product
+  // events are written by edge functions that have no admin actor and no reason
+  // to give; if this insert ever starts failing, syncing and approvals stop
+  // recording anything at all.
+  try {
+    psql(
+      `insert into public.audit_logs (user_id, action, entity_type, metadata)
+       values ('${SUBJECT}', 'sync.failed', 'connected_account', '{"outcome":"provider_error"}'::jsonb)`,
+      { database: dbName },
+    )
+  } catch (error) {
+    adminFail(
+      `an edge-function audit event was refused by the admin accountability trigger: ${
+        String(error.stderr ?? error.message)
+          .trim()
+          .split('\n')[0]
+      }`,
+    )
+  }
+
+  // Two active prompt versions for one feature.
+  psql(
+    `insert into public.prompt_versions (feature, version, status, body, created_by, activated_by, activated_at)
+     values ('email_analysis', 1, 'active', 'ilk sürüm', '${SA1}', '${SA1}', now())`,
+    { database: dbName },
+  )
+  const twoActive = expectRejected(
+    `insert into public.prompt_versions (feature, version, status, body, created_by, activated_by, activated_at)
+     values ('email_analysis', 2, 'active', 'ikinci sürüm', '${SA1}', '${SA1}', now())`,
+    'prompt_versions_one_active_per_feature',
+    dbName,
+  )
+  if (twoActive) adminFail(`a feature cannot have two active prompt versions: ${twoActive}`)
+
+  // A second super_admin unlocks the demotion the floor was refusing.
+  psql(`update public.admin_users set role = 'super_admin' where id = '${SA2}'`, {
+    database: dbName,
+  })
+  try {
+    psql(`update public.admin_users set role = 'operations' where id = '${SA1}'`, {
+      database: dbName,
+    })
+    psql(`update public.admin_users set role = 'super_admin' where id = '${SA1}'`, {
+      database: dbName,
+    })
+  } catch (error) {
+    adminFail(
+      `demoting a super_admin while another remains was refused: ${
+        String(error.stderr ?? error.message)
+          .trim()
+          .split('\n')[0]
+      }`,
+    )
+  }
+
+  // The reveal path, end to end.
+  psql(
+    `insert into public.support_access_grants
+       (id, admin_user_id, subject_user_id, scopes, reason, expires_at, status, approved_by, approved_at, granted_at)
+     values ('${GRANT}', '${SUP}', '${SUBJECT}', array['identity']::support_access_scope[],
+             '${REVEAL_REASON}', now() + interval '1 hour', 'active', '${SA2}', now(), now())`,
+    { database: dbName },
+  )
+
+  const revealProbes = [
+    [
+      'a reveal outside the granted scope is refused',
+      `select * from public.sa_reveal_email_message('${GRANT}', '${SUP}', gen_random_uuid())`,
+      'support_access_scope_denied',
+    ],
+    [
+      'a reveal by an admin the grant does not name is refused',
+      `select * from public.sa_reveal_identity('${GRANT}', '${SA1}')`,
+      'support_access_wrong_admin',
+    ],
+    [
+      'a reveal against an unknown grant is refused',
+      `select * from public.sa_reveal_identity(gen_random_uuid(), '${SUP}')`,
+      'support_access_unknown_grant',
+    ],
+  ]
+
+  for (const [label, sql, expected] of revealProbes) {
+    const problem = expectRejected(sql, expected, dbName)
+    if (problem) adminFail(`${label}: ${problem}`)
+  }
+
+  // The permitted reveal must succeed AND must have logged itself.
+  try {
+    psql(`select * from public.sa_reveal_identity('${GRANT}', '${SUP}', 'probe-1')`, {
+      database: dbName,
+    })
+  } catch (error) {
+    adminFail(
+      `an in-scope reveal was refused: ${
+        String(error.stderr ?? error.message)
+          .trim()
+          .split('\n')[0]
+      }`,
+    )
+  }
+
+  const revealLog = psql(
+    `select count(*) from public.support_access_reveals
+     where grant_id = '${GRANT}' and admin_user_id = '${SUP}' and scope = 'identity'`,
+    { database: dbName },
+  ).trim()
+
+  if (revealLog !== '1') {
+    adminFail(
+      `a reveal did not write exactly one row to support_access_reveals (found ${revealLog})`,
+    )
+  }
+
+  const revealCount = psql(
+    `select reveal_count from public.support_access_grants where id = '${GRANT}'`,
+    { database: dbName },
+  ).trim()
+
+  if (revealCount !== '1') {
+    adminFail(`support_access_grants.reveal_count did not follow the reveal (found ${revealCount})`)
+  }
+
+  // Once revoked, neither the function nor a hand-written INSERT may proceed.
+  psql(
+    `update public.support_access_grants
+     set status = 'revoked', revoked_at = now(), revoked_by = '${SA2}', revoked_reason = 'inceleme tamamlandi'
+     where id = '${GRANT}'`,
+    { database: dbName },
+  )
+
+  const afterRevoke = [
+    [
+      'a revoked grant cannot reveal',
+      `select * from public.sa_reveal_identity('${GRANT}', '${SUP}')`,
+      'support_access_grant_not_live',
+    ],
+    [
+      'a reveal row cannot be forged against a revoked grant',
+      `insert into public.support_access_reveals (grant_id, admin_user_id, subject_user_id, scope, entity_type)
+       values ('${GRANT}', '${SUP}', '${SUBJECT}', 'identity', 'profile')`,
+      'support_access_grant_not_live',
+    ],
+  ]
+
+  for (const [label, sql, expected] of afterRevoke) {
+    const problem = expectRejected(sql, expected, dbName)
+    if (problem) adminFail(`${label}: ${problem}`)
+  }
+
+  // Session expiry is decided server-side, not by a cookie.
+  psql(
+    `insert into public.admin_sessions (admin_user_id, token_hash, issued_at, expires_at, absolute_expires_at)
+     values ('${SA1}', sha256('live'::bytea), now() - interval '5 minutes', now() + interval '1 hour', now() + interval '8 hours'),
+            ('${SA1}', sha256('idle'::bytea), now() - interval '5 hours', now() - interval '1 minute', now() + interval '8 hours')`,
+    { database: dbName },
+  )
+
+  const sessionAnswers = psql(
+    `select concat_ws(
+       ',',
+       (select count(*) from public.admin_touch_session(sha256('live'::bytea))),
+       (select count(*) from public.admin_touch_session(sha256('idle'::bytea))),
+       (select count(*) from public.admin_touch_session(sha256('unknown'::bytea)))
+     )`,
+    { database: dbName },
+  ).trim()
+
+  if (sessionAnswers !== '1,0,0') {
+    adminFail(
+      `admin_touch_session should resolve only the live session (live,idle,unknown = ${sessionAnswers})`,
+    )
+  }
+
+  psql(`select public.admin_revoke_sessions('${SA1}', 'Cihaz kaybi bildirildi')`, {
+    database: dbName,
+  })
+
+  const afterRevokeAll = psql(
+    `select count(*) from public.admin_touch_session(sha256('live'::bytea))`,
+    { database: dbName },
+  ).trim()
+
+  if (afterRevokeAll !== '0') {
+    adminFail(`"log out all sessions" left a session resolvable (${afterRevokeAll})`)
+  }
+
+  // A disabled admin holds nothing, and the flag evaluator fails closed.
+  const denyByDefault = psql(
+    `select concat_ws(
+       ',',
+       (select count(*) from public.admin_permissions_for('${SUP}')) > 0,
+       public.admin_has_permission('${SUP}', 'users.delete'),
+       public.admin_has_permission('${SUP}', 'support.access.approve'),
+       public.feature_flag_is_enabled('nonexistent.flag', '${SUBJECT}')
+     )`,
+    { database: dbName },
+  ).trim()
+
+  if (denyByDefault !== 't,f,f,f') {
+    adminFail(
+      `deny-by-default is not holding (support has perms, support can delete users, support can self-approve, unknown flag = ${denyByDefault})`,
+    )
+  }
+
+  psql(
+    `update public.admin_users set status = 'disabled', disabled_at = now(), disabled_reason = 'ayrildi' where id = '${SUP}'`,
+    { database: dbName },
+  )
+
+  const disabledPermissions = psql(`select count(*) from public.admin_permissions_for('${SUP}')`, {
+    database: dbName,
+  }).trim()
+
+  if (disabledPermissions !== '0') {
+    adminFail(`a disabled admin still holds ${disabledPermissions} permissions`)
+  }
+
+  if (adminProblems === 0) {
+    ok(
+      `admin platform invariants hold: last super_admin protected, one active prompt per feature, ` +
+        `audited reasons required, Support Access is four-eyes, short-lived and logs every reveal`,
+    )
   }
 } catch (error) {
   if (!failed) {

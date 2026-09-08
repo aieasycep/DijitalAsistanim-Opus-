@@ -122,31 +122,18 @@ jobs:
           DA_UPLOAD_KEY_PASSWORD=${{ steps.signing.outputs.key_password }}
           EOF
 
-      # Expo's template wires the release variant to the `release` signing
-      # config, which defaults to the debug key. Repoint it at ours.
+      # Expo's template wires the release variant to a `release` signing
+      # config that defaults to the DEBUG keystore. Repoint it at ours.
+      #
+      # This is a checked-in script rather than an inline heredoc because a
+      # Gradle snippet contains lines indented less than a YAML block scalar,
+      # which silently truncates the block and makes the whole workflow file
+      # unparseable. It also means the rewrite is unit-tested.
       - name: Use the key for the release variant
-        working-directory: apps/mobile/android/app
         run: |
-          python3 - <<'PY'
-          import re, pathlib
-          p = pathlib.Path('build.gradle')
-          s = p.read_text()
-          block = """
-    release {
-        storeFile file(DA_UPLOAD_STORE_FILE)
-        storePassword DA_UPLOAD_STORE_PASSWORD
-        keyAlias DA_UPLOAD_KEY_ALIAS
-        keyPassword DA_UPLOAD_KEY_PASSWORD
-    }
-"""
-          if 'DA_UPLOAD_STORE_FILE' not in s:
-              s = re.sub(r'signingConfigs\s*\{', 'signingConfigs {' + block, s, count=1)
-              p.write_text(s)
-              print('release signing config injected')
-          else:
-              print('already present')
-          PY
-          grep -A 8 'signingConfigs' build.gradle
+          node scripts/ci/inject-android-signing.mjs --self-test
+          node scripts/ci/inject-android-signing.mjs apps/mobile/android/app/build.gradle
+          grep -A 10 'signingConfigs' apps/mobile/android/app/build.gradle
 
       - name: Assemble
         working-directory: apps/mobile/android

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { NavShell } from '@/components/NavShell'
 import {
   BILLING_PATH,
   BILLING_RECONCILIATION_PATH,
@@ -71,7 +70,7 @@ export default async function BillingSubscriptionsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const session = await requireStaff('ops')
+  await requireStaff('ops')
   const params = await searchParams
   const granularity = parseCohort(params[COHORT_PARAM])
 
@@ -88,7 +87,7 @@ export default async function BillingSubscriptionsPage({
   ])
 
   return (
-    <NavShell session={session}>
+    <>
       <PageHeader
         title={billingMessages.subscriptions.title}
         description={billingMessages.subscriptions.description}
@@ -196,7 +195,7 @@ export default async function BillingSubscriptionsPage({
 
         <p className="px-1 text-[11px] text-faint">{billingMessages.area.aggregateNote}</p>
       </div>
-    </NavShell>
+    </>
   )
 }
 

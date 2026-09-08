@@ -22,7 +22,7 @@
 export const AUDIT_PATH = '/audit'
 
 /** The distribution: an exact count(*) per action over the same range. */
-export const AUDIT_ACTIONS_PATH = '/audit/eylemler'
+export const AUDIT_ACTIONS_PATH = '/audit/actions'
 
 /** Redirect allowlist for every Server Action in this area. */
 export const AUDIT_RETURN_PATHS = [AUDIT_PATH, AUDIT_ACTIONS_PATH] as const
@@ -34,7 +34,7 @@ export function isAuditReturnPath(value: string): value is AuditReturnPath {
 }
 
 export function userDetailHref(userId: string): string {
-  return `/kullanicilar/${userId}`
+  return `/users/${userId}`
 }
 
 // ---------------------------------------------------------------------------

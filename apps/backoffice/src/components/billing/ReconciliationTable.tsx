@@ -44,7 +44,7 @@ export function ReconciliationTable({
       header: billingMessages.reconciliation.columnUser,
       cell: (entry) => (
         <Link
-          href={`/kullanicilar/${entry.row.user_id}`}
+          href={`/users/${entry.row.user_id}`}
           className="flex flex-col hover:text-primary-on-soft"
         >
           <Mono>{shortId(entry.row.user_id)}</Mono>
@@ -147,7 +147,7 @@ export function ReconciliationTable({
       align: 'right',
       cell: (entry) => (
         <Link
-          href={`/kullanicilar/${entry.row.user_id}`}
+          href={`/users/${entry.row.user_id}`}
           className="inline-flex h-7 items-center rounded-md border border-hairline px-2.5 text-[12px] font-medium text-muted hover:border-primary/40 hover:text-ink"
         >
           {billingMessages.reconciliation.open}

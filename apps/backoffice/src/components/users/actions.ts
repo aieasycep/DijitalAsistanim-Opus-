@@ -106,7 +106,7 @@ export async function regenerateBriefingAction(
 
     // The history panel on this page reads the trail this row just joined, so
     // the operator sees the effect of the button without reloading by hand.
-    revalidatePath(`/kullanicilar/${userId}`)
+    revalidatePath(`/users/${userId}`)
 
     return {
       status: 'success',

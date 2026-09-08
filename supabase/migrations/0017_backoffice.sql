@@ -68,6 +68,44 @@
 --
 -- Style follows 0011 and 0016: every statement is re-runnable, and each view
 -- carries a comment saying what it deliberately omits.
+--
+-- ===========================================================================
+-- THE REVEALING PATH LIVES SOMEWHERE ELSE, AND IS NAMED DIFFERENTLY
+-- ===========================================================================
+--
+-- The privacy specification asks for content hidden BY DEFAULT with a
+-- controlled, reasoned, time-limited and fully audited way to see more. This
+-- file is only the first half of that: the default. It never widens, and no
+-- object in it will ever return a content column — the machine check in
+-- `scripts/validate-supabase.mjs` fails the build if one tries.
+--
+-- The second half — Support Access — is 0019_admin_platform.sql, and it is kept
+-- apart by name so the two can never be confused at a call site:
+--
+--   `bo_*`  (this file, and the admin-platform views that follow the same rule)
+--           Blind. Counts, states, timestamps, redacted addresses. No grant is
+--           needed to read one, and reading one records nothing, because there
+--           is nothing to record.
+--
+--   `sa_*`  (0019 only) The reveal path, and the ONLY one. Each function is
+--           SECURITY DEFINER, takes a Support Access grant id, and refuses
+--           unless that grant is active, unrevoked, inside a window of at most
+--           24 hours, approved by an admin OTHER than the requester, carries a
+--           written reason of at least 20 characters, and names the scope being
+--           read. It then writes a `support_access_reveals` row in the same call
+--           that returns the data, so a reveal that was not logged did not
+--           happen.
+--
+-- The practical effect is the one the specification asks for: the safe path is
+-- the short, obvious, unguarded one that every screen uses, and the revealing
+-- path cannot be reached by typing a slightly different table name — it needs a
+-- grant id that somebody else approved.
+--
+-- Nothing below changed to make room for that. The views in this file grew one
+-- way only: `bo_user_detail` carries more operational counters than it did, so
+-- support has MORE to work with without ever needing content. That is the point
+-- of section 7 — "connection healthy, last sync 10:42, 743 emails processed, 2
+-- failed" is usually the whole answer, and the reveal path stays unused.
 
 -- ---------------------------------------------------------------------------
 -- Staff roster
@@ -323,11 +361,49 @@ select
   coalesce(ai.event_count_30d, 0)::bigint           as ai_event_count_30d,
   ai.last_event_at                                  as ai_last_event_at,
   coalesce(pt.device_count, 0)::integer             as device_count,
+  coalesce(pt.device_platforms, '{}')               as device_platforms,
   r.code                                            as referral_code,
-  coalesce(r.redemption_count, 0)::integer          as referral_redemption_count
+  coalesce(r.redemption_count, 0)::integer          as referral_redemption_count,
+  -- Volume counters. "743 emails processed, 2 failed" is the answer to most
+  -- support questions, and none of it requires reading a single message.
+  coalesce(mail.thread_count, 0)::bigint            as email_thread_count,
+  coalesce(mail.thread_unread_count, 0)::bigint     as email_thread_unread_count,
+  coalesce(mail.thread_action_required_count, 0)::bigint as email_thread_action_required_count,
+  coalesce(mail.thread_suppressed_count, 0)::bigint as email_thread_suppressed_count,
+  mail.last_message_at                              as email_last_message_at,
+  coalesce(msg.message_count, 0)::bigint            as email_message_count,
+  coalesce(msg.message_count_30d, 0)::bigint        as email_message_count_30d,
+  coalesce(cal.event_count, 0)::bigint              as calendar_event_count,
+  coalesce(cal.event_count_30d, 0)::bigint          as calendar_event_count_30d,
+  coalesce(tk.task_open_count, 0)::bigint           as task_open_count,
+  coalesce(cm.commitment_open_count, 0)::bigint     as commitment_open_count,
+  coalesce(cm.commitment_overdue_count, 0)::bigint  as commitment_overdue_count,
+  coalesce(fu.follow_up_waiting_count, 0)::bigint   as follow_up_waiting_count,
+  coalesce(pc.contact_count, 0)::bigint             as contact_count,
+  coalesce(pc.vip_count, 0)::bigint                 as vip_count,
+  coalesce(rules.priority_rule_count, 0)::bigint    as priority_rule_count,
+  coalesce(rules.learned_preference_count, 0)::bigint as learned_preference_count,
+  coalesce(asst.thread_count, 0)::bigint            as assistant_thread_count,
+  coalesce(asst.message_count, 0)::bigint           as assistant_message_count,
+  asst.last_message_at                              as assistant_last_message_at,
+  coalesce(mem.chunk_count, 0)::bigint              as memory_chunk_count,
+  coalesce(nd.sent_count_30d, 0)::bigint            as notification_sent_count_30d,
+  coalesce(nd.failed_count_30d, 0)::bigint          as notification_failed_count_30d,
+  -- The settings that explain most "it is not working" reports, so an operator
+  -- can answer without asking the user to read their own screen back to them.
+  up.retention_window,
+  up.history_days,
+  up.learn_from_interactions,
+  up.analyze_attachments,
+  up.morning_briefing_time,
+  up.briefing_on_weekends,
+  np.only_if_important                              as notify_only_if_important,
+  np.lock_screen_privacy
 from public.profiles p
 left join public.subscriptions s on s.user_id = p.id
 left join public.referrals r on r.user_id = p.id
+left join public.user_preferences up on up.user_id = p.id
+left join public.notification_preferences np on np.user_id = p.id
 left join lateral (
   select
     count(*)                                                     as account_count,
@@ -385,14 +461,91 @@ left join lateral (
     and u.occurred_at >= now() - interval '30 days'
 ) ai on true
 left join lateral (
-  select count(*) as device_count
+  select
+    count(*)                                  as device_count,
+    array_agg(distinct t.platform order by t.platform) as device_platforms
   from public.push_tokens t
   where t.user_id = p.id
     and t.disabled_at is null
-) pt on true;
+) pt on true
+left join lateral (
+  select
+    count(*)                                              as thread_count,
+    count(*) filter (where not et.is_read)                as thread_unread_count,
+    count(*) filter (where et.requires_user_action)       as thread_action_required_count,
+    count(*) filter (where et.suppressed_at is not null)  as thread_suppressed_count,
+    max(et.last_message_at)                               as last_message_at
+  from public.email_threads et
+  where et.user_id = p.id
+) mail on true
+left join lateral (
+  select
+    count(*)                                                          as message_count,
+    count(*) filter (where em.sent_at >= now() - interval '30 days')  as message_count_30d
+  from public.email_messages em
+  where em.user_id = p.id
+) msg on true
+left join lateral (
+  select
+    count(*)                                                              as event_count,
+    count(*) filter (where ce.starts_at >= now() - interval '30 days')    as event_count_30d
+  from public.calendar_events ce
+  where ce.user_id = p.id
+) cal on true
+left join lateral (
+  select count(*) filter (where tsk.status = 'open') as task_open_count
+  from public.tasks tsk
+  where tsk.user_id = p.id
+) tk on true
+left join lateral (
+  select
+    count(*) filter (where cmt.status = 'open')    as commitment_open_count,
+    count(*) filter (where cmt.status = 'overdue') as commitment_overdue_count
+  from public.commitments cmt
+  where cmt.user_id = p.id
+) cm on true
+left join lateral (
+  select count(*) filter (where f.status = 'waiting') as follow_up_waiting_count
+  from public.follow_ups f
+  where f.user_id = p.id
+) fu on true
+left join lateral (
+  select
+    count(*) filter (where ct.deleted_at is null)                        as contact_count,
+    count(*) filter (where ct.deleted_at is null and ct.is_vip)          as vip_count
+  from public.contacts ct
+  where ct.user_id = p.id
+) pc on true
+left join lateral (
+  select
+    (select count(*) from public.priority_rules pr
+      where pr.user_id = p.id and pr.deleted_at is null and pr.enabled)  as priority_rule_count,
+    (select count(*) from public.learned_preferences lp
+      where lp.user_id = p.id and lp.enabled)                            as learned_preference_count
+) rules on true
+left join lateral (
+  select
+    (select count(*) from public.assistant_threads at2 where at2.user_id = p.id)  as thread_count,
+    (select count(*) from public.assistant_messages am where am.user_id = p.id)   as message_count,
+    (select max(at3.last_message_at) from public.assistant_threads at3
+      where at3.user_id = p.id)                                                   as last_message_at
+) asst on true
+left join lateral (
+  select count(*) as chunk_count
+  from public.memory_chunks mc
+  where mc.user_id = p.id
+) mem on true
+left join lateral (
+  select
+    count(*) filter (where n.sent_at is not null)   as sent_count_30d,
+    count(*) filter (where n.failed_at is not null) as failed_count_30d
+  from public.notification_deliveries n
+  where n.user_id = p.id
+    and n.created_at >= now() - interval '30 days'
+) nd on true;
 
 comment on view public.bo_user_detail is
-  'Everything the single-user support screen may know: the bo_users row plus per-feature counters. Every added column is a count, a state or a timestamp. Deliberately omits every title, body, subject, quote, payload, extracted field, push token and storage path behind those counters — an operator can see that eleven captures failed, never what was captured.';
+  'Everything the single-user support screen may know: the bo_users row, per-feature counters, and the handful of user settings that explain most "it is not working" reports. Every column is a count, a state, an enum, a time-of-day or a timestamp. Deliberately omits every title, body, subject, quote, payload, extracted field, push token and storage path behind those counters — an operator can see that eleven captures failed, that 743 messages were mirrored and that retention is set to 30 days, never what was captured or what any message said. The volume counters are here precisely so the Support Access reveal path in 0019 stays unused: most support questions are answered by a number.';
 
 -- ── bo_accounts ────────────────────────────────────────────────────────────
 drop view if exists public.bo_accounts;

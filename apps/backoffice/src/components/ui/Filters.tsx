@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 import { messages } from '@/lib/messages'
+import { PAGINATION_RESET_PARAMS } from './table-url.ts'
 
 /**
  * The filter bar. Every control here changes the URL, and the server re-queries
@@ -48,13 +49,18 @@ export type FilterControl = SelectFilter | SegmentedFilter | SearchFilter
 
 export interface FiltersProps {
   controls: readonly FilterControl[]
-  /** Current value of every parameter on the page, including `sayfa`. */
+  /** Current value of every parameter on the page, page cursor included. */
   values: Readonly<Record<string, string>>
-  /** Parameters cleared alongside a filter change, e.g. the page cursor. */
+  /**
+   * Parameters cleared alongside a filter change. Defaults to every pagination
+   * parameter the console uses: a filter that narrows the list while leaving
+   * the operator on page four shows them an empty table, which reads as "no
+   * matches" rather than as "you are past the end".
+   */
   resetParams?: readonly string[]
 }
 
-export function Filters({ controls, values, resetParams = ['sayfa'] }: FiltersProps) {
+export function Filters({ controls, values, resetParams = PAGINATION_RESET_PARAMS }: FiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [pending, startTransition] = useTransition()

@@ -203,6 +203,46 @@ for (const file of walk(appDir, new Set(['.tsx', '.ts'])).concat(
   }
 }
 
+// ── 3. Every script and task a workflow invokes exists ──────────────────────
+
+// A workflow that calls a renamed script fails only when someone runs it, and
+// for the APK workflow that could be days later. (Whether the YAML itself
+// PARSES is already covered by `format:check`, which is how the malformed
+// signing step in android-apk.yml was caught.)
+
+const workflowsDir = path.join(root, '.github', 'workflows')
+const packageScripts = new Set(
+  Object.keys(JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).scripts ?? {}),
+)
+
+let ciRefs = 0
+for (const file of walk(workflowsDir, new Set(['.yml', '.yaml']))) {
+  const relative = path.relative(root, file)
+  readFileSync(file, 'utf8')
+    .split('\n')
+    .forEach((line, index) => {
+      const at = `${relative}:${index + 1}`
+
+      for (const match of line.matchAll(/\bnode\s+(scripts\/[\w./-]+\.mjs)/g)) {
+        const script = match[1]
+        if (!script) continue
+        ciRefs++
+        if (!existsSync(path.join(root, script))) {
+          problems.push({ at, rule: `workflow runs "node ${script}", which does not exist` })
+        }
+      }
+
+      for (const match of line.matchAll(/\bpnpm\s+run\s+([\w:-]+)/g)) {
+        const script = match[1]
+        if (!script) continue
+        ciRefs++
+        if (!packageScripts.has(script)) {
+          problems.push({ at, rule: `workflow runs "pnpm run ${script}", which package.json does not define` })
+        }
+      }
+    })
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 if (problems.length > 0) {
@@ -215,7 +255,8 @@ if (problems.length > 0) {
 
 console.log(
   `Wiring check passed: ${slugRefs} edge-function reference(s) across ${functionSlugs.size} functions, ` +
-    `and ${routeRefs} navigation target(s) across ${routes.length} routes, all resolve.` +
+    `${routeRefs} navigation target(s) across ${routes.length} routes, ` +
+    `and ${ciRefs} script reference(s) in CI, all resolve.` +
     (dynamicRefs > 0
       ? `\n${dynamicRefs} navigation call(s) take a computed target and cannot be resolved statically.`
       : ''),

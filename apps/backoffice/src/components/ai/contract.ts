@@ -18,9 +18,9 @@
 /** Model spend: what the platform paid, per day, per model, per function. */
 export const AI_PATH = '/ai'
 /** Quality: whether the drafts and briefings the models produce are accepted. */
-export const AI_QUALITY_PATH = '/ai/kalite'
+export const AI_QUALITY_PATH = '/ai/quality'
 /** Ceiling: who is close to the daily budget their plan allows. */
-export const AI_CEILING_PATH = '/ai/tavan'
+export const AI_CEILING_PATH = '/ai/limits'
 
 /** Also the redirect allowlist for both Server Actions in this area. */
 export const AI_RETURN_PATHS = [AI_PATH, AI_QUALITY_PATH, AI_CEILING_PATH] as const

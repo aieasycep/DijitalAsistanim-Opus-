@@ -27,7 +27,7 @@ export interface ResyncFormProps {
   providerLabel: string
   resource: string
   resourceLabel: string
-  /** Path (with query) the action returns to, e.g. `/ops/senkronizasyon?kod=…`. */
+  /** Path (with query) the action returns to, e.g. `/ops/sync?kod=…`. */
   returnTo: string
   /** Set on the row whose result is currently shown, so it opens pre-expanded. */
   outcome?: ResyncOutcome | null

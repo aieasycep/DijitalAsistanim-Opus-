@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { NavShell } from '@/components/NavShell'
 import {
   AUTO_REFRESH_PARAM,
   ActionResultBanner,
@@ -87,7 +86,7 @@ export default async function OpsDashboardPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const session = await requireStaff('ops')
+  await requireStaff('ops')
   const params = await searchParams
 
   const autoRefresh = parseAutoRefresh(params[AUTO_REFRESH_PARAM])
@@ -117,7 +116,7 @@ export default async function OpsDashboardPage({
     `${OPS_QUEUE_PATH}?${QUEUE_PARAMS.code}=${encodeURIComponent(code)}`
 
   return (
-    <NavShell session={session}>
+    <>
       <AutoRefreshMeta interval={autoRefresh} />
 
       <PageHeader
@@ -314,6 +313,6 @@ export default async function OpsDashboardPage({
 
         <p className="text-[11px] text-faint">{opsMessages.privacy.note}</p>
       </div>
-    </NavShell>
+    </>
   )
 }

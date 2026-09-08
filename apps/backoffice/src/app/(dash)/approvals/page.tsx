@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { APPROVAL_ACTION_TYPES, SOURCE_TYPES } from '@da/domain'
-import { NavShell } from '@/components/NavShell'
 import {
   APPROVALS_FAILURES_PATH,
   APPROVALS_PATH,
@@ -98,7 +97,7 @@ export default async function ApprovalsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const session = await requireStaff('ops')
+  await requireStaff('ops')
   const params = await searchParams
 
   const windowKey = parseWindow(params[APPROVAL_PARAMS.window])
@@ -177,7 +176,7 @@ export default async function ApprovalsPage({
   ]
 
   return (
-    <NavShell session={session}>
+    <>
       <PageHeader
         title={approvalMessages.overview.title}
         description={approvalMessages.overview.description}
@@ -296,6 +295,6 @@ export default async function ApprovalsPage({
 
         <p className="text-[11px] text-faint">{approvalMessages.overview.privacyNote}</p>
       </div>
-    </NavShell>
+    </>
   )
 }

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { systemClock, toIsoDate } from '@da/domain'
-import { NavShell } from '@/components/NavShell'
 import {
   ACTOR_BUCKETS,
   ACTOR_LABEL,
@@ -99,7 +98,7 @@ export default async function AuditLogPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const session = await requireStaff('ops')
+  await requireStaff('ops')
   const params = await searchParams
   const clock = systemClock
 
@@ -250,7 +249,7 @@ export default async function AuditLogPage({
         })
 
   return (
-    <NavShell session={session}>
+    <>
       <PageHeader
         title={auditMessages.log.title}
         description={auditMessages.log.description}
@@ -353,7 +352,7 @@ export default async function AuditLogPage({
           clock={clock}
         />
       </div>
-    </NavShell>
+    </>
   )
 }
 

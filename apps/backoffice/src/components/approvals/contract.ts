@@ -28,7 +28,7 @@ import {
 /** The oversight dashboard. */
 export const APPROVALS_PATH = '/approvals'
 /** The failure queue, where a failure code links to. */
-export const APPROVALS_FAILURES_PATH = '/approvals/basarisizliklar'
+export const APPROVALS_FAILURES_PATH = '/approvals/failures'
 
 /** The redirect allowlist for every Server Action in this area. */
 export const APPROVAL_RETURN_PATHS = [APPROVALS_PATH, APPROVALS_FAILURES_PATH] as const
@@ -40,7 +40,7 @@ export type ApprovalReturnPath = (typeof APPROVAL_RETURN_PATHS)[number]
  * way an operator can get from a stuck approval to the account behind it.
  */
 export function userDetailHref(userId: string): string {
-  return `/kullanicilar/${userId}`
+  return `/users/${userId}`
 }
 
 // ---------------------------------------------------------------------------

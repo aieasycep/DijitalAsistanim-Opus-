@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { NavShell } from '@/components/NavShell'
 import {
   BOARD_SIZE,
   DEFAULT_PRIVACY_WINDOW,
@@ -89,7 +88,7 @@ export default async function PrivacyPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const session = await requireStaff('support')
+  await requireStaff('support')
   const params = await searchParams
 
   const windowRaw = firstValue(params[PRIVACY_PARAMS.window])
@@ -143,7 +142,7 @@ export default async function PrivacyPage({
   ]
 
   return (
-    <NavShell session={session}>
+    <>
       <PageHeader
         title={privacyMessages.overview.title}
         description={privacyMessages.overview.description}
@@ -328,7 +327,7 @@ export default async function PrivacyPage({
 
         <p className="text-[11px] text-faint">{privacyMessages.overview.privacyNote}</p>
       </div>
-    </NavShell>
+    </>
   )
 }
 
