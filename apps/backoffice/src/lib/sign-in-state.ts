@@ -177,14 +177,18 @@ export function signInRefusalState(refusal: SignInRefusal, attempt: SignInAttemp
     case 'mfa_enrolment_required':
       return enrolmentRequiredState()
 
-    case 'invalid_credentials':
+    case 'invalid_credentials': {
       // On the MFA step the password is already accepted, so the only thing
       // that can be wrong is the code — saying "e-posta veya parola hatalı"
       // there would send the operator to re-check something that is correct.
-      if (attempt.step === 'mfa') {
-        return { ...signInMfaState(attempt), error: messages.auth.mfaInvalidCode }
-      }
-      return { ...initialSignInState, error: messages.auth.invalidCredentials }
+      // The message follows the step the form actually lands on, so an attempt
+      // that has lost its factor is not told its code was wrong on a password
+      // form.
+      const next = attempt.step === 'mfa' ? signInMfaState(attempt) : initialSignInState
+      return next.step === 'mfa'
+        ? { ...next, error: messages.auth.mfaInvalidCode }
+        : { ...next, error: messages.auth.invalidCredentials }
+    }
 
     case 'not_admin':
       // The account authenticated and holds no console authorization. That is

@@ -52,7 +52,7 @@ apps/
                      Android widget and notification listener
     .maestro/        End-to-end flows A–L
   web/               Next.js 16 marketing site, legal pages, deep links
-  backoffice/        Next.js 16 staff console, 44 routes. Reads the database
+  backoffice/        Next.js 16 staff console, 45 routes. Reads the database
                      only through the content-blind bo_* views
 
 packages/

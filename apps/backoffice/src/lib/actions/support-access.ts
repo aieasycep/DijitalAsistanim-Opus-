@@ -633,7 +633,7 @@ export async function revokeGrantAction(formData: FormData): Promise<void> {
 // governs whether this may happen; this is the thing being governed.
 // ===========================================================================
 
-/** The four shapes the eight functions take, keyed by the scope that takes it. */
+/** What every reveal carries, whatever it is opening. */
 const revealBaseSchema = z.object({
   grantId: uuid,
   /** For the audit row's subject column; null when the grant could not be read. */
@@ -647,12 +647,13 @@ const revealBaseSchema = z.object({
   requestId: uuid,
 })
 
-const recordIdSchema = uuid.describe('record')
+/** Already an instant by the time it gets here: `resolveRevealRange` made it. */
 const isoInstant = z.string().datetime({ offset: true })
 
 /**
- * Discriminated on the scope itself, so `run()` cannot reach for a message id
- * on a calendar reveal: the shape a scope needs is part of what a scope *is*.
+ * The four shapes the eight functions take, discriminated on the scope itself,
+ * so `run()` cannot reach for a message id on a calendar reveal: what a scope
+ * needs is part of what a scope *is*.
  */
 const revealSchema = z.discriminatedUnion('scope', [
   revealBaseSchema.extend({ scope: z.literal('identity') }),
@@ -660,7 +661,7 @@ const revealSchema = z.discriminatedUnion('scope', [
     scope: z.literal('email_subject'),
     limit: z.number().int().min(1).max(MAX_REVEAL_LISTING_LIMIT),
   }),
-  revealBaseSchema.extend({ scope: z.literal('email_body'), recordId: recordIdSchema }),
+  revealBaseSchema.extend({ scope: z.literal('email_body'), recordId: uuid }),
   revealBaseSchema.extend({
     scope: z.literal('calendar_detail'),
     from: isoInstant,
@@ -668,11 +669,11 @@ const revealSchema = z.discriminatedUnion('scope', [
   }),
   revealBaseSchema.extend({
     scope: z.literal('assistant_conversation'),
-    recordId: recordIdSchema,
+    recordId: uuid,
   }),
-  revealBaseSchema.extend({ scope: z.literal('capture_content'), recordId: recordIdSchema }),
-  revealBaseSchema.extend({ scope: z.literal('approval_payload'), recordId: recordIdSchema }),
-  revealBaseSchema.extend({ scope: z.literal('notification_content'), recordId: recordIdSchema }),
+  revealBaseSchema.extend({ scope: z.literal('capture_content'), recordId: uuid }),
+  revealBaseSchema.extend({ scope: z.literal('approval_payload'), recordId: uuid }),
+  revealBaseSchema.extend({ scope: z.literal('notification_content'), recordId: uuid }),
 ])
 
 type RevealInput = z.infer<typeof revealSchema>

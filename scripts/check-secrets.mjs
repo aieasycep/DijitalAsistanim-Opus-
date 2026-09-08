@@ -109,11 +109,19 @@ const CREDENTIAL_PATTERNS = [
     // and only from this rule — every other pattern below is specific enough
     // that a match inside a comment is still a real leak worth failing on.
     heuristic: true,
-    // A URL is excluded: `token: 'https://oauth2.googleapis.com/token'` is an
-    // endpoint, and endpoints are exactly what a field called `token` holds in
-    // an OAuth configuration.
+    // Two shapes are excluded because a field called `token` legitimately holds
+    // them, and neither is a credential:
+    //
+    //   a URL — `token: 'https://oauth2.googleapis.com/token'` is the endpoint
+    //   an OAuth configuration points at;
+    //
+    //   an Expo push token — `ExponentPushToken[…]` is a device address. It is
+    //   handed to Expo's public push API by anyone who wants to deliver a
+    //   notification to that device, and it is stored in `device_tokens` in
+    //   the clear. Treating it as a secret would be wrong in the other
+    //   direction too: it would suggest the value protects something.
     pattern:
-      /\b(password|passwd|secret|api_?key|token)\s*[:=]\s*["'`](?!https?:\/\/)[^"'`\s{$]{12,}["'`]/i,
+      /\b(password|passwd|secret|api_?key|token)\s*[:=]\s*["'`](?!https?:\/\/|ExponentPushToken\[)[^"'`\s{$]{12,}["'`]/i,
   },
 ]
 

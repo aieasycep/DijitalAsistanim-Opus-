@@ -4,6 +4,8 @@ dist/
 build/
 coverage/
 .next/
+# The end-to-end suite's own build output, so it cannot collide with `.next`.
+apps/backoffice/.next-e2e/
 out/
 .expo/
 .expo-shared/

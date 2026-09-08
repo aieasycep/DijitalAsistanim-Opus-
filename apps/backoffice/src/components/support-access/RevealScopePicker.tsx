@@ -28,14 +28,19 @@ export function RevealScopePicker({
   /** Least revealing first. Only what this operator may actually spend now. */
   scopes: readonly SupportAccessScope[]
   selected: SupportAccessScope | null
-  /** Reveal calls per scope so far, from `countRevealsByScope`. */
-  spent: ReadonlyMap<SupportAccessScope, number>
+  /**
+   * Reveal calls per scope so far, from `countRevealsByScope` — or null when
+   * that count could not be read. Null is not the same as zero: "you have never
+   * opened this" is a claim, and making it from a failed query on a screen
+   * about somebody's mailbox would be the most expensive lie here.
+   */
+  spent: ReadonlyMap<SupportAccessScope, number> | null
 }) {
   return (
     <ul className="flex flex-col gap-1.5">
       {scopes.map((scope) => {
         const isSelected = scope === selected
-        const count = spent.get(scope) ?? 0
+        const count = spent === null ? null : (spent.get(scope) ?? 0)
         return (
           <li key={scope}>
             <Link
@@ -60,9 +65,11 @@ export function RevealScopePicker({
                 {isSelected ? (
                   <Badge tone="primary">{supportAccessMessages.reveal.scopeSelected}</Badge>
                 ) : null}
-                <span className="text-[11px] text-faint tabular-nums">
-                  {supportAccessMessages.reveal.scopeSpent(count)}
-                </span>
+                {count === null ? null : (
+                  <span className="text-[11px] text-faint tabular-nums">
+                    {supportAccessMessages.reveal.scopeSpent(count)}
+                  </span>
+                )}
               </span>
             </Link>
           </li>

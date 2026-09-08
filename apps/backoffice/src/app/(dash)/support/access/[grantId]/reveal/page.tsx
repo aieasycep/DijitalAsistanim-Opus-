@@ -135,9 +135,12 @@ export default async function SupportAccessRevealPage({
     settle(() => listReveals({ grantId, page: revealPage })),
   ])
 
-  const spent = new Map<SupportAccessScope, number>(
-    usage.ok ? usage.value.map((entry) => [entry.scope, entry.count]) : [],
-  )
+  // Null rather than an empty map when the counts could not be read: a picker
+  // that renders "never opened" from a failed query is worse than one that
+  // renders nothing.
+  const spent = usage.ok
+    ? new Map<SupportAccessScope, number>(usage.value.map((entry) => [entry.scope, entry.count]))
+    : null
   const today = istanbulToday(clock)
 
   return (

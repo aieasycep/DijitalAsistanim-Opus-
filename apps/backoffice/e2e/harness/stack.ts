@@ -33,6 +33,9 @@ import { writeStackState, type StackState } from './state.ts'
 
 const RUNTIME_FILE = path.join(ARTIFACTS_DIR, 'runtime.json')
 
+/** Where `next build` writes for this suite. Gitignored, never `.next`. */
+const E2E_DIST_DIR = '.next-e2e'
+
 /**
  * Progress goes to stdout rather than through `console`: the repository's ESLint
  * configuration allows only `warn` and `error` there, and a harness saying which
@@ -186,15 +189,20 @@ export async function startStack(): Promise<void> {
     BACKOFFICE_HASH_SALT: hashSalt,
     PORT: String(consolePort),
     NEXT_TELEMETRY_DISABLED: '1',
+    // The suite's own build output. `next.config.mjs` reads this, so the build
+    // and the server it serves cannot be overwritten by a `next dev` or another
+    // build sharing the working tree — a collision whose symptom is a missing
+    // chunk in a page nobody changed.
+    BACKOFFICE_DIST_DIR: E2E_DIST_DIR,
   }
 
   const nextBin = path.join(BACKOFFICE_ROOT, 'node_modules', '.bin', 'next')
-  const buildId = path.join(BACKOFFICE_ROOT, '.next', 'BUILD_ID')
+  const buildId = path.join(BACKOFFICE_ROOT, E2E_DIST_DIR, 'BUILD_ID')
   // CI always builds. Locally, re-running the suite against source that has not
   // changed should not cost a minute of compilation, so an explicit opt-in
   // reuses the build that is already on disk.
   const reuse = process.env['BACKOFFICE_E2E_REUSE_BUILD'] === '1' && existsSync(buildId)
-  if (reuse) note('reusing the existing .next build')
+  if (reuse) note(`reusing the existing ${E2E_DIST_DIR} build`)
   else await run(nextBin, ['build'], consoleEnv)
 
   const consoleServer = spawnDetached(

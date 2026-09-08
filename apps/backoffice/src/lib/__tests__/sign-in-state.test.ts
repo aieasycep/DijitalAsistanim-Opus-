@@ -226,6 +226,20 @@ describe('the MFA step', () => {
     expect(signInMfaState({ step: 'mfa', factors: [], factorId: null })).toEqual(initialSignInState)
   })
 
+  it('does not tell an operator on the password form that their code was wrong', () => {
+    // The message follows the step the form lands on, not the step it claimed.
+    const state = stateFor(
+      { status: 'invalid_credentials' },
+      {
+        step: 'mfa',
+        factors: [],
+        factorId: null,
+      },
+    )
+    expect(state.step).toBe('credentials')
+    expect(state.error).toBe(messages.auth.invalidCredentials)
+  })
+
   it('still sends a de-authorised account back to the password step', () => {
     // Disabled between the two steps: their code is fine and their account is
     // not, so there is nothing to answer where they are standing.
