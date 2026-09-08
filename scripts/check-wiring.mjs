@@ -203,7 +203,43 @@ for (const file of walk(appDir, new Set(['.tsx', '.ts'])).concat(
   }
 }
 
-// ── 3. Every script and task a workflow invokes exists ──────────────────────
+// ── 3. Every backoffice sidebar link names a real page ──────────────────────
+
+// The console's sidebar, command palette and breadcrumb all read `nav.ts`, so
+// an entry pointing at an unbuilt page is a 404 with a nice icon in three
+// places at once. Comments are stripped first: the file deliberately documents
+// destinations that have no page YET, and those must not count as references.
+
+const backofficeApp = path.join(root, 'apps', 'backoffice', 'src', 'app')
+const navFile = path.join(root, 'apps', 'backoffice', 'src', 'lib', 'nav.ts')
+
+let navRefs = 0
+if (existsSync(navFile) && existsSync(backofficeApp)) {
+  const consoleRoutes = new Set()
+  for (const file of walk(backofficeApp, new Set(['.tsx']))) {
+    if (path.basename(file) !== 'page.tsx') continue
+    const segments = path
+      .relative(backofficeApp, path.dirname(file))
+      .split(path.sep)
+      .filter((segment) => segment !== '.' && !/^\(.*\)$/.test(segment))
+    consoleRoutes.add('/' + segments.join('/'))
+  }
+
+  const navSource = readFileSync(navFile, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  for (const match of navSource.matchAll(/href:\s*'(\/[^']*)'/g)) {
+    const href = match[1]
+    if (!href) continue
+    navRefs++
+    if (!consoleRoutes.has(href)) {
+      problems.push({
+        at: path.relative(root, navFile),
+        rule: `sidebar entry points at "${href}", which has no page.tsx under apps/backoffice/src/app`,
+      })
+    }
+  }
+}
+
+// ── 4. Every script and task a workflow invokes exists ──────────────────────
 
 // A workflow that calls a renamed script fails only when someone runs it, and
 // for the APK workflow that could be days later. (Whether the YAML itself
@@ -256,7 +292,8 @@ if (problems.length > 0) {
 console.log(
   `Wiring check passed: ${slugRefs} edge-function reference(s) across ${functionSlugs.size} functions, ` +
     `${routeRefs} navigation target(s) across ${routes.length} routes, ` +
-    `and ${ciRefs} script reference(s) in CI, all resolve.` +
+    `${ciRefs} script reference(s) in CI, ` +
+    `and ${navRefs} backoffice sidebar link(s), all resolve.` +
     (dynamicRefs > 0
       ? `\n${dynamicRefs} navigation call(s) take a computed target and cannot be resolved statically.`
       : ''),

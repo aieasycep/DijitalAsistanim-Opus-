@@ -35,17 +35,8 @@ import { messages } from './messages'
  * Destinations the specification calls for that have no page yet, with the
  * entry each should register when it lands:
  *
- *   overview  { href: '/analytics',                 label: …, icon: 'chart',    requires: 'analytics.read' }
- *   users     { href: '/support',                   label: …, icon: 'lifebuoy', requires: 'support.ticket.read' }
- *   product   { href: '/product/flags',             label: …, icon: 'flag',     requires: 'flags.read' }
- *   product   { href: '/product/announcements',     label: …, icon: 'megaphone',requires: 'announcement.read' }
- *   ai        { href: '/ai/prompts',                label: …, icon: 'sparkles', requires: 'prompt.read' }
- *   ai        { href: '/ai/models',                 label: …, icon: 'sliders',  requires: 'ai.configure' }
- *   business  { href: '/billing/grants',            label: …, icon: 'gift',     requires: 'billing.read' }
- *   privacy   { href: '/privacy/support-access',    label: …, icon: 'key',      requires: { anyOf: ['support.access.request', 'support.access.approve'] } }
- *   system    { href: '/system/health',             label: …, icon: 'heartbeat',requires: 'system.health.read' }
- *   system    { href: '/system/admins',             label: …, icon: 'shield',   requires: 'admin.read' }
- *   system    { href: '/system/config',             label: …, icon: 'settings', requires: 'system.config.read' }
+ *   overview  { href: '/analytics',  label: …, icon: 'chart',   requires: 'analytics.read' }
+ *   ai        { href: '/ai/models',  label: …, icon: 'sliders', requires: 'ai.configure' }
  */
 
 // ===========================================================================
@@ -85,6 +76,15 @@ export const NAV_ICONS = [
   'credit-card',
   'shield-check',
   'scroll',
+  'lifebuoy',
+  'key',
+  'flag',
+  'megaphone',
+  'sparkles',
+  'gift',
+  'heart-pulse',
+  'shield',
+  'settings',
 ] as const
 
 export type NavIcon = (typeof NAV_ICONS)[number]
@@ -130,6 +130,13 @@ const USERS_ITEMS: readonly NavItem[] = [
     icon: 'users',
     requires: 'users.read',
   },
+  {
+    href: '/support',
+    label: messages.nav.tickets,
+    description: 'Destek kuyruğu: açık, atanmamış ve geciken talepler.',
+    icon: 'lifebuoy',
+    requires: 'support.ticket.read',
+  },
 ]
 
 const OPERATIONS_ITEMS: readonly NavItem[] = [
@@ -164,6 +171,13 @@ const AI_ITEMS: readonly NavItem[] = [
     icon: 'cpu',
     requires: 'ai.read',
   },
+  {
+    href: '/ai/prompts',
+    label: messages.nav.prompts,
+    description: 'Prompt sürümleri, aktif sürümle farkı ve ona atfedilen maliyet.',
+    icon: 'sparkles',
+    requires: 'prompt.read',
+  },
 ]
 
 const BUSINESS_ITEMS: readonly NavItem[] = [
@@ -174,13 +188,31 @@ const BUSINESS_ITEMS: readonly NavItem[] = [
     icon: 'credit-card',
     requires: 'billing.read',
   },
+  {
+    href: '/billing/grants',
+    label: messages.nav.grants,
+    description: 'Geçici Pro hakları, gerekçeleri ve admin başına dağılımı.',
+    icon: 'gift',
+    requires: 'billing.read',
+  },
 ]
 
-/**
- * Empty until the flags and announcements pages land. A group with no entries
- * renders nothing rather than an empty heading.
- */
-const PRODUCT_ITEMS: readonly NavItem[] = []
+const PRODUCT_ITEMS: readonly NavItem[] = [
+  {
+    href: '/flags',
+    label: messages.nav.flags,
+    description: 'Özellik bayrakları, yüzdelik açılım ve acil kapatma.',
+    icon: 'flag',
+    requires: 'flags.read',
+  },
+  {
+    href: '/announcements',
+    label: messages.nav.announcements,
+    description: 'Uygulama içi duyurular, kitle hedefleme ve yayın durumu.',
+    icon: 'megaphone',
+    requires: 'announcement.read',
+  },
+]
 
 const PRIVACY_ITEMS: readonly NavItem[] = [
   {
@@ -189,6 +221,15 @@ const PRIVACY_ITEMS: readonly NavItem[] = [
     description: 'Dışa aktarma ve silme talepleri, yasal 30 günlük süreye göre.',
     icon: 'shield-check',
     requires: 'privacy.read',
+  },
+  {
+    href: '/support/access',
+    label: messages.nav.supportAccess,
+    description: 'Denetimli içerik erişimi: gerekçe, çift onay, süre sınırı, tam kayıt.',
+    icon: 'key',
+    // Requesters and approvers are different people by design, and both need
+    // the door.
+    requires: { anyOf: ['support.access.request', 'support.access.approve'] },
   },
 ]
 
@@ -199,6 +240,34 @@ const SYSTEM_ITEMS: readonly NavItem[] = [
     description: 'Kim, ne zaman, neyi, hangi gerekçeyle yaptı.',
     icon: 'scroll',
     requires: 'audit.read',
+  },
+  {
+    href: '/health',
+    label: messages.nav.health,
+    description: 'Bağımlılıkların ölçülmüş durumu ve zamanlanmış işler.',
+    icon: 'heart-pulse',
+    requires: 'system.health.read',
+  },
+  {
+    href: '/health/config',
+    label: messages.nav.config,
+    description: 'Hangi sırlar yapılandırılmış. Değer asla gösterilmez.',
+    icon: 'settings',
+    requires: 'system.config.read',
+  },
+  {
+    href: '/system/admins',
+    label: messages.nav.admins,
+    description: 'Yönetici listesi, davetler, roller ve oturumlar.',
+    icon: 'shield',
+    requires: 'admin.read',
+  },
+  {
+    href: '/system/roles',
+    label: messages.nav.roles,
+    description: 'Rol–izin matrisi, veritabanının uyguladığı hâliyle.',
+    icon: 'shield-check',
+    requires: 'admin.read',
   },
 ]
 
