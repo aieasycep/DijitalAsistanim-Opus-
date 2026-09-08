@@ -52,8 +52,8 @@ apps/
                      Android widget and notification listener
     .maestro/        End-to-end flows A–L
   web/               Next.js 16 marketing site, legal pages, deep links
-  backoffice/        Next.js 16 staff console. Reads the database only
-                     through the content-blind bo_* views
+  backoffice/        Next.js 16 staff console, 44 routes. Reads the database
+                     only through the content-blind bo_* views
 
 packages/
   design-tokens/     Palette, type scale, spacing, light and dark themes
@@ -66,7 +66,8 @@ packages/
   api-client/        Typed endpoint layer, query keys, demo-mode client
 
 supabase/
-  migrations/        18 migrations · 39 tables · RLS enabled and forced
+  migrations/        19 migrations · 56 tables · RLS enabled and forced,
+                     28 content-blind bo_* views for the console
   functions/         48 Deno edge functions
   tests/             Tests for the shared function helpers
 
@@ -114,30 +115,40 @@ runs, in order:
 | `format:check`        | Prettier                                                                                                                                                                             |
 | `lint`                | ESLint 9, flat config; bans `any`, `console.log`, bare `new Date()`                                                                                                                  |
 | `typecheck`           | `tsc --noEmit` across every workspace package                                                                                                                                        |
-| `test`                | Vitest, 389 tests: domain, validation, i18n, edge-function helpers                                                                                                                   |
-| `test:mobile`         | Jest + Testing Library, 55 tests across 4 suites: React Native components                                                                                                            |
+| `test`                | Vitest: domain, validation, i18n, edge-function helpers, and the console's permission and redaction layers                                                                           |
+| `test:mobile`         | Jest + Testing Library: React Native components                                                                                                                                      |
 | `verify:supabase`     | Applies every migration to a real Postgres, twice; checks enums against their TypeScript unions; asserts RLS is enabled **and** forced; proves no `bo_*` view reads a content column |
 | `verify:i18n`         | Locale parity, placeholder parity, no unfinished copy, no end-to-end-encryption claim                                                                                                |
 | `verify:e2e-ids`      | Every testID a Maestro flow reaches for exists in the source. It does **not** run a flow — see [TESTING.md](docs/TESTING.md#what-the-gates-do-and-do-not-prove)                      |
+| `verify:wiring`       | Every edge-function slug, navigation target, CI script reference and console sidebar link resolves to something on disk                                                              |
 | `verify:no-dead-code` | No TODO/FIXME, no control that looks pressable and is not, no stray debug output                                                                                                     |
 | `verify:secrets`      | No committed credential, no server secret referenced from a client bundle                                                                                                            |
 
 `verify:supabase` skips with a message if no PostgreSQL is reachable, so a
 contributor without a database can still run the whole loop.
 
-One more verifier exists and is **not** yet in `pnpm verify` or in CI. Run it by
-hand:
+`verify:wiring` deserves a note, because it exists for a class of defect the
+type system cannot see. A string naming something absent type-checks exactly
+like a string naming something present, so it resolves names against the
+filesystem instead: every edge-function slug a cron job, the API client or the
+app reaches for has a `supabase/functions/<slug>/index.ts`; every literal
+`router.push`/`replace`/`navigate` target matches a route file; every script a
+workflow invokes exists; every console sidebar entry has a page. Each of those
+has shipped broken here before — five scheduled jobs that ran nothing, an
+endpoint the client called and nobody wrote, and the home screen's largest
+button landing on the not-found route.
+
+The mobile app has its own gate, run by CI as `verify:mobile`:
 
 ```bash
-node scripts/check-wiring.mjs
+pnpm run verify:mobile      # resolves app.config.ts, then bundles the app
 ```
 
-It resolves names against the filesystem: every edge-function slug a cron job,
-the API client or the app reaches for has a `supabase/functions/<slug>/index.ts`,
-and every literal `router.push`/`replace`/`navigate` target matches a route file
-under `apps/mobile/app`. Neither is a type error — a string naming something
-absent type-checks exactly like a string naming something present — and both
-have shipped past every other gate here before.
+The second half is not decoration. Resolving the config exercises the plugins
+but never builds the module graph, and Jest brings its own resolver — so for
+most of this project's life every gate was green against an app that could not
+be bundled at all. `expo export` builds the whole graph in well under a minute
+and needs no Android SDK, no device and no Gradle.
 
 ---
 
@@ -146,13 +157,17 @@ have shipped past every other gate here before.
 | Document                                                            |                                                                   |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | How the pieces fit, and why                                       |
-| [DATA_MODEL.md](docs/DATA_MODEL.md)                                 | 39 tables, their relationships, and the RLS model                 |
+| [DATA_MODEL.md](docs/DATA_MODEL.md)                                 | 56 tables, their relationships, and the RLS model                 |
 | [AI_PIPELINE.md](docs/AI_PIPELINE.md)                               | Three-stage triage, grounding, and what stops a hallucinated date |
 | [SECURITY.md](docs/SECURITY.md)                                     | Token encryption, key rotation, RLS, SSRF, threat model           |
 | [PRIVACY_DATA_FLOW.md](docs/PRIVACY_DATA_FLOW.md)                   | What is collected, where it goes, how long it stays               |
 | [OAUTH_SETUP.md](docs/OAUTH_SETUP.md)                               | Google and Microsoft, scope by scope                              |
 | [GOOGLE_OAUTH_VERIFICATION.md](docs/GOOGLE_OAUTH_VERIFICATION.md)   | The restricted-scope review, and what it asks for                 |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md)                                 | Database, functions, mobile builds, website                       |
+| [BACKOFFICE.md](docs/BACKOFFICE.md)                                 | The admin console: what it cannot do, and what stops it           |
+| [BACKOFFICE_RBAC.md](docs/BACKOFFICE_RBAC.md)                       | 7 roles, 36 permissions, cell by cell, checked against the schema |
+| [SUPPORT_ACCESS.md](docs/SUPPORT_ACCESS.md)                         | The one audited path to user content, and how to audit it         |
+| [BACKOFFICE_OPERATIONS.md](docs/BACKOFFICE_OPERATIONS.md)           | Console configuration, first run, routine work, incidents         |
 | [TESTING.md](docs/TESTING.md)                                       | What is tested, at which level, and why                           |
 | [APP_STORE_CHECKLIST.md](docs/APP_STORE_CHECKLIST.md)               | App Store and Play submission, answer by answer                   |
 | [DESIGN_SOURCE_MAPPING.md](docs/DESIGN_SOURCE_MAPPING.md)           | Which screen came from which design source                        |
