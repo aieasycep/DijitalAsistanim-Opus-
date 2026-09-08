@@ -10,14 +10,14 @@ import { SegmentedControl, Toggle } from '../../src/components/ui/Controls'
 import { Divider, ListRow } from '../../src/components/ui/Layout'
 import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
-import { SkeletonCard } from '../../src/components/ui/States'
+import { ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { Text } from '../../src/components/ui/Text'
 import { TimeField } from '../../src/components/ui/TimeField'
 import { useNotificationPreferences } from '../../src/hooks/queries'
 import { usePushRegistration } from '../../src/hooks/usePushRegistration'
 import { useT } from '../../src/i18n/I18nProvider'
 import { track } from '../../src/lib/analytics'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 
 /**
@@ -32,7 +32,7 @@ export default function NotificationSettingsScreen() {
   const api = useApi()
   const queryClient = useQueryClient()
   const query = useNotificationPreferences()
-  const { state, register } = usePushRegistration()
+  const { state, register, error: pushError } = usePushRegistration()
 
   const update = useMutation({
     mutationFn: (patch: NotificationPreferencesPatch) =>
@@ -47,11 +47,30 @@ export default function NotificationSettingsScreen() {
 
   const prefs = query.data
 
-  if (!prefs) {
+  if (query.isLoading && !prefs) {
     return (
       <Screen>
         <ScreenHeader title={t('notifications.title')} />
         <SkeletonCard />
+      </Screen>
+    )
+  }
+
+  // Without a row there is nothing to toggle, and a rendered toggle would be a
+  // control that looks live and does nothing. This branch used to fall through
+  // to the skeleton, so a query that had already failed shimmered forever.
+  if (!prefs) {
+    const canRetry = !query.isError || isRetryable(query.error)
+    return (
+      <Screen>
+        <ScreenHeader title={t('notifications.title')} />
+        <ErrorState
+          message={query.isError ? t(errorMessageKey(query.error)) : t('errors.not_found')}
+          {...(canRetry
+            ? { retryLabel: t('common.action.retry'), onRetry: () => void query.refetch() }
+            : {})}
+          testID="notifications-error"
+        />
       </Screen>
     )
   }
@@ -81,6 +100,15 @@ export default function NotificationSettingsScreen() {
               testID="notifications-enable"
             />
           </Card>
+        ) : null}
+
+        {/* Registration runs in the background and swallows its own failure, so
+            without this the user sees a granted permission and a device the
+            backend has never been told about. */}
+        {pushError ? (
+          <Text variant="secondary" tone="critical" testID="notifications-push-error">
+            {t(errorMessageKey(pushError))}
+          </Text>
         ) : null}
 
         <Card padded={false} style={{ paddingHorizontal: spacing.md }}>

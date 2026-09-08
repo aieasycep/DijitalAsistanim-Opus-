@@ -1,4 +1,4 @@
-import { deleteAccountRequestSchema } from '@da/validation'
+import { ACK, type AckResponse, deleteAccountRequest } from '@da/validation'
 import { AppError, type Provider } from '../_shared/domain.ts'
 import { audit } from '../_shared/audit.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
@@ -16,10 +16,17 @@ import { CAPTURES_BUCKET, EXPORTS_BUCKET, deleteUserObjects } from '../_shared/s
  *   2. delete stored objects, which no cascade would reach;
  *   3. delete the auth user, whose cascade clears every table;
  *   4. write the audit row last, with a null user id so it survives the cascade.
+ *
+ * The answer is `ACK` and nothing else. It used to be
+ * `{ deleted, providerRevoked, objectsRemoved }` while the client parsed
+ * `{ ok: boolean }` — so the account was revoked, wiped and deleted, and the
+ * user was then shown a failure and left in a session whose user no longer
+ * existed. The counts live in the audit row, which outlives the account; the
+ * screen's only remaining job is to sign out.
  */
 serveFunction('delete-account', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, deleteAccountRequestSchema)
+  const body = await parseBody(request, deleteAccountRequest)
   const client = serviceClient()
 
   // Typing the address is the confirmation gate; a mismatch is a refusal, not
@@ -72,5 +79,7 @@ serveFunction('delete-account', async ({ request, origin }) => {
     },
   })
 
-  return jsonResponse({ deleted: true, providerRevoked: revoked, objectsRemoved }, 200, origin)
+  const payload: AckResponse = ACK
+
+  return jsonResponse(payload, 200, origin)
 })

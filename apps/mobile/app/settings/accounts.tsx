@@ -19,7 +19,7 @@ import { useAccounts } from '../../src/hooks/queries'
 import { useConnectAccount } from '../../src/hooks/useConnectAccount'
 import { useEntitlements } from '../../src/hooks/useEntitlements'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, errorValues } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 import { useTheme } from '../../src/theme/ThemeProvider'
 
@@ -76,10 +76,19 @@ export default function AccountsSettingsScreen() {
   })
 
   const accounts = query.data ?? []
+  // Counted the same way `oauth-complete` counts it, so the greyed-out button
+  // and the server's answer cannot disagree.
   const mailCount = accounts.filter(
     (account) => account.status === 'connected' && account.kinds.includes('mail'),
   ).length
   const atLimit = mailCount >= entitlements.limits.mailAccounts
+
+  /** How an account is named on screen: the address, else the display name. */
+  const accountLabel = useCallback(
+    (account: ConnectedAccount): string =>
+      account.email ?? account.displayName ?? t(`common.provider.${account.provider}`),
+    [t],
+  )
 
   const lastSyncFor = useCallback(
     (accountId: string): string | null => {
@@ -126,9 +135,7 @@ export default function AccountsSettingsScreen() {
                   />
                   <View style={{ flex: 1 }}>
                     <Text variant="bodyStrong" numberOfLines={1}>
-                      {account.email ??
-                        account.displayName ??
-                        t(`common.provider.${account.provider}`)}
+                      {accountLabel(account)}
                     </Text>
                     <Text variant="micro" tone="tertiary">
                       {account.kinds
@@ -187,8 +194,18 @@ export default function AccountsSettingsScreen() {
 
         {connectError ? (
           <Card tone="critical">
-            <Text variant="secondary" tone="critical">
-              {t(errorMessageKey(connectError))}
+            <Text variant="secondary" tone="critical" testID="accounts-connect-error">
+              {t(errorMessageKey(connectError), errorValues(connectError))}
+            </Text>
+          </Card>
+        ) : null}
+
+        {/* `sync-start` fails when every account it covered failed, so this is
+            the difference between "eşitlendi" and a silent no-op. */}
+        {syncNow.isError ? (
+          <Card tone="critical">
+            <Text variant="secondary" tone="critical" testID="accounts-sync-error">
+              {t(errorMessageKey(syncNow.error), errorValues(syncNow.error))}
             </Text>
           </Card>
         ) : null}
@@ -230,14 +247,18 @@ export default function AccountsSettingsScreen() {
         testID="account-disconnect-sheet"
       >
         <Text variant="body" tone="secondary">
-          {t('settings.integrations.disconnectConfirmBody')}
+          {/* The sentence names the mailbox it is about; without the value it
+              rendered the placeholder itself. */}
+          {t('settings.integrations.disconnectConfirmBody', {
+            email: pendingDisconnect ? accountLabel(pendingDisconnect) : '',
+          })}
         </Text>
         <Text variant="secondary" tone="tertiary">
           {t('settings.integrations.disconnectDeleteData')}
         </Text>
         {disconnect.isError ? (
-          <Text variant="secondary" tone="critical">
-            {t(errorMessageKey(disconnect.error))}
+          <Text variant="secondary" tone="critical" testID="account-disconnect-error">
+            {t(errorMessageKey(disconnect.error), errorValues(disconnect.error))}
           </Text>
         ) : null}
       </Sheet>

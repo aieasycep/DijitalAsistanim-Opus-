@@ -84,8 +84,12 @@ export function BriefingHero({
           >
             <MaterialIcons name="menu-book" size={14} color={palette.white} />
             <Text variant="micro" style={{ color: palette.white, letterSpacing: 0 }}>
+              {/* `briefing.readingTime` is a plain message with a `{minutes}`
+                  placeholder, not a plural family. Reading it through `plural`
+                  interpolated only `{count}`, so the app's most prominent card
+                  printed the literal text "{minutes} dakikalık okuma". */}
               {durationMinutes
-                ? plural('briefing.readingTime', durationMinutes)
+                ? t('briefing.readingTime', { minutes: durationMinutes })
                 : t('today.action.openBriefing')}
             </Text>
           </View>
@@ -106,6 +110,7 @@ export function BriefingHero({
                 borderRadius: radius.chip,
                 minHeight: 0,
               }}
+              testID="briefing-hero-listen"
             >
               <MaterialIcons name="headphones" size={14} color={palette.white} />
               <Text variant="micro" style={{ color: palette.white, letterSpacing: 0 }}>

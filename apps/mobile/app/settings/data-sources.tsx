@@ -9,12 +9,12 @@ import { FilterChip, Toggle } from '../../src/components/ui/Controls'
 import { Divider, ListRow } from '../../src/components/ui/Layout'
 import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
-import { SkeletonCard } from '../../src/components/ui/States'
+import { ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { Text } from '../../src/components/ui/Text'
 import { usePreferences } from '../../src/hooks/queries'
 import { useT } from '../../src/i18n/I18nProvider'
 import { track } from '../../src/lib/analytics'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 
 /** How far back the first sync reaches. Longer costs more to analyse. */
@@ -43,11 +43,32 @@ export default function DataSourcesSettingsScreen() {
   const apply = useCallback((patch: PreferencesPatch) => update.mutate(patch), [update])
   const prefs = query.data
 
-  if (!prefs) {
+  if (query.isLoading && !prefs) {
     return (
       <Screen>
         <ScreenHeader title={t('settings.dataSources.title')} />
         <SkeletonCard />
+      </Screen>
+    )
+  }
+
+  // The history window, the retention window and the attachment switch are all
+  // fields of the preferences row; without one there is nothing to select. This
+  // branch used to fall through to the skeleton, so a query that had already
+  // failed shimmered forever — on the screen that tells the user how long their
+  // mail is kept, which is the last place to leave a silent failure.
+  if (!prefs) {
+    const canRetry = !query.isError || isRetryable(query.error)
+    return (
+      <Screen>
+        <ScreenHeader title={t('settings.dataSources.title')} />
+        <ErrorState
+          message={query.isError ? t(errorMessageKey(query.error)) : t('errors.not_found')}
+          {...(canRetry
+            ? { retryLabel: t('common.action.retry'), onRetry: () => void query.refetch() }
+            : {})}
+          testID="data-sources-error"
+        />
       </Screen>
     )
   }

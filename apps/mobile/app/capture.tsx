@@ -8,11 +8,11 @@ import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Platform, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native'
 import { Badge } from '../src/components/ui/Badge'
 import { Button } from '../src/components/ui/Button'
 import { Card } from '../src/components/ui/Card'
-import { SegmentedControl } from '../src/components/ui/Controls'
+import { FilterChip } from '../src/components/ui/Controls'
 import { Screen } from '../src/components/ui/Screen'
 import { ScreenHeader } from '../src/components/ui/ScreenHeader'
 import { Text } from '../src/components/ui/Text'
@@ -29,7 +29,24 @@ import { errorMessageKey } from '../src/lib/query-client'
 import { useApi } from '../src/providers/AppProviders'
 import { useTheme } from '../src/theme/ThemeProvider'
 
-type Mode = 'photo' | 'file' | 'link' | 'text'
+type Mode = 'text' | 'link' | 'camera' | 'file'
+
+/**
+ * The four ways in, in the order they are offered.
+ *
+ * Each carries its own `testID` (`capture-text`, `capture-link`,
+ * `capture-camera`, `capture-file`). The picker used to be one control with a
+ * single id, so nothing could choose a mode: the screen opens on `text`, and
+ * an end-to-end flow reaching for the link field found a field that had not
+ * been rendered yet. The ids are the mode, and the controls inside each mode
+ * are named for the action they perform.
+ */
+const MODES: ReadonlyArray<{ value: Mode; labelKey: string }> = [
+  { value: 'text', labelKey: 'capture.kind.text' },
+  { value: 'link', labelKey: 'capture.kind.link' },
+  { value: 'camera', labelKey: 'capture.kind.camera' },
+  { value: 'file', labelKey: 'capture.kind.file' },
+]
 
 /**
  * Capture — a photo, a file, a link or a note.
@@ -102,6 +119,28 @@ export default function CaptureScreen() {
         sizeBytes: input.size,
       })
     },
+    onSuccess: finish,
+  })
+
+  /**
+   * "Yeniden incele" on a capture that could not be read.
+   *
+   * This used to refetch the row. The row is terminal — a failed capture stays
+   * failed however often it is read — so the button looked like a retry and
+   * was one only for a capture still being analysed, which is the one case
+   * where it is not offered. It now sends the same source through the
+   * pipeline again and the screen follows the new capture.
+   */
+  const reanalyse = useMutation({
+    mutationFn: (source: Capture) =>
+      api.captures.create({
+        kind: source.kind,
+        storagePath: source.storagePath,
+        sourceUrl: source.sourceUrl,
+        rawText: source.rawText,
+        mimeType: source.mimeType,
+        sizeBytes: source.sizeBytes,
+      }),
     onSuccess: finish,
   })
 
@@ -225,11 +264,17 @@ export default function CaptureScreen() {
               <Text variant="secondary" tone="critical">
                 {t('capture.statusHint.failed')}
               </Text>
+              {reanalyse.error ? (
+                <Text variant="secondary" tone="critical">
+                  {t(errorMessageKey(reanalyse.error))}
+                </Text>
+              ) : null}
               <Button
                 label={t('capture.action.retryAnalysis')}
-                onPress={() => void captureQuery.refetch()}
+                onPress={() => reanalyse.mutate(capture)}
                 variant="tonal"
                 size="sm"
+                loading={reanalyse.isPending}
                 testID="capture-retry"
               />
             </Card>
@@ -256,14 +301,35 @@ export default function CaptureScreen() {
               ) : null}
               {extraction.location ? <Text variant="secondary">{extraction.location}</Text> : null}
               {extraction.amount ? (
-                <Text variant="secondary" tabular>
-                  {formatMoney(extraction.amount.value, extraction.amount.currency, locale)}
-                </Text>
+                <View>
+                  <Text variant="micro" tone="tertiary">
+                    {t('capture.extraction.amountField')}
+                  </Text>
+                  <Text variant="secondary" tabular>
+                    {formatMoney(extraction.amount.value, extraction.amount.currency, locale)}
+                  </Text>
+                </View>
               ) : null}
               {extraction.reference ? (
-                <Text variant="secondary" tabular>
-                  {extraction.reference}
-                </Text>
+                <View>
+                  <Text variant="micro" tone="tertiary">
+                    {t('capture.extraction.codeField')}
+                  </Text>
+                  <Text variant="secondary" tabular>
+                    {extraction.reference}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* An amount, a reference or a date is only stored when the
+                  server found the sentence it was read from in the capture
+                  itself, so anything shown above is quoted, not inferred. */}
+              {extraction.startsAt || extraction.amount || extraction.reference ? (
+                <Badge
+                  label={t('capture.extraction.verified')}
+                  tone="success"
+                  icon="check-circle"
+                />
               ) : null}
 
               {extraction.keyPoints.length > 0 ? (
@@ -315,17 +381,25 @@ export default function CaptureScreen() {
             {t('capture.subtitle')}
           </Text>
 
-          <SegmentedControl<Mode>
-            options={[
-              { value: 'text', label: t('capture.kind.text') },
-              { value: 'link', label: t('capture.kind.link') },
-              { value: 'photo', label: t('capture.kind.photo') },
-              { value: 'file', label: t('capture.kind.file') },
-            ]}
-            value={mode}
-            onChange={setMode}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            // The row is as tall as a chip. Without this it would grow into
+            // the space the input below it needs, inside a flex column.
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{ gap: spacing.xs, paddingRight: spacing.lg }}
             testID="capture-mode"
-          />
+          >
+            {MODES.map((entry) => (
+              <FilterChip
+                key={entry.value}
+                label={t(entry.labelKey)}
+                selected={mode === entry.value}
+                onPress={() => setMode(entry.value)}
+                testID={`capture-${entry.value}`}
+              />
+            ))}
+          </ScrollView>
 
           {mode === 'text' ? (
             <>
@@ -336,8 +410,10 @@ export default function CaptureScreen() {
                 placeholder={t('capture.textInput.placeholder')}
                 multiline
                 height={160}
-                autoFocus
-                testID="capture-text"
+                // The field is focused as the mode opens, so choosing a mode
+                // and typing is one gesture rather than two.
+                autoFocus={note.length === 0}
+                testID="capture-text-input"
               />
               <Button
                 label={t('common.action.add')}
@@ -360,7 +436,8 @@ export default function CaptureScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
-                testID="capture-link"
+                autoFocus={link.length === 0}
+                testID="capture-link-input"
               />
               <Text variant="micro" tone="tertiary">
                 {t('capture.linkInput.blocked')}
@@ -376,7 +453,7 @@ export default function CaptureScreen() {
             </>
           ) : null}
 
-          {mode === 'photo' ? (
+          {mode === 'camera' ? (
             <View style={{ gap: spacing.xs }}>
               <Button
                 label={t('capture.kindHint.camera')}
@@ -386,7 +463,7 @@ export default function CaptureScreen() {
                 leading={
                   <MaterialIcons name="photo-camera" size={18} color={theme.colors.onPrimary} />
                 }
-                testID="capture-camera"
+                testID="capture-take-photo"
               />
               <Button
                 label={t('capture.kindHint.photo')}
@@ -394,7 +471,7 @@ export default function CaptureScreen() {
                 variant="tonal"
                 fullWidth
                 loading={busy}
-                testID="capture-library"
+                testID="capture-pick-photo"
               />
             </View>
           ) : null}
@@ -406,7 +483,7 @@ export default function CaptureScreen() {
                 onPress={() => void pickFile()}
                 fullWidth
                 loading={busy}
-                testID="capture-file"
+                testID="capture-pick-file"
               />
               <Text variant="micro" tone="tertiary">
                 {t('capture.supportedTypes')}

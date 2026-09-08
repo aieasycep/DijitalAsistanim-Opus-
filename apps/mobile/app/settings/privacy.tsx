@@ -70,8 +70,11 @@ export default function PrivacySettingsScreen() {
 
   const requestExport = useMutation({
     mutationFn: () => api.privacy.requestExport(),
-    onSuccess: async () => {
-      track('export_requested')
+    onSuccess: () => track('export_requested'),
+    // Refreshed either way: building the archive can outlast the call that
+    // asked for it, and a timeout must not leave the card showing a failure
+    // over a file that is already on its way.
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.exportStatus() })
     },
   })
@@ -90,14 +93,24 @@ export default function PrivacySettingsScreen() {
         confirmationEmail: confirmEmail.trim().toLowerCase(),
         acknowledgedIrreversible: true,
       }),
+    // The account is gone the moment this resolves, so the session has to go
+    // with it: staying signed in would leave the app holding a token whose
+    // user no longer exists, and every cached row belongs to that user.
     onSuccess: async () => {
       track('account_deleted')
+      setDeleteAccountOpen(false)
       await cancelAllLocalNotifications()
       clearSnapshot()
+      queryClient.clear()
       await signOut()
       router.replace('/(auth)')
     },
   })
+
+  // While the archive is being built there is nothing to download yet, so the
+  // card says what happens next rather than leaving the button unexplained.
+  const preparing =
+    exportStatus.data?.status === 'requested' || exportStatus.data?.status === 'processing'
 
   const emailMatches =
     confirmEmail.trim().toLowerCase() === (profile?.email ?? '').toLowerCase() &&
@@ -148,26 +161,44 @@ export default function PrivacySettingsScreen() {
               />
               {exportStatus.data.expiresAt ? (
                 <Text variant="micro" tone="tertiary">
-                  {t('privacy.dataExport.hint', {
+                  {t('privacy.dataExport.ready', {
                     date: formatFullDate(new Date(exportStatus.data.expiresAt), locale, timeZone),
                   })}
                 </Text>
               ) : null}
             </>
           ) : (
-            <Button
-              label={
-                exportStatus.data
-                  ? t('privacy.dataExport.requestAgain')
-                  : t('privacy.dataExport.request')
-              }
-              onPress={() => requestExport.mutate()}
-              variant="tonal"
-              fullWidth
-              loading={requestExport.isPending}
-              testID="privacy-export-request"
-            />
+            <>
+              <Button
+                label={
+                  exportStatus.data
+                    ? t('privacy.dataExport.requestAgain')
+                    : t('privacy.dataExport.request')
+                }
+                onPress={() => requestExport.mutate()}
+                variant="tonal"
+                fullWidth
+                loading={requestExport.isPending}
+                testID="privacy-export-request"
+              />
+              {preparing ? (
+                <Text variant="micro" tone="tertiary">
+                  {t('privacy.dataExport.hint')}
+                </Text>
+              ) : null}
+            </>
           )}
+
+          {requestExport.isError ? (
+            <Text variant="secondary" tone="critical">
+              {t(errorMessageKey(requestExport.error))}
+            </Text>
+          ) : null}
+          {exportStatus.isError ? (
+            <Text variant="secondary" tone="critical">
+              {t(errorMessageKey(exportStatus.error))}
+            </Text>
+          ) : null}
         </Card>
 
         <Card style={{ gap: spacing.xs }}>
@@ -193,6 +224,11 @@ export default function PrivacySettingsScreen() {
             fullWidth
             testID="privacy-delete-history"
           />
+          {deleteHistory.isSuccess ? (
+            <Text variant="secondary" tone="success" testID="privacy-delete-history-done">
+              {t('privacy.deleteHistory.done')}
+            </Text>
+          ) : null}
         </Card>
 
         <Card padded={false} style={{ paddingHorizontal: spacing.md }}>

@@ -1,4 +1,6 @@
+import type { DetectFollowupsResponse } from '@da/validation'
 import {
+  DAY_MS,
   evaluateFollowUp,
   followUpDueAt,
   looksLikeReplyExpected,
@@ -7,12 +9,28 @@ import {
 import { dbError, requireServiceSecret, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, serveFunction } from '../_shared/http.ts'
 
+/** How far back a sent message can be and still be worth watching. */
+const SENT_LOOKBACK_MS = 14 * DAY_MS
+
+/**
+ * The statuses a follow-up is still live in.
+ *
+ * `nudged` belongs here: drafting a nudge moves the row out of `waiting`, and
+ * sweeping `waiting` alone meant a thread the user had chased was never
+ * checked for a reply again — it stayed open forever however promptly the
+ * other side answered. The app renders the same two statuses.
+ */
+const OPEN_STATUSES = ['waiting', 'nudged']
+
 /**
  * The follow-up sweep.
  *
- * Runs hourly over sent mail that expects an answer. Two things it must get
- * right: a thread that received a reply stops being watched immediately, and a
- * user who has dismissed a nudge is backed off from rather than asked again.
+ * Runs hourly over sent mail that expects an answer. Three things it must get
+ * right: a thread that received a reply stops being watched immediately, a
+ * user who has dismissed a nudge is backed off from rather than asked again,
+ * and a thread they have dismissed enough times is dropped for good — the
+ * domain gives up at `MAX_DISMISSALS`, so the row is closed here instead of
+ * being left `waiting` and shown on the follow-ups screen forever.
  */
 serveFunction('detect-followups', async ({ request, origin }) => {
   await requireServiceSecret(request, 'CRON_SECRET')
@@ -23,11 +41,12 @@ serveFunction('detect-followups', async ({ request, origin }) => {
   const waiting = await client
     .from('follow_ups')
     .select('id, user_id, thread_id, sent_at, dismiss_count')
-    .eq('status', 'waiting')
+    .in('status', OPEN_STATUSES)
     .limit(500)
   if (waiting.error) throw dbError(waiting.error)
 
   let replied = 0
+  let closed = 0
   let surfaced = 0
 
   for (const row of waiting.data ?? []) {
@@ -69,7 +88,23 @@ serveFunction('detect-followups', async ({ request, origin }) => {
       (profile.data?.time_zone as string | null) ?? 'Europe/Istanbul',
     )
 
-    if (verdict.shouldSurface) surfaced++
+    if (verdict.shouldSurface) {
+      surfaced++
+      continue
+    }
+
+    // The engine has been refused often enough to stop proposing this thread.
+    // Leaving it `waiting` would keep it on the screen with nothing behind it,
+    // so the row is closed and the promise not to nag is kept.
+    if (verdict.reason === 'dismissed_enough') {
+      const dropped = await client
+        .from('follow_ups')
+        .update({ status: 'closed', closed_at: now.toISOString() })
+        .eq('id', row.id as string)
+        .eq('user_id', row.user_id as string)
+      if (dropped.error) throw dbError(dropped.error)
+      closed++
+    }
   }
 
   // Start watching sent mail that asks for something and is not yet tracked.
@@ -77,7 +112,7 @@ serveFunction('detect-followups', async ({ request, origin }) => {
     .from('email_messages')
     .select('id, user_id, thread_id, to_emails, body_text, snippet, sent_at, external_message_id')
     .eq('is_from_user', true)
-    .gte('sent_at', new Date(now.getTime() - 14 * 86_400_000).toISOString())
+    .gte('sent_at', new Date(now.getTime() - SENT_LOOKBACK_MS).toISOString())
     .order('sent_at', { ascending: false })
     .limit(300)
   if (sent.error) throw dbError(sent.error)
@@ -131,5 +166,6 @@ serveFunction('detect-followups', async ({ request, origin }) => {
     if (!error) created++
   }
 
-  return jsonResponse({ replied, surfaced, created }, 200, origin)
+  const payload: DetectFollowupsResponse = { replied, closed, surfaced, created }
+  return jsonResponse(payload, 200, origin)
 })

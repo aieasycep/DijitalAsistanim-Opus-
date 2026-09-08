@@ -1,17 +1,29 @@
 import { AppError } from '@da/domain'
+import { formatMoney } from '@da/i18n'
 import { Platform } from 'react-native'
+import { useSessionStore } from '../stores/session'
 import { env, integrations } from './env'
 import { reportError } from './error-reporting'
 
 /**
  * Subscriptions.
  *
- * RevenueCat is optional: the SDK is loaded through a guarded require so a
- * build without the native module — a fresh clone, a simulator, the demo
- * config — still runs, and the paywall shows an honest "not available here"
- * instead of crashing on import. Entitlements are always re-derived
- * server-side from the RevenueCat webhook; nothing the client reports is
- * trusted as proof of payment.
+ * RevenueCat is a real dependency of the app, but the SDK is still loaded
+ * through a guarded require: `react-native-purchases` is a native module, so a
+ * JS-only context — Expo Go, a web preview, the test runner — has the package
+ * on disk and no implementation behind it. The guard keeps those contexts
+ * running and lets the paywall say "not available here" instead of crashing on
+ * import.
+ *
+ * The SDK is configured with the Supabase user id. That is not a detail: it is
+ * what makes RevenueCat's `app_user_id` the account that paid, so the webhook
+ * can attribute the purchase and `subscription-refresh` can look the subscriber
+ * up. Configured anonymously — as this module used to — every purchase arrives
+ * at the webhook under an id no account matches, and nobody ever becomes Pro.
+ *
+ * Entitlements are always re-derived server-side; nothing this module reports
+ * is trusted as proof of payment. `isPro` here decides whether to dismiss the
+ * paywall, nothing more.
  */
 
 export interface StorePackage {
@@ -31,7 +43,6 @@ export interface StorePackage {
 export interface PurchaseResult {
   /** True when the store reports an active entitlement after the purchase. */
   isPro: boolean
-  customerId: string | null
 }
 
 interface RevenueCatPackage {
@@ -48,23 +59,53 @@ interface RevenueCatPackage {
 
 interface RevenueCatCustomerInfo {
   entitlements: { active: Record<string, unknown> }
-  originalAppUserId?: string
 }
 
 interface RevenueCatModule {
   default: {
-    configure(options: { apiKey: string }): void
+    configure(options: { apiKey: string; appUserID: string }): void
+    logIn(appUserID: string): Promise<{ customerInfo: RevenueCatCustomerInfo }>
     getOfferings(): Promise<{
       current: { availablePackages: RevenueCatPackage[] } | null
     }>
     purchasePackage(pkg: RevenueCatPackage): Promise<{ customerInfo: RevenueCatCustomerInfo }>
     restorePurchases(): Promise<RevenueCatCustomerInfo>
-    getCustomerInfo(): Promise<RevenueCatCustomerInfo>
   }
 }
 
+/**
+ * The offering demo mode sells.
+ *
+ * Demo mode has no store behind it, and a paywall that renders "not available
+ * here" is a paywall nobody can look at, review or test — which is how the plan
+ * cards came to be broken without anyone noticing. These are the same two plans
+ * and prices the marketing copy quotes, formatted through the i18n money
+ * formatter for the Turkish store front the demo account belongs to.
+ */
+const DEMO_PACKAGES: readonly StorePackage[] = [
+  {
+    id: 'demo:annual',
+    productId: 'da_pro_annual',
+    period: 'annual',
+    priceString: formatMoney(1490, 'TRY', 'tr'),
+    price: 1490,
+    currencyCode: 'TRY',
+    trialDays: 14,
+  },
+  {
+    id: 'demo:monthly',
+    productId: 'da_pro_monthly',
+    period: 'monthly',
+    priceString: formatMoney(199, 'TRY', 'tr'),
+    price: 199,
+    currencyCode: 'TRY',
+    trialDays: null,
+  },
+]
+
 let sdk: RevenueCatModule['default'] | null = null
-let configured = false
+/** The account the SDK is currently configured for, `null` before the first. */
+let configuredUserId: string | null = null
 let packageCache: RevenueCatPackage[] = []
 
 function apiKey(): string | undefined {
@@ -73,14 +114,15 @@ function apiKey(): string | undefined {
 
 /** True when this build can actually take a payment. */
 export function purchasesAvailable(): boolean {
+  if (env.demoMode) return true
   return integrations.revenueCat && loadSdk() !== null
 }
 
 function loadSdk(): RevenueCatModule['default'] | null {
   if (sdk) return sdk
   try {
-    // Resolved at runtime: the package is an optional native dependency, and a
-    // static import would break every build that does not install it.
+    // Resolved at runtime: the package is a native module, and a static import
+    // would break every JS-only context that has no implementation behind it.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const module = require('react-native-purchases') as RevenueCatModule
     sdk = module.default ?? (module as unknown as RevenueCatModule['default'])
@@ -90,15 +132,32 @@ function loadSdk(): RevenueCatModule['default'] | null {
   }
 }
 
-function ensureConfigured(): RevenueCatModule['default'] {
+/**
+ * The configured SDK, bound to the signed-in account.
+ *
+ * Re-binding matters as much as the first bind: the SDK keeps whichever user it
+ * was given until it is told otherwise, so signing out and back in as someone
+ * else inside one app session would otherwise attribute the next purchase to
+ * the previous account — which needs support to undo.
+ */
+async function ensureConfigured(): Promise<RevenueCatModule['default']> {
   const key = apiKey()
   const loaded = loadSdk()
   if (!key || !loaded) {
     throw new AppError('subscription_error', { detail: 'purchases are not configured' })
   }
-  if (!configured) {
-    loaded.configure({ apiKey: key })
-    configured = true
+
+  const userId = useSessionStore.getState().userId
+  if (!userId) {
+    throw new AppError('unauthorized', { detail: 'purchases require a signed-in account' })
+  }
+
+  if (configuredUserId === null) {
+    loaded.configure({ apiKey: key, appUserID: userId })
+    configuredUserId = userId
+  } else if (configuredUserId !== userId) {
+    await loaded.logIn(userId)
+    configuredUserId = userId
   }
   return loaded
 }
@@ -126,9 +185,10 @@ function toPackage(pkg: RevenueCatPackage): StorePackage {
 }
 
 export async function loadPackages(): Promise<StorePackage[]> {
+  if (env.demoMode) return [...DEMO_PACKAGES]
   if (!purchasesAvailable()) return []
   try {
-    const client = ensureConfigured()
+    const client = await ensureConfigured()
     const offerings = await client.getOfferings()
     packageCache = offerings.current?.availablePackages ?? []
     return packageCache.map(toPackage)
@@ -139,16 +199,20 @@ export async function loadPackages(): Promise<StorePackage[]> {
 }
 
 export async function purchase(packageId: string): Promise<PurchaseResult> {
-  const client = ensureConfigured()
+  if (env.demoMode) {
+    if (!DEMO_PACKAGES.some((pkg) => pkg.id === packageId)) {
+      throw new AppError('subscription_error', { detail: 'unknown package' })
+    }
+    return { isPro: true }
+  }
+
+  const client = await ensureConfigured()
   const target = packageCache.find((pkg) => pkg.identifier === packageId)
   if (!target) throw new AppError('subscription_error', { detail: 'unknown package' })
 
   try {
     const result = await client.purchasePackage(target)
-    return {
-      isPro: Object.keys(result.customerInfo.entitlements.active).length > 0,
-      customerId: result.customerInfo.originalAppUserId ?? null,
-    }
+    return { isPro: Object.keys(result.customerInfo.entitlements.active).length > 0 }
   } catch (error) {
     const cancelled = (error as { userCancelled?: boolean }).userCancelled === true
     if (cancelled) throw new AppError('subscription_error', { detail: 'purchase cancelled' })
@@ -159,10 +223,12 @@ export async function purchase(packageId: string): Promise<PurchaseResult> {
 }
 
 export async function restore(): Promise<PurchaseResult> {
-  const client = ensureConfigured()
+  // The demo store front holds no purchase for the demo account, so restoring
+  // honestly finds nothing — which is the answer the screens have to be able to
+  // show, and the one flow L exercises.
+  if (env.demoMode) return { isPro: false }
+
+  const client = await ensureConfigured()
   const info = await client.restorePurchases()
-  return {
-    isPro: Object.keys(info.entitlements.active).length > 0,
-    customerId: info.originalAppUserId ?? null,
-  }
+  return { isPro: Object.keys(info.entitlements.active).length > 0 }
 }

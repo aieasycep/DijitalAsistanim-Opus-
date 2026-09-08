@@ -20,6 +20,7 @@ import { Text } from '../../src/components/ui/Text'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
 import { useApprovalFlow } from '../../src/hooks/useApprovalFlow'
 import {
+  useAccounts,
   useCommitments,
   usePlanDay,
   usePlanSuggestions,
@@ -38,13 +39,6 @@ const LOAD_KEYS = {
   heavy: 'plan.day.loadHeavy',
 } as const
 
-/** Minutes between two instants, or null when either end is missing. */
-function durationMinutes(startsAt: string | null, endsAt: string | null): number | null {
-  if (!startsAt || !endsAt) return null
-  const minutes = Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60_000)
-  return minutes > 0 ? minutes : null
-}
-
 /**
  * Plan — the day and the week.
  *
@@ -60,7 +54,7 @@ export default function PlanScreen() {
   const { timeZone } = useUserContext()
   const gate = useFeatureGate()
   const { can } = useEntitlements()
-  const { proposeAndReview, isProposing } = useApprovalFlow()
+  const { proposeAndReview, isProposing, error: proposeError } = useApprovalFlow()
 
   const [range, setRange] = useState<Range>('day')
   const [refreshing, setRefreshing] = useState(false)
@@ -72,6 +66,25 @@ export default function PlanScreen() {
   const weekQuery = usePlanWeek(today)
   const suggestionsQuery = usePlanSuggestions(today)
   const commitmentsQuery = useCommitments()
+  const accountsQuery = useAccounts()
+
+  /**
+   * The calendar a focus block would land on.
+   *
+   * An approval payload needs a real account id. This screen used to send an
+   * empty string and let the approval screen "resolve it later" — nothing
+   * resolved it, the payload failed validation before it left the device, and
+   * the rejected promise was dropped, so the button silently did nothing.
+   */
+  const calendarAccountId = useMemo<string | null>(() => {
+    const usable = (accountsQuery.data ?? []).filter(
+      (account) => account.status === 'connected' && account.kinds.includes('calendar'),
+    )
+    return (usable.find((account) => account.isPrimary) ?? usable[0])?.id ?? null
+  }, [accountsQuery.data])
+
+  /** Only once the accounts are known — a pending query is not an answer. */
+  const noCalendarAccount = accountsQuery.isSuccess && calendarAccountId === null
 
   const isLoading = range === 'day' ? dayQuery.isLoading : weekQuery.isLoading
   const isError = range === 'day' ? dayQuery.isError : weekQuery.isError
@@ -106,19 +119,17 @@ export default function PlanScreen() {
   )
 
   const proposeFocusBlock = useCallback(
-    (suggestion: PlanSuggestion) => {
+    (suggestion: PlanSuggestion, connectedAccountId: string) => {
       if (!suggestion.startsAt || !suggestion.endsAt) return
       void proposeAndReview({
         type: 'calendar_create',
-        what: suggestion.title,
-        why: suggestion.detail,
+        what: t('plan.action.addFocusBlock'),
+        why: t(suggestion.messageKey, suggestion.values),
         discriminator: `plan-suggestion:${suggestion.id}`,
         payload: {
           kind: 'calendar_create',
-          // The account is resolved on the approval screen, where the user can
-          // also see which calendar the block would land on.
-          connectedAccountId: '',
-          title: suggestion.title,
+          connectedAccountId,
+          title: t('plan.timeline.focus'),
           description: null,
           location: null,
           startsAt: suggestion.startsAt,
@@ -128,7 +139,7 @@ export default function PlanScreen() {
         },
       })
     },
-    [proposeAndReview, timeZone],
+    [proposeAndReview, t, timeZone],
   )
 
   const header = (
@@ -184,7 +195,7 @@ export default function PlanScreen() {
   )
   const suggestions = suggestionsQuery.data ?? []
   const dayLoad = range === 'day' ? (days[0]?.load ?? null) : null
-  const longestFree = dayLoad ? splitDuration(dayLoad.longestFreeMinutes) : null
+  const longestFree = dayLoad ? splitDuration(dayLoad.longestFreeBlockMinutes) : null
 
   return (
     <Screen scroll onRefresh={onRefresh} refreshing={refreshing} bottomInset={spacing.xxl}>
@@ -195,10 +206,10 @@ export default function PlanScreen() {
           <Text variant="bodyStrong">{t(LOAD_KEYS[dayLoad.level])}</Text>
           <Text variant="secondary" tone="secondary">
             {t('plan.day.meetingHours', {
-              hours: (dayLoad.meetingMinutes / 60).toFixed(1),
+              hours: (dayLoad.bookedMinutes / 60).toFixed(1),
             })}
           </Text>
-          {longestFree && dayLoad.longestFreeMinutes > 0 ? (
+          {longestFree && dayLoad.longestFreeBlockMinutes > 0 ? (
             <Text variant="secondary" tone="secondary">
               {t('plan.day.focusHours', { hours: longestFree.hours || 1 })}
             </Text>
@@ -276,11 +287,36 @@ export default function PlanScreen() {
       </View>
 
       {range === 'day' && suggestions.length > 0 ? (
-        <View style={{ marginTop: spacing.xl }}>
+        <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
           <SectionHeader title={t('plan.suggestion.title')} />
+
+          {noCalendarAccount ? (
+            <Card tone="critical" style={{ gap: spacing.xs }}>
+              <Text variant="secondary" tone="critical">
+                {t('onboarding.connect.skipWarning')}
+              </Text>
+              <Button
+                label={t('settings.integrations.addAccount')}
+                onPress={() => router.push('/settings/accounts')}
+                variant="tonal"
+                size="sm"
+                testID="plan-connect-calendar"
+              />
+            </Card>
+          ) : null}
+
+          {proposeError ? (
+            <Card tone="critical">
+              <Text variant="secondary" tone="critical">
+                {t(errorMessageKey(proposeError))}
+              </Text>
+            </Card>
+          ) : null}
+
           <View style={{ gap: spacing.sm }}>
             {suggestions.map((suggestion) => {
-              const minutes = durationMinutes(suggestion.startsAt, suggestion.endsAt)
+              // A block can only be proposed once it has real instants; the
+              // calendar it would land on is checked alongside it below.
               const schedulable =
                 suggestion.kind === 'focus_block' &&
                 suggestion.startsAt !== null &&
@@ -293,7 +329,7 @@ export default function PlanScreen() {
                   testID={`plan-suggestion-${suggestion.id}`}
                 >
                   <Badge label={t('common.aiGenerated')} tone="primary" icon="auto-awesome" />
-                  <Text variant="h3">{suggestion.title}</Text>
+                  <Text variant="h3">{t(suggestion.messageKey, suggestion.values)}</Text>
                   {suggestion.startsAt && suggestion.endsAt ? (
                     <Text variant="secondary" tone="secondary">
                       {formatTimeRange(
@@ -302,18 +338,15 @@ export default function PlanScreen() {
                         locale,
                         timeZone,
                       )}
-                      {minutes === null
+                      {suggestion.minutes === null
                         ? ''
-                        : ` · ${plural('calendar.freeBlock.minutes', minutes)}`}
+                        : ` · ${plural('calendar.freeBlock.minutes', suggestion.minutes)}`}
                     </Text>
                   ) : null}
-                  <Text variant="secondary" tone="secondary">
-                    {suggestion.detail}
-                  </Text>
-                  {schedulable ? (
+                  {schedulable && calendarAccountId !== null ? (
                     <Button
                       label={t('plan.action.addFocusBlock')}
-                      onPress={() => proposeFocusBlock(suggestion)}
+                      onPress={() => proposeFocusBlock(suggestion, calendarAccountId)}
                       variant="tonal"
                       size="sm"
                       loading={isProposing}

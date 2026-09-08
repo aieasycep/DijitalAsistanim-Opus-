@@ -1,5 +1,6 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
+import { DAY_MS, systemClock } from '@da/domain'
 import { formatFullDate } from '@da/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
@@ -47,9 +48,10 @@ export default function SubscriptionSettingsScreen() {
   const restoreMutation = useMutation({
     mutationFn: async () => {
       const result = await restore()
-      await api.subscription.refresh(
-        result.customerId ? { revenueCatCustomerId: result.customerId } : {},
-      )
+      // The refresh answers `null` for an account that has never subscribed,
+      // which is exactly the account that taps this button — so it is an
+      // outcome to report, not a failure to swallow.
+      await api.subscription.refresh()
       await queryClient.invalidateQueries({ queryKey: qk.subscription() })
       return result
     },
@@ -85,7 +87,8 @@ export default function SubscriptionSettingsScreen() {
                   Math.max(
                     0,
                     Math.ceil(
-                      (new Date(entitlements.expiresAt).getTime() - Date.now()) / 86_400_000,
+                      (new Date(entitlements.expiresAt).getTime() - systemClock.now().getTime()) /
+                        DAY_MS,
                     ),
                   ),
                 )}
@@ -113,9 +116,14 @@ export default function SubscriptionSettingsScreen() {
                 {t('settings.subscription.billingIssueBody')}
               </Text>
             ) : null}
-            {subscription?.status === 'grace_period' ? (
+            {/* The sentence names the day access runs out, so it cannot be
+                rendered without one — an unfilled `{date}` is what the reader
+                would otherwise see. */}
+            {subscription?.status === 'grace_period' && subscription.currentPeriodEnd ? (
               <Text variant="secondary" tone="warning">
-                {t('settings.subscription.gracePeriodBody')}
+                {t('settings.subscription.gracePeriodBody', {
+                  date: formatFullDate(new Date(subscription.currentPeriodEnd), locale, timeZone),
+                })}
               </Text>
             ) : null}
           </Card>

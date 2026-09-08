@@ -1,22 +1,20 @@
-import { z } from 'zod'
-import { uuidSchema } from '@da/validation'
+import { approvalRetryRequest, type ApprovalRetryResponse } from '@da/validation'
 import { AppError, type ApprovalStatus, systemClock } from '../_shared/domain.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
 import { executeApproval } from '../_shared/executor.ts'
 import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
-
-const requestSchema = z.object({ approvalId: uuidSchema })
 
 /**
  * Retry a failed execution.
  *
  * The user asked, so the attempt counter's automatic backoff is bypassed — but
  * the state machine is not: only a `failed` or `approved` approval can be
- * re-run, so this can never resurrect one that was rejected or already sent.
+ * re-run, so this can never resurrect one that was rejected or already sent,
+ * and it can never join one that is mid-flight.
  */
 serveFunction('approval-retry', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, requestSchema)
+  const body = await parseBody(request, approvalRetryRequest)
   const now = systemClock.now()
 
   const loaded = await serviceClient()
@@ -45,6 +43,6 @@ serveFunction('approval-retry', async ({ request, origin }) => {
     if (error) throw dbError(error)
   }
 
-  const result = await executeApproval(body.approvalId, user.id, now)
+  const result: ApprovalRetryResponse = await executeApproval(body.approvalId, user.id, now)
   return jsonResponse(result, 200, origin)
 })

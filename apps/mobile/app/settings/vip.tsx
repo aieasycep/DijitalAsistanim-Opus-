@@ -1,7 +1,7 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
 import type { Contact } from '@da/domain'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import { useMemo, useState } from 'react'
 import { View } from 'react-native'
@@ -11,13 +11,13 @@ import { Card } from '../../src/components/ui/Card'
 import { Divider, ListRow } from '../../src/components/ui/Layout'
 import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
-import { EmptyState, SkeletonCard } from '../../src/components/ui/States'
+import { EmptyState, ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { Text } from '../../src/components/ui/Text'
 import { TextField } from '../../src/components/ui/TextField'
 import { useContacts } from '../../src/hooks/queries'
 import { useEntitlements } from '../../src/hooks/useEntitlements'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 
 /** Ranked suggestions come from interaction volume, nothing external. */
@@ -29,6 +29,13 @@ const SUGGESTION_LIMIT = 8
  * A VIP always surfaces and always notifies, including inside quiet hours —
  * which is exactly why the list is capped and why every entry is a deliberate
  * choice rather than something the assistant decides on its own.
+ *
+ * The two halves of the screen are two different questions, so they are two
+ * queries. Suggestions are the directory ranked by interaction volume, which is
+ * a capped page by design. The list itself has to be exhaustive: a VIP the user
+ * rarely writes to sits far below that page's cut-off, and reading the list out
+ * of it would hide the person here while notifications kept treating them as a
+ * VIP — unremovable, and uncounted against the plan's cap.
  */
 export default function VipSettingsScreen() {
   const t = useT()
@@ -36,18 +43,22 @@ export default function VipSettingsScreen() {
   const router = useRouter()
   const api = useApi()
   const queryClient = useQueryClient()
-  const query = useContacts()
+  const vipQuery = useQuery({
+    queryKey: qk.vip(),
+    queryFn: () => api.people.list({ vipOnly: true }),
+  })
+  const suggestionsQuery = useContacts()
   const { entitlements } = useEntitlements()
 
   const [search, setSearch] = useState('')
 
-  const contacts = query.data ?? []
-  const vips = useMemo(() => contacts.filter((contact) => contact.isVip), [contacts])
+  const vips = useMemo(() => vipQuery.data ?? [], [vipQuery.data])
   const atLimit = vips.length >= entitlements.limits.vipPeople
 
   const suggestions = useMemo(() => {
+    const promoted = new Set(vips.map((contact) => contact.id))
     const needle = search.trim().toLocaleLowerCase('tr-TR')
-    const pool = contacts.filter((contact) => !contact.isVip)
+    const pool = (suggestionsQuery.data ?? []).filter((contact) => !promoted.has(contact.id))
     const matching = needle
       ? pool.filter(
           (contact) =>
@@ -56,15 +67,21 @@ export default function VipSettingsScreen() {
         )
       : [...pool].sort((a, b) => b.interactionCount - a.interactionCount)
     return matching.slice(0, SUGGESTION_LIMIT)
-  }, [contacts, search])
+  }, [suggestionsQuery.data, search, vips])
 
   const setVip = useMutation({
     mutationFn: (input: { contact: Contact; isVip: boolean }) =>
       api.people.setVip(input.contact.id, input.isVip),
     onSuccess: async () => {
+      // `qk.contacts()` is the prefix of both the directory and `qk.vip()`, so
+      // one invalidation refreshes the list and the suggestions together and
+      // they can never disagree about who is a VIP.
       await queryClient.invalidateQueries({ queryKey: qk.contacts() })
     },
   })
+
+  /** Only the row being changed spins; the rest stay pressable. */
+  const pendingContactId = setVip.isPending ? (setVip.variables?.contact.id ?? null) : null
 
   return (
     <Screen scroll bottomInset={spacing.xxl}>
@@ -88,8 +105,17 @@ export default function VipSettingsScreen() {
             {plural('vip.list.count', vips.length)}
           </Text>
 
-          {query.isLoading && contacts.length === 0 ? (
+          {vipQuery.isLoading && vips.length === 0 ? (
             <SkeletonCard />
+          ) : vipQuery.isError ? (
+            // Never fall through to the empty state here: "nobody is a VIP" and
+            // "we could not read your VIPs" lead to opposite actions.
+            <ErrorState
+              message={t(errorMessageKey(vipQuery.error))}
+              {...(isRetryable(vipQuery.error)
+                ? { retryLabel: t('common.action.retry'), onRetry: () => void vipQuery.refetch() }
+                : {})}
+            />
           ) : vips.length === 0 ? (
             <EmptyState
               icon="star-outline"
@@ -111,6 +137,7 @@ export default function VipSettingsScreen() {
                         onPress={() => setVip.mutate({ contact, isVip: false })}
                         variant="ghost"
                         size="sm"
+                        loading={pendingContactId === contact.id}
                         testID={`vip-remove-${contact.id}`}
                       />
                     }
@@ -164,7 +191,7 @@ export default function VipSettingsScreen() {
                   onPress={() => setVip.mutate({ contact, isVip: true })}
                   variant="tonal"
                   size="sm"
-                  loading={setVip.isPending}
+                  loading={pendingContactId === contact.id}
                   testID={`vip-add-${contact.id}`}
                 />
               </Card>

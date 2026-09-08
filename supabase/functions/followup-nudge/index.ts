@@ -1,5 +1,4 @@
-import { z } from 'zod'
-import { replyDraftSchema, uuidSchema } from '@da/validation'
+import { followupNudgeRequest, replyDraftSchema, type FollowupNudgeResponse } from '@da/validation'
 import { AppError, HOUR_MS, systemClock } from '../_shared/domain.ts'
 import { completeJson, isAiConfigured } from '../_shared/ai.ts'
 import { dbError, loadUserContext, requireUser, serviceClient } from '../_shared/db.ts'
@@ -11,11 +10,6 @@ import {
   requireFeature,
 } from '../_shared/limits.ts'
 import { followUpNudgeSystem } from '../_shared/prompts.ts'
-
-const requestSchema = z.object({
-  followUpId: uuidSchema,
-  action: z.enum(['draft', 'snooze', 'close']),
-})
 
 const NUDGE_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -32,13 +26,19 @@ const NUDGE_JSON_SCHEMA: Record<string, unknown> = {
 /**
  * Act on a surfaced follow-up.
  *
- * `close` and `snooze` are internal state and take effect immediately. `draft`
+ * The actions are the domain's own — `draft_nudge`, `remind_tomorrow`,
+ * `close` — so the three buttons on the card, the vocabulary on the wire and
+ * `FOLLOW_UP_ACTIONS` in `@da/domain` are one list rather than three.
+ *
+ * `remind_tomorrow` and `close` are internal state and take effect
+ * immediately; both answer with the stored row, so the app shows what the
+ * database now holds rather than what it assumed the write did. `draft_nudge`
  * produces text only — the nudge is still sent through an approval, so the
  * engine can never chase someone on the user's behalf.
  */
 serveFunction('followup-nudge', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, requestSchema)
+  const body = await parseBody(request, followupNudgeRequest)
   const now = systemClock.now()
   const client = serviceClient()
 
@@ -51,27 +51,46 @@ serveFunction('followup-nudge', async ({ request, origin }) => {
   if (followUp.error) throw dbError(followUp.error)
   if (!followUp.data) throw new AppError('not_found', { detail: 'followup_missing' })
 
-  if (body.action === 'close') {
-    await client
+  /**
+   * Write the change and read back what was stored.
+   *
+   * The user filter is repeated on the update itself rather than trusted from
+   * the select above: the service client bypasses RLS, so the ownership check
+   * has to be part of every statement it runs.
+   */
+  const apply = async (patch: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    const updated = await client
       .from('follow_ups')
-      .update({ status: 'closed', closed_at: now.toISOString() })
+      .update(patch)
       .eq('id', body.followUpId)
       .eq('user_id', user.id)
-    return jsonResponse({ status: 'closed', draft: null }, 200, origin)
+      .select('*')
+      .single()
+    if (updated.error) throw dbError(updated.error)
+    return updated.data
   }
 
-  if (body.action === 'snooze') {
-    // Each dismissal widens the engine's patience; after enough of them it
-    // stops proposing follow-ups on this thread entirely.
-    await client
-      .from('follow_ups')
-      .update({
+  if (body.action === 'close') {
+    const payload: FollowupNudgeResponse = {
+      followUp: await apply({ status: 'closed', closed_at: now.toISOString() }),
+      draft: null,
+    }
+    return jsonResponse(payload, 200, origin)
+  }
+
+  if (body.action === 'remind_tomorrow') {
+    // Each dismissal widens the engine's patience, and `detect-followups`
+    // stops watching the thread once the domain has had enough of them. The
+    // instant itself is the caller's: `nextWorkingDay` decided it, in the
+    // user's zone, on the app's clock.
+    const payload: FollowupNudgeResponse = {
+      followUp: await apply({
         dismiss_count: ((followUp.data.dismiss_count as number | null) ?? 0) + 1,
-        due_at: new Date(now.getTime() + 24 * HOUR_MS).toISOString(),
-      })
-      .eq('id', body.followUpId)
-      .eq('user_id', user.id)
-    return jsonResponse({ status: 'snoozed', draft: null }, 200, origin)
+        due_at: body.remindAt,
+      }),
+      draft: null,
+    }
+    return jsonResponse(payload, 200, origin)
   }
 
   const entitlements = await loadEntitlements(user.id, now)
@@ -84,7 +103,7 @@ serveFunction('followup-nudge', async ({ request, origin }) => {
   const profile = await loadUserContext(user.id)
   const thread = await client
     .from('email_threads')
-    .select('subject, summary, connected_account_id')
+    .select('subject, summary')
     .eq('id', followUp.data.thread_id as string)
     .eq('user_id', user.id)
     .maybeSingle()
@@ -123,21 +142,9 @@ serveFunction('followup-nudge', async ({ request, origin }) => {
     },
   })
 
-  await client
-    .from('follow_ups')
-    .update({ status: 'nudged' })
-    .eq('id', body.followUpId)
-    .eq('user_id', user.id)
-
-  return jsonResponse(
-    {
-      status: 'drafted',
-      draft,
-      threadId: followUp.data.thread_id,
-      connectedAccountId: thread.data?.connected_account_id ?? null,
-      to: [followUp.data.recipient_email],
-    },
-    200,
-    origin,
-  )
+  const payload: FollowupNudgeResponse = {
+    followUp: await apply({ status: 'nudged' }),
+    draft: { followUpId: body.followUpId, subject: draft.subject, body: draft.body },
+  }
+  return jsonResponse(payload, 200, origin)
 })

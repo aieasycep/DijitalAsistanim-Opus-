@@ -1,10 +1,10 @@
-import { decideApprovalRequestSchema } from '@da/validation'
+import { approvalDecideRequest, type ApprovalDecideResponse } from '@da/validation'
 import {
   AppError,
   type ApprovalActionType,
   type ApprovalPayload,
   type ApprovalStatus,
-  assertTransition,
+  canTransition,
   isExpired,
   systemClock,
   validateEdit,
@@ -24,7 +24,7 @@ import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
  */
 serveFunction('approval-decide', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, decideApprovalRequestSchema)
+  const body = await parseBody(request, approvalDecideRequest)
   const now = systemClock.now()
   const client = serviceClient()
 
@@ -58,13 +58,27 @@ serveFunction('approval-decide', async ({ request, origin }) => {
   }
 
   if (body.decision === 'reject') {
-    assertTransition(status, 'rejected')
-    const { error } = await client
+    // Refusing is the state machine's call: a proposal can be refused while it
+    // is pending and after an execution failed, but not once it is running.
+    if (!canTransition(status, 'rejected')) {
+      throw new AppError('approval_already_executed', { detail: `status:${status}` })
+    }
+
+    // `.eq('status', status)` is the lock: a refusal that raced an approval
+    // must not report "rejected, nothing happened" while the send is in flight.
+    const refused = await client
       .from('approval_actions')
       .update({ status: 'rejected', rejected_at: now.toISOString() })
       .eq('id', body.approvalId)
       .eq('user_id', user.id)
-    if (error) throw dbError(error)
+      .eq('status', status)
+      .select('id')
+      .maybeSingle()
+
+    if (refused.error) throw dbError(refused.error)
+    if (!refused.data) {
+      throw new AppError('approval_already_executed', { detail: 'lost_decision_race' })
+    }
 
     await audit({
       userId: user.id,
@@ -74,20 +88,26 @@ serveFunction('approval-decide', async ({ request, origin }) => {
       metadata: { type },
     })
 
-    return jsonResponse(
-      {
-        approvalId: body.approvalId,
-        status: 'rejected',
-        resultRef: null,
-        failureCode: null,
-        missingScopes: [],
-      },
-      200,
-      origin,
-    )
+    const rejected: ApprovalDecideResponse = {
+      approvalId: body.approvalId,
+      status: 'rejected',
+      resultRef: null,
+      failureCode: null,
+      missingScopes: [],
+    }
+    return jsonResponse(rejected, 200, origin)
   }
 
-  assertTransition(status, 'approved')
+  // An approval is a decision about a *pending* proposal, and this guard has to
+  // be stricter than the state machine to say so. `executing -> approved` is a
+  // legal transition — it is how the executor re-queues a transient failure —
+  // so checking the transition alone let a second Approve tap on a card that
+  // was already running walk straight back into `executeApproval` and send the
+  // same mail twice. Re-running something that already failed is a retry, and
+  // `approval-retry` owns it; nothing else may re-enter execution from here.
+  if (status !== 'pending') {
+    throw new AppError('approval_already_executed', { detail: `status:${status}` })
+  }
 
   if (body.editedPayload) {
     const original = loaded.data.original_payload as ApprovalPayload
@@ -100,7 +120,10 @@ serveFunction('approval-decide', async ({ request, origin }) => {
     }
   }
 
-  const { error } = await client
+  // `.eq('status', 'pending')` makes the approval itself the lock: two taps
+  // that both read a pending row cannot both claim it, so only one of them
+  // reaches the executor.
+  const claimed = await client
     .from('approval_actions')
     .update({
       status: 'approved',
@@ -109,7 +132,14 @@ serveFunction('approval-decide', async ({ request, origin }) => {
     })
     .eq('id', body.approvalId)
     .eq('user_id', user.id)
-  if (error) throw dbError(error)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle()
+
+  if (claimed.error) throw dbError(claimed.error)
+  if (!claimed.data) {
+    throw new AppError('approval_already_executed', { detail: 'lost_decision_race' })
+  }
 
   await audit({
     userId: user.id,
@@ -121,6 +151,6 @@ serveFunction('approval-decide', async ({ request, origin }) => {
 
   // Executed inline: a user who taps Approve should see what happened, not a
   // spinner that resolves out of band.
-  const result = await executeApproval(body.approvalId, user.id, now)
-  return jsonResponse(result, 200, origin)
+  const executed: ApprovalDecideResponse = await executeApproval(body.approvalId, user.id, now)
+  return jsonResponse(executed, 200, origin)
 })

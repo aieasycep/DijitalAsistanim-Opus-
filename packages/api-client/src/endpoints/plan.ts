@@ -1,116 +1,99 @@
 import { DEFAULT_TIME_ZONE, toIsoDate, type IsoDate } from '@da/domain'
-import { isoDateSchema, isoInstantSchema, uuidSchema } from '@da/validation'
-import { z } from 'zod'
-import { rowOf } from '../http'
+import {
+  planDayRequest,
+  planDayResponse,
+  planSuggestionsRequest,
+  planSuggestionsResponse,
+  planWeekRequest,
+  planWeekResponse,
+  type PlanDayResponse,
+  type PlanSuggestion,
+} from '@da/validation'
+import { parseRequest } from '../http'
 import { mapCalendarEvent, mapCommitment, mapReminder, mapTask } from '../mappers'
 import type {
   CalendarEventRow,
   CommitmentRow,
   DayPlan,
   EndpointContext,
-  PlanSuggestion,
   ReminderRow,
   TaskRow,
   WeekPlan,
 } from '../types'
 
-const freeBlockSchema = z.object({
-  startsAt: isoInstantSchema,
-  endsAt: isoInstantSchema,
-  minutes: z.number().int().min(0),
-})
+/**
+ * Rows the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around them and leaves the rows themselves
+ * permissive — adding a column must not require a contract change — so the
+ * mapper is what narrows a row into a domain entity.
+ */
+function rowsOf<T>(values: readonly Record<string, unknown>[]): T[] {
+  return values as unknown as T[]
+}
 
-const conflictSchema = z.object({
-  eventIds: z.array(uuidSchema),
-  startsAt: isoInstantSchema,
-  endsAt: isoInstantSchema,
-})
-
-const loadSchema = z.object({
-  meetingCount: z.number().int().min(0),
-  meetingMinutes: z.number().int().min(0),
-  longestFreeMinutes: z.number().int().min(0),
-  level: z.enum(['light', 'moderate', 'heavy']),
-})
-
-const dayPlanSchema = z.object({
-  date: isoDateSchema,
-  events: z.array(rowOf<CalendarEventRow>()).default([]),
-  tasks: z.array(rowOf<TaskRow>()).default([]),
-  commitments: z.array(rowOf<CommitmentRow>()).default([]),
-  reminders: z.array(rowOf<ReminderRow>()).default([]),
-  freeBlocks: z.array(freeBlockSchema).default([]),
-  conflicts: z.array(conflictSchema).default([]),
-  load: loadSchema,
-})
-
-const weekPlanSchema = z.object({
-  startDate: isoDateSchema,
-  endDate: isoDateSchema,
-  days: z.array(dayPlanSchema).default([]),
-})
-
-const suggestionsSchema = z.object({
-  suggestions: z
-    .array(
-      z.object({
-        id: z.string(),
-        kind: z.enum(['focus_block', 'reschedule', 'buffer', 'prepare', 'decline']),
-        title: z.string(),
-        detail: z.string(),
-        startsAt: isoInstantSchema.nullable(),
-        endsAt: isoInstantSchema.nullable(),
-        relatedEventId: uuidSchema.nullable(),
-      }),
-    )
-    .default([]),
-})
-
-type DayPlanResponse = z.infer<typeof dayPlanSchema>
-
-function toDayPlan(response: DayPlanResponse): DayPlan {
+function toDayPlan(response: PlanDayResponse): DayPlan {
   return {
     date: response.date,
-    events: response.events.map(mapCalendarEvent),
-    tasks: response.tasks.map(mapTask),
-    commitments: response.commitments.map(mapCommitment),
-    reminders: response.reminders.map(mapReminder),
+    events: rowsOf<CalendarEventRow>(response.events).map(mapCalendarEvent),
+    tasks: rowsOf<TaskRow>(response.tasks).map(mapTask),
+    commitments: rowsOf<CommitmentRow>(response.commitments).map(mapCommitment),
+    reminders: rowsOf<ReminderRow>(response.reminders).map(mapReminder),
     freeBlocks: response.freeBlocks,
     conflicts: response.conflicts,
     load: response.load,
   }
 }
 
+export interface PlanDayInput {
+  date?: IsoDate
+  timeZone?: string
+}
+
+export interface PlanWeekInput {
+  /** Any date inside the wanted week; the function snaps it to the Monday. */
+  startDate?: IsoDate
+  timeZone?: string
+}
+
+export interface PlanSuggestionsInput {
+  date?: IsoDate
+  timeZone?: string
+  /** How long a focus block to look for. The function defaults it to 90. */
+  desiredMinutes?: number
+}
+
 export interface PlanApi {
-  day(input?: { date?: IsoDate; timeZone?: string }): Promise<DayPlan>
-  week(input?: { startDate?: IsoDate; timeZone?: string }): Promise<WeekPlan>
-  suggestions(input?: { date?: IsoDate; timeZone?: string }): Promise<PlanSuggestion[]>
+  day(input?: PlanDayInput): Promise<DayPlan>
+  week(input?: PlanWeekInput): Promise<WeekPlan>
+  suggestions(input?: PlanSuggestionsInput): Promise<PlanSuggestion[]>
 }
 
 export function createPlanApi(ctx: EndpointContext): PlanApi {
-  function resolve(input: { date?: IsoDate; startDate?: IsoDate; timeZone?: string }): {
-    date: IsoDate
-    timeZone: string
-  } {
-    const timeZone = input.timeZone ?? DEFAULT_TIME_ZONE
-    const date = input.date ?? input.startDate ?? toIsoDate(ctx.config.clock.now(), timeZone)
-    return { date, timeZone }
+  /** Today in the zone the caller asked for, from the injected clock. */
+  function resolve(timeZone: string | undefined): { date: IsoDate; timeZone: string } {
+    const zone = timeZone ?? DEFAULT_TIME_ZONE
+    return { date: toIsoDate(ctx.config.clock.now(), zone), timeZone: zone }
   }
 
   return {
     async day(input = {}) {
-      const { date, timeZone } = resolve(input)
-      const result = await ctx.http.callFunction('plan-day', { date, timeZone }, dayPlanSchema)
+      const today = resolve(input.timeZone)
+      const request = parseRequest(planDayRequest, {
+        date: input.date ?? today.date,
+        timeZone: today.timeZone,
+      })
+      const result = await ctx.http.callFunction('plan-day', request, planDayResponse)
       return toDayPlan(result)
     },
 
     async week(input = {}) {
-      const { date, timeZone } = resolve(input)
-      const result = await ctx.http.callFunction(
-        'plan-week',
-        { startDate: date, timeZone },
-        weekPlanSchema,
-      )
+      const today = resolve(input.timeZone)
+      const request = parseRequest(planWeekRequest, {
+        startDate: input.startDate ?? today.date,
+        timeZone: today.timeZone,
+      })
+      const result = await ctx.http.callFunction('plan-week', request, planWeekResponse)
       return {
         startDate: result.startDate,
         endDate: result.endDate,
@@ -119,11 +102,16 @@ export function createPlanApi(ctx: EndpointContext): PlanApi {
     },
 
     async suggestions(input = {}) {
-      const { date, timeZone } = resolve(input)
+      const today = resolve(input.timeZone)
+      const request = parseRequest(planSuggestionsRequest, {
+        date: input.date ?? today.date,
+        timeZone: today.timeZone,
+        ...(input.desiredMinutes === undefined ? {} : { desiredMinutes: input.desiredMinutes }),
+      })
       const result = await ctx.http.callFunction(
         'plan-suggestions',
-        { date, timeZone },
-        suggestionsSchema,
+        request,
+        planSuggestionsResponse,
       )
       return result.suggestions
     },

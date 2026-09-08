@@ -3,6 +3,7 @@ import { type ColorSchemePreference, spacing } from '@da/design-tokens'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { View } from 'react-native'
+import { Button } from '../../src/components/ui/Button'
 import { Card } from '../../src/components/ui/Card'
 import { SegmentedControl, Toggle } from '../../src/components/ui/Controls'
 import { ListRow } from '../../src/components/ui/Layout'
@@ -12,7 +13,7 @@ import { Text } from '../../src/components/ui/Text'
 import { usePreferences } from '../../src/hooks/queries'
 import { useT } from '../../src/i18n/I18nProvider'
 import { track } from '../../src/lib/analytics'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 import { useThemeContext } from '../../src/theme/ThemeProvider'
 
@@ -100,7 +101,26 @@ export default function AppearanceSettingsScreen() {
           </Text>
         ) : null}
 
-        {prefsQuery.data?.colorScheme && prefsQuery.data.colorScheme !== preference ? (
+        {/* The theme is applied locally the moment it is tapped, so a failed
+            preferences query does not break this screen — it only means the
+            screen cannot say whether the server agrees. Silence there read as
+            "in sync"; this says which of the two it is and offers the retry. */}
+        {prefsQuery.isError ? (
+          <Card tone="critical" style={{ gap: spacing.xs }}>
+            <Text variant="secondary" tone="critical">
+              {t(errorMessageKey(prefsQuery.error))}
+            </Text>
+            {isRetryable(prefsQuery.error) ? (
+              <Button
+                label={t('common.action.retry')}
+                onPress={() => void prefsQuery.refetch()}
+                variant="tonal"
+                size="sm"
+                testID="appearance-retry"
+              />
+            ) : null}
+          </Card>
+        ) : prefsQuery.data?.colorScheme && prefsQuery.data.colorScheme !== preference ? (
           <Text variant="micro" tone="tertiary">
             {t('common.state.syncing')}
           </Text>

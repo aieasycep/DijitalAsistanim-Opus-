@@ -1,8 +1,17 @@
+import type { DataExportSnapshot, DataExportStatusResponse } from '@da/validation'
 import { systemClock } from '../_shared/domain.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, serveFunction } from '../_shared/http.ts'
 import { EXPORTS_BUCKET, signedDownloadUrl } from '../_shared/storage.ts'
 
+/**
+ * Where the account's most recent data export has got to.
+ *
+ * An account that has never asked for one answers `export: null`. It used to
+ * answer a placeholder row — `{ requestId: null, status: 'requested' }` — which
+ * described a request nobody had made and which the client rejected outright,
+ * because a request id is a uuid. Absence belongs in the envelope.
+ */
 serveFunction('data-export-status', async ({ request, origin }) => {
   const user = await requireUser(request)
   const now = systemClock.now()
@@ -17,15 +26,15 @@ serveFunction('data-export-status', async ({ request, origin }) => {
 
   if (error) throw dbError(error)
   if (!data) {
-    return jsonResponse(
-      { requestId: null, status: 'requested', downloadUrl: null, expiresAt: null },
-      200,
-      origin,
-    )
+    const empty: DataExportStatusResponse = { export: null }
+    return jsonResponse(empty, 200, origin)
   }
 
-  const expired = data.expires_at ? new Date(data.expires_at as string) <= now : false
-  const status = expired ? 'expired' : (data.status as string)
+  const expiresAt = (data.expires_at as string | null) ?? null
+  const expired = expiresAt ? new Date(expiresAt) <= now : false
+  const status: DataExportSnapshot['status'] = expired
+    ? 'expired'
+    : (data.status as DataExportSnapshot['status'])
 
   // The signed URL is minted fresh on every check rather than stored, so a
   // stale link can never outlive the export's own expiry.
@@ -34,9 +43,9 @@ serveFunction('data-export-status', async ({ request, origin }) => {
       ? await signedDownloadUrl(EXPORTS_BUCKET, data.storage_path as string, 3600)
       : null
 
-  return jsonResponse(
-    { requestId: data.id, status, downloadUrl, expiresAt: data.expires_at ?? null },
-    200,
-    origin,
-  )
+  const payload: DataExportStatusResponse = {
+    export: { requestId: data.id as string, status, downloadUrl, expiresAt },
+  }
+
+  return jsonResponse(payload, 200, origin)
 })

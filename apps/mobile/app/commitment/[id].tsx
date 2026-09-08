@@ -88,7 +88,12 @@ export default function CommitmentScreen() {
   }
 
   const now = systemClock.now()
-  const isOpen = commitment.status === 'open' || commitment.status === 'overdue'
+  // Snoozed counts as still owed: postponing a promise must not take away the
+  // button that closes it, or the only way back is to un-snooze it first.
+  const isOpen =
+    commitment.status === 'open' ||
+    commitment.status === 'overdue' ||
+    commitment.status === 'snoozed'
   // The next 09:00 in the user's own zone rather than the device's.
   const tomorrowMorning = nextLocalTimeOccurrence(now, '09:00', timeZone)
 

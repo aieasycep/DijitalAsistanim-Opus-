@@ -1,4 +1,4 @@
-import { disconnectAccountRequestSchema } from '@da/validation'
+import { ACK, accountsDisconnectRequest, type AckResponse } from '@da/validation'
 import { AppError, type Provider } from '../_shared/domain.ts'
 import { audit } from '../_shared/audit.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
@@ -11,10 +11,16 @@ import { revokeAndDelete } from '../_shared/oauth.ts'
  * Provider-side revocation is attempted first but is explicitly best-effort:
  * the user asked to disconnect, so a provider outage must not stop us deleting
  * our own copy of their credentials.
+ *
+ * The answer is `ACK` and nothing else. It used to be
+ * `{ disconnected, providerRevoked }` while the client parsed `{ ok: boolean }`
+ * — so this endpoint revoked the token, deleted the row, and then told the user
+ * it had failed. Whether the provider accepted the revocation is a question the
+ * audit row answers; it was never something this screen could act on.
  */
 serveFunction('accounts-disconnect', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, disconnectAccountRequestSchema)
+  const body = await parseBody(request, accountsDisconnectRequest)
   const client = serviceClient()
 
   const account = await client
@@ -57,5 +63,7 @@ serveFunction('accounts-disconnect', async ({ request, origin }) => {
     metadata: { provider, provider_revoked: providerRevoked },
   })
 
-  return jsonResponse({ disconnected: true, providerRevoked }, 200, origin)
+  const payload: AckResponse = ACK
+
+  return jsonResponse(payload, 200, origin)
 })

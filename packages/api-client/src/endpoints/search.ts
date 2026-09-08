@@ -1,15 +1,24 @@
-import { searchRequestSchema, searchResponseSchema } from '@da/validation'
+import { searchRequest, searchResponse, type SearchHitType } from '@da/validation'
 import { parseRequest } from '../http'
 import type { EndpointContext, SearchPage } from '../types'
 
-export type SearchType =
-  'email' | 'calendar_event' | 'task' | 'commitment' | 'capture' | 'contact' | 'life_event'
+/**
+ * The kinds a search can look for.
+ *
+ * The contract's own union, re-exported so a screen does not have to reach
+ * into `@da/validation` for it. It used to be a second, shorter list declared
+ * here: it left out `notification` and `user_input`, which the memory index
+ * has always been able to return, so those hits could arrive but never be
+ * filtered for or against.
+ */
+export type SearchType = SearchHitType
 
 export interface SearchInput {
   query: string
-  types?: SearchType[]
+  /** Empty or omitted means every kind. */
+  types?: readonly SearchType[]
+  /** Rows in the single ranked page. The function defaults it to 25. */
   limit?: number
-  cursor?: string | null
 }
 
 export interface SearchApi {
@@ -19,16 +28,17 @@ export interface SearchApi {
 export function createSearchApi(ctx: EndpointContext): SearchApi {
   return {
     async query(input) {
-      const request = parseRequest(searchRequestSchema, {
+      const request = parseRequest(searchRequest, {
         query: input.query,
-        types: input.types ?? [],
-        ...(input.limit !== undefined ? { limit: input.limit } : {}),
-        ...(input.cursor ? { cursor: input.cursor } : {}),
+        types: input.types ? [...input.types] : [],
+        ...(input.limit === undefined ? {} : { limit: input.limit }),
       })
-      const result = await ctx.http.callFunction('search', request, searchResponseSchema)
+      const result = await ctx.http.callFunction('search', request, searchResponse)
       return {
         results: result.results,
-        nextCursor: result.nextCursor,
+        // Results are one page merged and ranked across eight sources, so there
+        // is no position to resume from; the request carries no cursor either.
+        nextCursor: null,
         mode: result.mode,
       }
     },

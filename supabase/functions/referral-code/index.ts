@@ -1,3 +1,4 @@
+import type { ReferralCodeResponse } from '@da/validation'
 import { systemClock } from '../_shared/domain.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, serveFunction } from '../_shared/http.ts'
@@ -6,7 +7,9 @@ import { jsonResponse, serveFunction } from '../_shared/http.ts'
  * The user's own referral code, plus how their bonus currently stands.
  *
  * The code is minted by a database trigger at signup; this backfills one only
- * for an account created before that trigger existed.
+ * for an account created before that trigger existed. Either way the answer
+ * always carries a code, which is what `referralCodeResponse` pins — a screen
+ * offering a blank code to copy and share is worse than a visible failure.
  */
 serveFunction('referral-code', async ({ request, origin }) => {
   const user = await requireUser(request)
@@ -37,24 +40,30 @@ serveFunction('referral-code', async ({ request, origin }) => {
     redemptionCount = (inserted.data.redemption_count as number | null) ?? 0
   }
 
+  /**
+   * The bonuses running on *this* account.
+   *
+   * `user_id` is the account the days were applied to, which is why a
+   * redemption writes two rows — one for each side. Selecting on the referrer
+   * and referee columns instead matched both rows of every redemption this
+   * user referred, so a single invite reported two active bonuses.
+   */
   const credits = await client
     .from('referral_credits')
-    .select('expires_at, bonus_days, referrer_user_id, referee_user_id')
-    .or(`referrer_user_id.eq.${user.id},referee_user_id.eq.${user.id}`)
+    .select('expires_at')
+    .eq('user_id', user.id)
     .is('revoked_at', null)
     .gt('expires_at', now.toISOString())
     .order('expires_at', { ascending: false })
 
   if (credits.error) throw dbError(credits.error)
 
-  return jsonResponse(
-    {
-      code,
-      redemptionCount,
-      bonusExpiresAt: credits.data?.[0]?.expires_at ?? null,
-      activeBonuses: credits.data?.length ?? 0,
-    },
-    200,
-    origin,
-  )
+  const payload: ReferralCodeResponse = {
+    code,
+    redemptionCount,
+    activeBonuses: credits.data?.length ?? 0,
+    bonusExpiresAt: (credits.data?.[0]?.expires_at as string | null | undefined) ?? null,
+  }
+
+  return jsonResponse(payload, 200, origin)
 })

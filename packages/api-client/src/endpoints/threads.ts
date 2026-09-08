@@ -1,8 +1,20 @@
 import type { EmailMessage, EmailThread, FeedbackSignal, SourceType } from '@da/domain'
-import { feedbackRequestSchema } from '@da/validation'
-import { okSchema, parseRequest } from '../http'
+import {
+  THREAD_COMMITMENT_SOURCE_ID_COLUMN,
+  THREAD_COMMITMENT_SOURCE_TYPE,
+  THREAD_COMMITMENT_SOURCE_TYPE_COLUMN,
+  THREAD_LIVE_FOLLOW_UP_STATUSES,
+  ackResponse,
+  feedbackRequestSchema,
+  threadFlowCut,
+  threadRefRequest,
+  threadsListRequest,
+  threadsMarkReadRequest,
+  type ThreadFlow,
+} from '@da/validation'
+import { parseRequest } from '../http'
 import { mapCommitment, mapEmailMessage, mapEmailThread, mapFollowUp } from '../mappers'
-import type { Filter } from '../supabase'
+import type { Filter, SelectOptions } from '../supabase'
 import type {
   CommitmentRow,
   EmailMessageRow,
@@ -13,10 +25,6 @@ import type {
   ThreadDetail,
   ThreadFilter,
 } from '../types'
-
-const WAITING_CATEGORIES = ['waiting_for_user', 'waiting_for_other']
-const PERSONAL_CATEGORIES = ['shipment', 'travel', 'payment', 'subscription', 'security']
-const IMPORTANT_LEVELS = ['critical', 'high']
 
 export interface ThreadFeedbackInput {
   signal: FeedbackSignal
@@ -36,29 +44,54 @@ export interface ThreadsApi {
   detail(threadId: string): Promise<ThreadDetail | null>
 }
 
-function flowFilters(flow: FlowFilter): {
-  filters: Filter[]
-  inFilter?: { column: string; values: string[] }
-} {
-  switch (flow) {
-    case 'important':
-      return { filters: [], inFilter: { column: 'importance', values: IMPORTANT_LEVELS } }
-    case 'action_required':
-      return { filters: [{ column: 'requires_user_action', op: 'eq', value: true }] }
-    case 'waiting':
-      return { filters: [], inFilter: { column: 'category', values: WAITING_CATEGORIES } }
-    case 'deadlines':
-      return { filters: [{ column: 'category', op: 'eq', value: 'deadline' }] }
-    case 'meetings':
-      return { filters: [{ column: 'category', op: 'eq', value: 'meeting' }] }
-    case 'personal':
-      return { filters: [], inFilter: { column: 'category', values: PERSONAL_CATEGORIES } }
-    case 'all':
-    default:
-      return { filters: [] }
+/**
+ * The chip the caller asked for, in the contract's vocabulary.
+ *
+ * The narrowing is the point: `FlowFilter` is the name this package exports to
+ * the app and `ThreadFlow` is the contract's, so a chip added to one and not
+ * the other fails to compile here rather than falling through
+ * `threadFlowCut`'s `switch` at runtime.
+ */
+function flowOf(flow: FlowFilter | undefined): ThreadFlow {
+  return flow ?? 'all'
+}
+
+/**
+ * The `in` clause a flow spends, if it spends one.
+ *
+ * `SelectOptions` has room for exactly one, which is why `ThreadFlowCut` is a
+ * union that can only ever ask for one.
+ */
+function inFilterFor(flow: ThreadFlow): SelectOptions['inFilter'] {
+  const cut = threadFlowCut(flow)
+  switch (cut.by) {
+    case 'category':
+      return { column: 'category', values: cut.categories }
+    case 'importance':
+      return { column: 'importance', values: cut.levels }
+    case 'requiresUserAction':
+    case 'nothing':
+      return undefined
   }
 }
 
+/** The equality filters a flow adds on top of its `in` clause. */
+function filtersFor(flow: ThreadFlow): Filter[] {
+  const cut = threadFlowCut(flow)
+  return cut.by === 'requiresUserAction'
+    ? [{ column: 'requires_user_action', op: 'eq', value: true }]
+    : []
+}
+
+/**
+ * Mail reads, and the one signal that crosses the wire.
+ *
+ * Straight table reads under RLS: a thread is the user's own mirrored row, and
+ * the only two things the app changes about one are flags the user set
+ * deliberately — read state, and the mute that `suppress` writes. Anything that
+ * touches the mailbox itself goes through an approval instead, which is why
+ * there is no send, no archive and no delete here.
+ */
 export function createThreadsApi(ctx: EndpointContext): ThreadsApi {
   async function loadThread(threadId: string): Promise<EmailThreadRow | null> {
     return ctx.db.selectOne<EmailThreadRow>('email_threads', {
@@ -75,38 +108,54 @@ export function createThreadsApi(ctx: EndpointContext): ThreadsApi {
 
   return {
     async list(filter = {}) {
-      const flow = flowFilters(filter.flow ?? 'all')
-      const filters: Filter[] = [...flow.filters]
-      if (!filter.includeSuppressed) {
+      const request = parseRequest(threadsListRequest, {
+        flow: flowOf(filter.flow),
+        category: filter.category ?? null,
+        importance: filter.importance ?? null,
+        accountId: filter.accountId ?? null,
+        unreadOnly: filter.unreadOnly ?? false,
+        requiresAction: filter.requiresAction ?? false,
+        includeSuppressed: filter.includeSuppressed ?? false,
+        limit: filter.limit ?? undefined,
+      })
+
+      const filters: Filter[] = filtersFor(request.flow)
+      if (!request.includeSuppressed) {
         filters.push({ column: 'suppressed_at', op: 'is', value: null })
       }
-      if (filter.category) filters.push({ column: 'category', op: 'eq', value: filter.category })
-      if (filter.importance) {
-        filters.push({ column: 'importance', op: 'eq', value: filter.importance })
+      if (request.category) {
+        filters.push({ column: 'category', op: 'eq', value: request.category })
       }
-      if (filter.accountId) {
-        filters.push({ column: 'connected_account_id', op: 'eq', value: filter.accountId })
+      if (request.importance) {
+        filters.push({ column: 'importance', op: 'eq', value: request.importance })
       }
-      if (filter.unreadOnly) filters.push({ column: 'is_read', op: 'eq', value: false })
-      if (filter.requiresAction) {
+      if (request.accountId) {
+        filters.push({ column: 'connected_account_id', op: 'eq', value: request.accountId })
+      }
+      if (request.unreadOnly) filters.push({ column: 'is_read', op: 'eq', value: false })
+      if (request.requiresAction) {
         filters.push({ column: 'requires_user_action', op: 'eq', value: true })
       }
+
+      const inFilter = inFilterFor(request.flow)
       const rows = await ctx.db.selectMany<EmailThreadRow>('email_threads', {
         filters,
-        ...(flow.inFilter ? { inFilter: flow.inFilter } : {}),
+        ...(inFilter ? { inFilter } : {}),
         order: { column: 'last_message_at', ascending: false },
-        limit: filter.limit ?? 100,
+        limit: request.limit,
       })
       return rows.map(mapEmailThread)
     },
 
     async get(threadId) {
-      const row = await loadThread(threadId)
+      const request = parseRequest(threadRefRequest, { threadId })
+      const row = await loadThread(request.threadId)
       return row ? mapEmailThread(row) : null
     },
 
     async messages(threadId) {
-      const rows = await loadMessages(threadId)
+      const request = parseRequest(threadRefRequest, { threadId })
+      const rows = await loadMessages(request.threadId)
       return rows.map(mapEmailMessage)
     },
 
@@ -117,34 +166,54 @@ export function createThreadsApi(ctx: EndpointContext): ThreadsApi {
         entityId: input.entityId,
         note: input.note ?? null,
       })
-      await ctx.http.callFunction('feedback', request, okSchema, { retry: false })
+      // `ACK` and nothing else: the signal is recorded and, for the two that
+      // have an immediate meaning, acted on. Parsing anything wider is how
+      // every "bu önemli değil" came back to the user as a failure.
+      await ctx.http.callFunction('feedback', request, ackResponse, { retry: false })
     },
 
     async suppress(threadId) {
-      const row = await ctx.db.updateOne<EmailThreadRow>('email_threads', threadId, {
+      const request = parseRequest(threadRefRequest, { threadId })
+      const row = await ctx.db.updateOne<EmailThreadRow>('email_threads', request.threadId, {
         suppressed_at: ctx.config.clock.now().toISOString(),
       })
       return mapEmailThread(row)
     },
 
     async markRead(threadId, isRead) {
-      const row = await ctx.db.updateOne<EmailThreadRow>('email_threads', threadId, {
-        is_read: isRead,
+      const request = parseRequest(threadsMarkReadRequest, { threadId, isRead })
+      const row = await ctx.db.updateOne<EmailThreadRow>('email_threads', request.threadId, {
+        is_read: request.isRead,
       })
       return mapEmailThread(row)
     },
 
     async detail(threadId) {
-      const threadRow = await loadThread(threadId)
+      const request = parseRequest(threadRefRequest, { threadId })
+      const threadRow = await loadThread(request.threadId)
       if (!threadRow) return null
       const [messageRows, commitmentRows, followUpRows] = await Promise.all([
-        loadMessages(threadId),
+        loadMessages(request.threadId),
+        // `commitments` names its origin in three columns, not in a `source`
+        // jsonb: asking for `source->>id` was a `42703` that failed the whole
+        // detail read, so every thread opened straight into its error state.
         ctx.db.selectMany<CommitmentRow>('commitments', {
-          filters: [{ column: 'source->>id', op: 'eq', value: threadId }],
+          filters: [
+            {
+              column: THREAD_COMMITMENT_SOURCE_TYPE_COLUMN,
+              op: 'eq',
+              value: THREAD_COMMITMENT_SOURCE_TYPE,
+            },
+            { column: THREAD_COMMITMENT_SOURCE_ID_COLUMN, op: 'eq', value: request.threadId },
+          ],
           order: { column: 'due_at', ascending: true },
         }),
+        // Only the follow-ups still waiting on this conversation: a `replied`
+        // or `closed` one shown as "henüz dönüş gelmedi" would be asking the
+        // user to chase a thread that has already ended.
         ctx.db.selectMany<FollowUpRow>('follow_ups', {
-          filters: [{ column: 'thread_id', op: 'eq', value: threadId }],
+          filters: [{ column: 'thread_id', op: 'eq', value: request.threadId }],
+          inFilter: { column: 'status', values: THREAD_LIVE_FOLLOW_UP_STATUSES },
           order: { column: 'due_at', ascending: true },
         }),
       ])

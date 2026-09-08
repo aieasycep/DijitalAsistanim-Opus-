@@ -423,14 +423,19 @@ export function mapLifeEvent(row: LifeEventRow): LifeEvent {
   }
 }
 
+/**
+ * The `stats` blob carries the domain's field names, so this is a narrowing
+ * rather than a rename — but it stays explicit, so a domain field that gains a
+ * sibling is a compile error here rather than an `undefined` on the screen.
+ */
 function mapBriefingStats(row: BriefingStatsRow): BriefingStats {
   return {
-    emailsAnalyzed: row.emails_analyzed,
-    importantCount: row.important_count,
-    meetingCount: row.meeting_count,
-    deadlineCount: row.deadline_count,
-    followUpCount: row.follow_up_count,
-    estimatedMinutesSaved: row.estimated_minutes_saved,
+    emailsAnalyzed: row.emailsAnalyzed,
+    importantCount: row.importantCount,
+    meetingCount: row.meetingCount,
+    deadlineCount: row.deadlineCount,
+    followUpCount: row.followUpCount,
+    estimatedMinutesSaved: row.estimatedMinutesSaved,
   }
 }
 

@@ -1,4 +1,4 @@
-import { generateBriefingRequestSchema } from '@da/validation'
+import { briefingGenerateRequest, type BriefingGenerateResponse } from '@da/validation'
 import { systemClock, toZonedParts } from '../_shared/domain.ts'
 import { audit } from '../_shared/audit.ts'
 import { dbError, loadUserContext, requireUser, serviceClient } from '../_shared/db.ts'
@@ -22,23 +22,41 @@ const PRO_KINDS = {
   weekly: 'weekly_review',
 } as const
 
+/** The `briefing_items` of one briefing, in reading order. */
+async function itemsOf(
+  client: ReturnType<typeof serviceClient>,
+  briefingId: string,
+): Promise<Record<string, unknown>[]> {
+  const items = await client
+    .from('briefing_items')
+    .select('*')
+    .eq('briefing_id', briefingId)
+    .order('position', { ascending: true })
+  if (items.error) throw dbError(items.error)
+  return items.data ?? []
+}
+
 /**
  * Generate a briefing.
  *
  * The midday pulse is the interesting case: it is only produced when the day's
  * inputs have actually changed since the last briefing. Sending an unchanged
  * pulse would be the fastest way to teach users to ignore the app.
+ *
+ * Deciding not to write one is a success, not a failure: a quiet day and an
+ * unchanged pulse both answer `status: 'skipped'` with the reason, and the
+ * caller renders that instead of an error.
  */
 serveFunction('briefing-generate', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, generateBriefingRequestSchema)
+  const body = await parseBody(request, briefingGenerateRequest)
   const now = systemClock.now()
   const profile = await loadUserContext(user.id)
   const client = serviceClient()
 
   const entitlements = await loadEntitlements(user.id, now)
-  const proFeature = PRO_KINDS[body.kind as keyof typeof PRO_KINDS]
-  if (proFeature) requireFeature(entitlements, proFeature)
+  // The morning briefing is in every plan; the other three are the Pro tier.
+  if (body.kind !== 'morning') requireFeature(entitlements, PRO_KINDS[body.kind])
 
   await consumeRateLimit(user.id, 'briefingGenerate')
   await checkAiBudget(user.id, entitlements, now)
@@ -65,7 +83,8 @@ serveFunction('briefing-generate', async ({ request, origin }) => {
       action: 'briefing.skipped',
       metadata: { kind: body.kind, reason: 'quiet_day' },
     })
-    return jsonResponse({ status: 'skipped', reason: 'quiet_day', briefing: null }, 200, origin)
+    const payload: BriefingGenerateResponse = { status: 'skipped', reason: 'quiet_day' }
+    return jsonResponse(payload, 200, origin)
   }
 
   const existing = await client
@@ -78,8 +97,18 @@ serveFunction('briefing-generate', async ({ request, origin }) => {
   if (existing.error) throw dbError(existing.error)
 
   if (existing.data?.status === 'ready' && !body.force) {
-    const full = await client.from('briefings').select('*').eq('id', existing.data.id).single()
-    return jsonResponse({ status: 'ready', reason: 'cached', briefing: full.data }, 200, origin)
+    const cachedId = existing.data.id as string
+    const full = await client.from('briefings').select('*').eq('id', cachedId).single()
+    if (full.error) throw dbError(full.error)
+    // A cached briefing without its items is a briefing with every section
+    // empty, which is how "already have one" used to read on the screen.
+    const payload: BriefingGenerateResponse = {
+      status: 'ready',
+      reason: 'cached',
+      briefing: full.data,
+      items: await itemsOf(client, cachedId),
+    }
+    return jsonResponse(payload, 200, origin)
   }
 
   const collected = await collectBriefingInputs(user.id, body.kind, forDate, profile.timeZone, now)
@@ -95,7 +124,9 @@ serveFunction('briefing-generate', async ({ request, origin }) => {
       .maybeSingle()
 
     if (collected.isEmpty || morning.data?.content_hash === collected.contentHash) {
-      await client.from('briefings').upsert(
+      // The hash is the whole point of this row: the next pulse compares
+      // against it, so a silent failure here would make every pulse "new".
+      const marked = await client.from('briefings').upsert(
         {
           user_id: user.id,
           kind: body.kind,
@@ -105,12 +136,14 @@ serveFunction('briefing-generate', async ({ request, origin }) => {
         },
         { onConflict: 'user_id,kind,for_date' },
       )
+      if (marked.error) throw dbError(marked.error)
       await audit({
         userId: user.id,
         action: 'briefing.skipped',
         metadata: { kind: body.kind, reason: 'no_change' },
       })
-      return jsonResponse({ status: 'skipped', reason: 'no_change', briefing: null }, 200, origin)
+      const payload: BriefingGenerateResponse = { status: 'skipped', reason: 'no_change' }
+      return jsonResponse(payload, 200, origin)
     }
   }
 
@@ -178,15 +211,12 @@ serveFunction('briefing-generate', async ({ request, origin }) => {
     metadata: { kind: body.kind, items: built.items.length },
   })
 
-  const items = await client
-    .from('briefing_items')
-    .select('*')
-    .eq('briefing_id', briefingId)
-    .order('position', { ascending: true })
+  const payload: BriefingGenerateResponse = {
+    status: 'ready',
+    reason: 'generated',
+    briefing: saved.data,
+    items: await itemsOf(client, briefingId),
+  }
 
-  return jsonResponse(
-    { status: 'ready', reason: null, briefing: saved.data, items: items.data ?? [] },
-    200,
-    origin,
-  )
+  return jsonResponse(payload, 200, origin)
 })

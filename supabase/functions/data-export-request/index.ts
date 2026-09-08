@@ -1,3 +1,4 @@
+import type { DataExportRequestResponse } from '@da/validation'
 import { systemClock } from '../_shared/domain.ts'
 import { audit } from '../_shared/audit.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
@@ -60,7 +61,9 @@ serveFunction('data-export-request', async ({ request, origin }) => {
   const requestId = created.data.id as string
 
   try {
-    const payload: Record<string, unknown> = {
+    // The file the user downloads, which is a different thing from the answer
+    // this endpoint gives about it.
+    const archive: Record<string, unknown> = {
       exportedAt: now.toISOString(),
       userId: user.id,
       note: 'Bu dosya hesabına ait verilerin dışa aktarımıdır. Sağlayıcı erişim anahtarları (OAuth token) güvenlik nedeniyle dahil edilmez.',
@@ -70,18 +73,21 @@ serveFunction('data-export-request', async ({ request, origin }) => {
       const column = table === 'profiles' ? 'id' : 'user_id'
       const { data, error } = await client.from(table).select('*').eq(column, user.id).limit(5000)
       if (error) throw dbError(error)
-      payload[table] = data ?? []
+      archive[table] = data ?? []
     }
 
     const path = `${user.id}/export-${now.toISOString().slice(0, 10)}-${requestId}.json`
-    const serialised = JSON.stringify(payload, null, 2)
+    const serialised = JSON.stringify(archive, null, 2)
     await uploadBytes(EXPORTS_BUCKET, path, serialised, 'application/json')
 
     // Short-lived by design: an export link that lived forever would outlast
     // the user's control of wherever they pasted it.
     const expiresAt = new Date(now.getTime() + 7 * 86_400_000).toISOString()
 
-    await client
+    // Checked, not fired and forgotten: an unwritten row would leave the
+    // status endpoint reporting `processing` forever over a file that is
+    // already sitting in the bucket, and this response would say `ready`.
+    const marked = await client
       .from('data_export_requests')
       .update({
         status: 'ready',
@@ -91,6 +97,7 @@ serveFunction('data-export-request', async ({ request, origin }) => {
         expires_at: expiresAt,
       })
       .eq('id', requestId)
+    if (marked.error) throw dbError(marked.error)
 
     await audit({
       userId: user.id,
@@ -100,16 +107,16 @@ serveFunction('data-export-request', async ({ request, origin }) => {
       metadata: { tables: EXPORTED_TABLES.length },
     })
 
-    return jsonResponse(
-      {
+    const payload: DataExportRequestResponse = {
+      export: {
         requestId,
         status: 'ready',
         downloadUrl: await signedDownloadUrl(EXPORTS_BUCKET, path, 3600),
         expiresAt,
       },
-      200,
-      origin,
-    )
+    }
+
+    return jsonResponse(payload, 200, origin)
   } catch (error) {
     await client
       .from('data_export_requests')

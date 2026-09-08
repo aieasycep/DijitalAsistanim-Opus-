@@ -1,6 +1,10 @@
-import { isoInstantSchema, uuidSchema } from '@da/validation'
-import { z } from 'zod'
-import { rowOf } from '../http'
+import {
+  meetingNoteRequest,
+  meetingNoteResponse,
+  meetingPrepRequest,
+  meetingPrepResponse,
+} from '@da/validation'
+import { parseRequest } from '../http'
 import { mapCalendarEvent, mapCommitment } from '../mappers'
 import type {
   CalendarEventRow,
@@ -11,70 +15,59 @@ import type {
   PostMeetingNoteResult,
 } from '../types'
 
-const meetingPrepResponseSchema = z.object({
-  eventId: uuidSchema,
-  event: rowOf<CalendarEventRow>(),
-  summary: z.string(),
-  agenda: z.array(z.string()).default([]),
-  attendees: z
-    .array(
-      z.object({
-        email: z.string(),
-        name: z.string().nullable(),
-        company: z.string().nullable(),
-        role: z.string().nullable(),
-        isVip: z.boolean(),
-        lastContactAt: isoInstantSchema.nullable(),
-        recentContext: z.string().nullable(),
-      }),
-    )
-    .default([]),
-  openCommitments: z.array(rowOf<CommitmentRow>()).default([]),
-  relatedThreadIds: z.array(uuidSchema).default([]),
-  suggestedQuestions: z.array(z.string()).default([]),
-})
+/**
+ * Rows the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around them and leaves the rows themselves
+ * permissive — adding a column must not require a contract change — so the
+ * mapper is what narrows a row into a domain entity.
+ */
+function asRow<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
-const postMeetingNoteResponseSchema = z.object({
-  commitments: z.array(rowOf<CommitmentRow>()).default([]),
-  createdApprovalIds: z.array(uuidSchema).default([]),
-})
+function rowsOf<T>(values: readonly Record<string, unknown>[]): T[] {
+  return values as unknown as T[]
+}
 
 export interface MeetingsApi {
   prep(eventId: string): Promise<MeetingPrepBrief>
-  /** Turns a note into commitments and proposals — all of them pending approval. */
+  /** Turns a note into the commitments it states, each quoted from the note. */
   postMeetingNote(input: PostMeetingNoteInput): Promise<PostMeetingNoteResult>
 }
 
 export function createMeetingsApi(ctx: EndpointContext): MeetingsApi {
   return {
     async prep(eventId) {
-      const result = await ctx.http.callFunction(
-        'meeting-prep',
-        { eventId },
-        meetingPrepResponseSchema,
-        { timeoutMs: 45_000 },
-      )
+      const request = parseRequest(meetingPrepRequest, { eventId })
+      const result = await ctx.http.callFunction('meeting-prep', request, meetingPrepResponse, {
+        timeoutMs: 45_000,
+      })
       return {
         eventId: result.eventId,
-        event: mapCalendarEvent(result.event),
+        event: mapCalendarEvent(asRow<CalendarEventRow>(result.event)),
         summary: result.summary,
         agenda: result.agenda,
         attendees: result.attendees,
-        openCommitments: result.openCommitments.map(mapCommitment),
+        openCommitments: rowsOf<CommitmentRow>(result.openCommitments).map(mapCommitment),
         relatedThreadIds: result.relatedThreadIds,
         suggestedQuestions: result.suggestedQuestions,
       }
     },
 
     async postMeetingNote(input) {
-      const result = await ctx.http.callFunction(
-        'meeting-note',
-        { eventId: input.eventId, note: input.note },
-        postMeetingNoteResponseSchema,
-        { retry: false, timeoutMs: 45_000 },
-      )
+      const request = parseRequest(meetingNoteRequest, {
+        eventId: input.eventId,
+        note: input.note,
+      })
+      // Not retried: a second attempt would race the first one's inserts, and
+      // a note the user waited on is better reported than silently doubled.
+      const result = await ctx.http.callFunction('meeting-note', request, meetingNoteResponse, {
+        retry: false,
+        timeoutMs: 45_000,
+      })
       return {
-        commitments: result.commitments.map(mapCommitment),
+        commitments: rowsOf<CommitmentRow>(result.commitments).map(mapCommitment),
         createdApprovalIds: result.createdApprovalIds,
       }
     },

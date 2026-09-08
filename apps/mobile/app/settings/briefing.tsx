@@ -10,14 +10,14 @@ import { FilterChip, Toggle } from '../../src/components/ui/Controls'
 import { Divider, ListRow } from '../../src/components/ui/Layout'
 import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
-import { SkeletonCard } from '../../src/components/ui/States'
+import { ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { Text } from '../../src/components/ui/Text'
 import { TimeField } from '../../src/components/ui/TimeField'
 import { usePreferences } from '../../src/hooks/queries'
 import { useEntitlements } from '../../src/hooks/useEntitlements'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
 import { track } from '../../src/lib/analytics'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0]
@@ -50,11 +50,31 @@ export default function BriefingSettingsScreen() {
 
   const prefs = query.data
 
-  if (!prefs) {
+  if (query.isLoading && !prefs) {
     return (
       <Screen>
         <ScreenHeader title={t('settings.briefing.title')} />
         <SkeletonCard />
+      </Screen>
+    )
+  }
+
+  // Every control on this screen writes a field of the preferences row, so
+  // without one there is nothing to toggle and a rendered toggle would be a
+  // control that looks live and does nothing. This branch used to fall through
+  // to the skeleton, so a query that had already failed shimmered forever.
+  if (!prefs) {
+    const canRetry = !query.isError || isRetryable(query.error)
+    return (
+      <Screen>
+        <ScreenHeader title={t('settings.briefing.title')} />
+        <ErrorState
+          message={query.isError ? t(errorMessageKey(query.error)) : t('errors.not_found')}
+          {...(canRetry
+            ? { retryLabel: t('common.action.retry'), onRetry: () => void query.refetch() }
+            : {})}
+          testID="briefing-settings-error"
+        />
       </Screen>
     )
   }

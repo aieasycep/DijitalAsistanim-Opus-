@@ -1,11 +1,23 @@
 import type { PushToken } from '@da/domain'
-import { registerPushTokenRequestSchema } from '@da/validation'
-import { z } from 'zod'
-import { okSchema, parseRequest, rowOf } from '../http'
+import {
+  ackResponse,
+  pushTokenRegisterRequest,
+  pushTokenRegisterResponse,
+  pushTokenUnregisterRequest,
+} from '@da/validation'
+import { parseRequest } from '../http'
 import { mapPushToken } from '../mappers'
 import type { EndpointContext, PushTokenRow } from '../types'
 
-const pushTokenEnvelopeSchema = z.object({ pushToken: rowOf<PushTokenRow>() })
+/**
+ * A row the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around it — that is what drifts — and leaves
+ * the row permissive, so the mapper is what narrows it into a domain entity.
+ */
+function rowOf<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
 export interface RegisterPushTokenInput {
   token: string
@@ -23,7 +35,7 @@ export interface NotificationsApi {
 export function createNotificationsApi(ctx: EndpointContext): NotificationsApi {
   return {
     async registerToken(input) {
-      const request = parseRequest(registerPushTokenRequestSchema, {
+      const request = parseRequest(pushTokenRegisterRequest, {
         token: input.token,
         platform: input.platform,
         deviceId: input.deviceId,
@@ -33,16 +45,18 @@ export function createNotificationsApi(ctx: EndpointContext): NotificationsApi {
       const result = await ctx.http.callFunction(
         'push-token-register',
         request,
-        pushTokenEnvelopeSchema,
+        pushTokenRegisterResponse,
+        // The upsert is keyed on the device, so a retry would be harmless —
+        // but a token that failed to register once is registered again by the
+        // next launch anyway, and retrying here only delays that.
         { retry: false },
       )
-      return mapPushToken(result.pushToken)
+      return mapPushToken(rowOf<PushTokenRow>(result.pushToken))
     },
 
     async unregisterToken(input) {
-      await ctx.http.callFunction('push-token-unregister', { deviceId: input.deviceId }, okSchema, {
-        retry: false,
-      })
+      const request = parseRequest(pushTokenUnregisterRequest, { deviceId: input.deviceId })
+      await ctx.http.callFunction('push-token-unregister', request, ackResponse, { retry: false })
     },
   }
 }

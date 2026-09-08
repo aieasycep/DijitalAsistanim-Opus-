@@ -182,33 +182,40 @@ export default function EventScreen() {
             </Text>
           ) : (
             <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
-              {externalAttendees.map((attendee, index) => (
-                <View key={attendee.email}>
-                  {index > 0 ? <Divider inset={44} /> : null}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: spacing.sm,
-                      paddingVertical: spacing.sm,
-                    }}
-                  >
-                    <Avatar name={attendee.name ?? attendee.email} size={32} />
-                    <View style={{ flex: 1 }}>
-                      <Text variant="body" numberOfLines={1}>
-                        {attendee.name ?? attendee.email}
-                      </Text>
-                      <Text variant="micro" tone="tertiary" numberOfLines={1}>
-                        {attendee.isOrganizer ? t('calendar.event.organizer') : attendee.email}
-                      </Text>
+              {externalAttendees.map((attendee, index) => {
+                // A provider may invite a room or a resource that has no
+                // address at all, so the contract lets `email` be empty and the
+                // row names whoever it can rather than rendering a blank line.
+                const name = attendee.name ?? attendee.email
+                const label = name === '' ? t('meeting.attendees.unknown') : name
+                return (
+                  <View key={`${attendee.email}-${index}`}>
+                    {index > 0 ? <Divider inset={44} /> : null}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                        paddingVertical: spacing.sm,
+                      }}
+                    >
+                      <Avatar name={label} size={32} />
+                      <View style={{ flex: 1 }}>
+                        <Text variant="body" numberOfLines={1}>
+                          {label}
+                        </Text>
+                        <Text variant="micro" tone="tertiary" numberOfLines={1}>
+                          {attendee.isOrganizer ? t('calendar.event.organizer') : attendee.email}
+                        </Text>
+                      </View>
+                      <Badge
+                        label={t(RSVP_LABEL[attendee.responseStatus])}
+                        tone={RESPONSE_TONE[attendee.responseStatus]}
+                      />
                     </View>
-                    <Badge
-                      label={t(RSVP_LABEL[attendee.responseStatus])}
-                      tone={RESPONSE_TONE[attendee.responseStatus]}
-                    />
                   </View>
-                </View>
-              ))}
+                )
+              })}
             </Card>
           )}
         </View>

@@ -6,19 +6,30 @@ import type {
   SourceType,
 } from '@da/domain'
 import {
-  approvalResultSchema,
-  createApprovalRequestSchema,
-  decideApprovalRequestSchema,
+  approvalCreateRequest,
+  approvalCreateResponse,
+  approvalDecideRequest,
+  approvalDecideResponse,
+  approvalRetryRequest,
+  approvalRetryResponse,
+  type ApprovalExecutionResult,
 } from '@da/validation'
-import { z } from 'zod'
-import { parseRequest, rowOf } from '../http'
+import { parseRequest } from '../http'
 import { mapApprovalAction } from '../mappers'
 import type { Filter } from '../supabase'
 import type { ApprovalActionRow, EndpointContext } from '../types'
 
-const approvalEnvelopeSchema = z.object({ approval: rowOf<ApprovalActionRow>() })
+/**
+ * A row the function already selected and RLS already scoped. The contract
+ * pins the envelope around it and leaves the row permissive, so the mapper is
+ * what narrows it into a domain entity.
+ */
+function rowOf<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
-export type ApprovalResult = z.infer<typeof approvalResultSchema>
+/** What an approve, a reject or a retry produced. */
+export type ApprovalResult = ApprovalExecutionResult
 
 export interface CreateApprovalInput {
   type: ApprovalActionType
@@ -67,7 +78,7 @@ export function createApprovalsApi(ctx: EndpointContext): ApprovalsApi {
     },
 
     async create(input) {
-      const request = parseRequest(createApprovalRequestSchema, {
+      const request = parseRequest(approvalCreateRequest, {
         type: input.type,
         what: input.what,
         why: input.why,
@@ -79,27 +90,28 @@ export function createApprovalsApi(ctx: EndpointContext): ApprovalsApi {
       const result = await ctx.http.callFunction(
         'approval-create',
         request,
-        approvalEnvelopeSchema,
+        approvalCreateResponse,
         { retry: false },
       )
-      return mapApprovalAction(result.approval)
+      return mapApprovalAction(rowOf<ApprovalActionRow>(result.approval))
     },
 
     async decide(input) {
-      const request = parseRequest(decideApprovalRequestSchema, {
+      const request = parseRequest(approvalDecideRequest, {
         approvalId: input.approvalId,
         decision: input.decision,
         ...(input.editedPayload ? { editedPayload: input.editedPayload } : {}),
       })
       // Never retried automatically: the server's idempotency key owns that call.
-      return ctx.http.callFunction('approval-decide', request, approvalResultSchema, {
+      return ctx.http.callFunction('approval-decide', request, approvalDecideResponse, {
         retry: false,
         timeoutMs: 45_000,
       })
     },
 
     async retry(approvalId) {
-      return ctx.http.callFunction('approval-retry', { approvalId }, approvalResultSchema, {
+      const request = parseRequest(approvalRetryRequest, { approvalId })
+      return ctx.http.callFunction('approval-retry', request, approvalRetryResponse, {
         retry: false,
         timeoutMs: 45_000,
       })

@@ -6,21 +6,46 @@ import {
   type IsoDate,
 } from '@da/domain'
 import {
-  briefingAudioRequestSchema,
-  briefingAudioResponseSchema,
-  generateBriefingRequestSchema,
+  briefingAudioRequest,
+  briefingAudioResponse,
+  briefingGenerateRequest,
+  briefingGenerateResponse,
+  type BriefingAudioResponse,
+  type BriefingReadyReason,
+  type BriefingSkipReason,
 } from '@da/validation'
-import { z } from 'zod'
-import { parseRequest, rowOf } from '../http'
+import { parseRequest } from '../http'
 import { mapBriefing, mapBriefingItem } from '../mappers'
 import type { BriefingItemRow, BriefingRow, BriefingWithItems, EndpointContext } from '../types'
 
-const briefingEnvelopeSchema = z.object({
-  briefing: rowOf<BriefingRow>(),
-  items: z.array(rowOf<BriefingItemRow>()).default([]),
-})
+/**
+ * Rows the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around them and leaves the rows themselves
+ * permissive — adding a column must not require a contract change — so the
+ * mapper is what narrows a row into a domain entity.
+ */
+function rowAs<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
-export type BriefingAudio = z.infer<typeof briefingAudioResponseSchema>
+function rowsAs<T>(values: readonly Record<string, unknown>[]): T[] {
+  return values as unknown as T[]
+}
+
+export type BriefingAudio = BriefingAudioResponse
+
+/**
+ * What asking for a briefing produced.
+ *
+ * Not writing one is one of the answers: a quiet day, or a midday pulse with
+ * nothing new to add. The reason travels with it so the screen can say which,
+ * and the union means a caller cannot read a briefing out of an answer that
+ * does not carry one.
+ */
+export type BriefingGenerateResult =
+  | ({ status: 'ready'; reason: BriefingReadyReason } & BriefingWithItems)
+  | { status: 'skipped'; reason: BriefingSkipReason }
 
 export interface BriefingsApi {
   get(input: {
@@ -33,7 +58,7 @@ export interface BriefingsApi {
     kind: BriefingKind
     forDate?: IsoDate
     force?: boolean
-  }): Promise<BriefingWithItems>
+  }): Promise<BriefingGenerateResult>
   /** Server TTS when configured; otherwise the device speaks `ssmlOrText`. */
   requestAudio(input: {
     briefingId: string
@@ -72,7 +97,7 @@ export function createBriefingsApi(ctx: EndpointContext): BriefingsApi {
     },
 
     async generate(input) {
-      const request = parseRequest(generateBriefingRequestSchema, {
+      const request = parseRequest(briefingGenerateRequest, {
         kind: input.kind,
         ...(input.forDate ? { forDate: input.forDate } : {}),
         force: input.force ?? false,
@@ -80,19 +105,25 @@ export function createBriefingsApi(ctx: EndpointContext): BriefingsApi {
       const result = await ctx.http.callFunction(
         'briefing-generate',
         request,
-        briefingEnvelopeSchema,
+        briefingGenerateResponse,
         { retry: false, timeoutMs: 60_000 },
       )
-      return { briefing: mapBriefing(result.briefing), items: result.items.map(mapBriefingItem) }
+      if (result.status === 'skipped') return { status: 'skipped', reason: result.reason }
+      return {
+        status: 'ready',
+        reason: result.reason,
+        briefing: mapBriefing(rowAs<BriefingRow>(result.briefing)),
+        items: rowsAs<BriefingItemRow>(result.items).map(mapBriefingItem),
+      }
     },
 
     async requestAudio(input) {
-      const request = parseRequest(briefingAudioRequestSchema, {
+      const request = parseRequest(briefingAudioRequest, {
         briefingId: input.briefingId,
         voice: input.voice ?? null,
         speed: input.speed ?? 1,
       })
-      return ctx.http.callFunction('briefing-audio', request, briefingAudioResponseSchema, {
+      return ctx.http.callFunction('briefing-audio', request, briefingAudioResponse, {
         timeoutMs: 45_000,
       })
     },

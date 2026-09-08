@@ -1,7 +1,6 @@
 import { DEFAULT_TIME_ZONE, toIsoDate, type IsoDate } from '@da/domain'
-import { isoDateSchema, isoInstantSchema } from '@da/validation'
-import { z } from 'zod'
-import { rowOf } from '../http'
+import { todayFeedRequest, todayFeedResponse } from '@da/validation'
+import { parseRequest } from '../http'
 import {
   mapApprovalAction,
   mapBriefing,
@@ -25,18 +24,20 @@ import type {
   TodayFeed,
 } from '../types'
 
-const todayResponseSchema = z.object({
-  forDate: isoDateSchema,
-  generatedAt: isoInstantSchema,
-  briefing: rowOf<BriefingRow>().nullable(),
-  briefingItems: z.array(rowOf<BriefingItemRow>()).default([]),
-  insights: z.array(rowOf<InsightRow>()).default([]),
-  events: z.array(rowOf<CalendarEventRow>()).default([]),
-  commitments: z.array(rowOf<CommitmentRow>()).default([]),
-  followUps: z.array(rowOf<FollowUpRow>()).default([]),
-  lifeEvents: z.array(rowOf<LifeEventRow>()).default([]),
-  pendingApprovals: z.array(rowOf<ApprovalActionRow>()).default([]),
-})
+/**
+ * Rows the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around them and leaves the rows themselves
+ * permissive — adding a column must not require a contract change — so the
+ * mapper is what narrows a row into a domain entity.
+ */
+function rowsOf<T>(values: readonly Record<string, unknown>[]): T[] {
+  return values as unknown as T[]
+}
+
+function rowOf<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
 export interface TodayApi {
   get(input?: { forDate?: IsoDate; timeZone?: string }): Promise<TodayFeed>
@@ -50,23 +51,22 @@ export function createTodayApi(ctx: EndpointContext): TodayApi {
   return {
     async get(input = {}) {
       const timeZone = input.timeZone ?? DEFAULT_TIME_ZONE
-      const forDate = input.forDate ?? toIsoDate(ctx.config.clock.now(), timeZone)
-      const result = await ctx.http.callFunction(
-        'today-feed',
-        { forDate, timeZone },
-        todayResponseSchema,
-      )
+      const request = parseRequest(todayFeedRequest, {
+        forDate: input.forDate ?? toIsoDate(ctx.config.clock.now(), timeZone),
+        timeZone,
+      })
+      const result = await ctx.http.callFunction('today-feed', request, todayFeedResponse)
       return {
         forDate: result.forDate,
         generatedAt: result.generatedAt,
-        briefing: result.briefing ? mapBriefing(result.briefing) : null,
-        briefingItems: result.briefingItems.map(mapBriefingItem),
-        insights: result.insights.map(mapInsight),
-        events: result.events.map(mapCalendarEvent),
-        commitments: result.commitments.map(mapCommitment),
-        followUps: result.followUps.map(mapFollowUp),
-        lifeEvents: result.lifeEvents.map(mapLifeEvent),
-        pendingApprovals: result.pendingApprovals.map(mapApprovalAction),
+        briefing: result.briefing ? mapBriefing(rowOf<BriefingRow>(result.briefing)) : null,
+        briefingItems: rowsOf<BriefingItemRow>(result.briefingItems).map(mapBriefingItem),
+        insights: rowsOf<InsightRow>(result.insights).map(mapInsight),
+        events: rowsOf<CalendarEventRow>(result.events).map(mapCalendarEvent),
+        commitments: rowsOf<CommitmentRow>(result.commitments).map(mapCommitment),
+        followUps: rowsOf<FollowUpRow>(result.followUps).map(mapFollowUp),
+        lifeEvents: rowsOf<LifeEventRow>(result.lifeEvents).map(mapLifeEvent),
+        pendingApprovals: rowsOf<ApprovalActionRow>(result.pendingApprovals).map(mapApprovalAction),
       }
     },
 

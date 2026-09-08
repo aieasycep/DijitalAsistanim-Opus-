@@ -1,11 +1,11 @@
 import type { AssistantMessage, AssistantThread, Locale } from '@da/domain'
 import {
-  assistantAskRequestSchema,
-  assistantAskResponseSchema,
-  transcribeRequestSchema,
-  transcribeResponseSchema,
+  assistantAskRequest,
+  assistantAskResponse,
+  transcribeRequest,
+  transcribeResponse,
+  type TranscribeResponse,
 } from '@da/validation'
-import type { z } from 'zod'
 import { parseRequest } from '../http'
 import { mapAssistantMessage, mapAssistantThread } from '../mappers'
 import type {
@@ -15,7 +15,8 @@ import type {
   EndpointContext,
 } from '../types'
 
-export type Transcription = z.infer<typeof transcribeResponseSchema>
+/** Voice in, text out. The transcript is all that survives the round trip. */
+export type Transcription = TranscribeResponse
 
 export interface AssistantAskInput {
   threadId?: string | null
@@ -37,26 +38,23 @@ export interface AssistantApi {
 
 export function createAssistantApi(ctx: EndpointContext): AssistantApi {
   return {
+    /**
+     * The answer is returned as the contract parsed it, not field by field: a
+     * hand-copied envelope is a second definition, and copying it here is how
+     * the two sides drifted in the first place. The `AssistantAnswer` return
+     * type is what makes a contract change that the app cannot consume a
+     * compile error rather than an empty bubble.
+     */
     async ask(input) {
-      const request = parseRequest(assistantAskRequestSchema, {
+      const request = parseRequest(assistantAskRequest, {
         threadId: input.threadId ?? null,
         question: input.question,
         wasVoice: input.wasVoice ?? false,
       })
-      const result = await ctx.http.callFunction(
-        'assistant-ask',
-        request,
-        assistantAskResponseSchema,
-        { retry: false, timeoutMs: 60_000 },
-      )
-      return {
-        threadId: result.threadId,
-        messageId: result.messageId,
-        answer: result.answer,
-        citations: result.citations,
-        proposedApprovalId: result.proposedApprovalId,
-        grounded: result.grounded,
-      }
+      return ctx.http.callFunction('assistant-ask', request, assistantAskResponse, {
+        retry: false,
+        timeoutMs: 60_000,
+      })
     },
 
     async threads(input = {}) {
@@ -76,12 +74,12 @@ export function createAssistantApi(ctx: EndpointContext): AssistantApi {
     },
 
     async transcribe(input) {
-      const request = parseRequest(transcribeRequestSchema, {
+      const request = parseRequest(transcribeRequest, {
         audioBase64: input.audioBase64,
         mimeType: input.mimeType,
         locale: input.locale ?? 'tr',
       })
-      return ctx.http.callFunction('transcribe', request, transcribeResponseSchema, {
+      return ctx.http.callFunction('transcribe', request, transcribeResponse, {
         retry: false,
         timeoutMs: 45_000,
       })

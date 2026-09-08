@@ -1,4 +1,4 @@
-import { redeemReferralRequestSchema } from '@da/validation'
+import { referralRedeemRequest, type ReferralRedeemResponse } from '@da/validation'
 import {
   evaluateReferralRedemption,
   normalizeReferralCode,
@@ -15,11 +15,13 @@ import { consumeRateLimit } from '../_shared/limits.ts'
  * Every eligibility rule is evaluated server-side against real counts, so the
  * abuse cases the client cannot be trusted on — self-referral, a second
  * redemption, an old account claiming to be new — are all decided here.
- * A rejection is a normal 200 with a reason, not an error.
+ * A rejection is a normal 200 carrying the decision's own reason, which is
+ * what `referralRedeemResponse` splits the answer on: a grant always has days
+ * and an expiry, a refusal always names why.
  */
 serveFunction('referral-redeem', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, redeemReferralRequestSchema)
+  const body = await parseBody(request, referralRedeemRequest)
   await consumeRateLimit(user.id, 'referralRedeem')
 
   const now = systemClock.now()
@@ -37,6 +39,9 @@ serveFunction('referral-redeem', async ({ request, origin }) => {
 
   if (owner.error) throw dbError(owner.error)
   if (priorRedemptions.error) throw dbError(priorRedemptions.error)
+  // A failed profile read must not be read as "this account was created just
+  // now": the fallback below would then make every account eligible.
+  if (profile.error) throw dbError(profile.error)
 
   const decision = evaluateReferralRedemption({
     code,
@@ -54,11 +59,13 @@ serveFunction('referral-redeem', async ({ request, origin }) => {
       action: 'referral.rejected',
       metadata: { reason: decision.reason },
     })
-    return jsonResponse(
-      { granted: false, bonusDays: 0, expiresAt: null, reason: decision.reason },
-      200,
-      origin,
-    )
+    const refused: ReferralRedeemResponse = {
+      granted: false,
+      bonusDays: 0,
+      expiresAt: null,
+      reason: decision.reason,
+    }
+    return jsonResponse(refused, 200, origin)
   }
 
   const referrerId = owner.data?.user_id as string
@@ -88,16 +95,23 @@ serveFunction('referral-redeem', async ({ request, origin }) => {
 
   if (error) {
     if (error.code === '23505') {
-      return jsonResponse(
-        { granted: false, bonusDays: 0, expiresAt: null, reason: 'already_redeemed' },
-        200,
-        origin,
-      )
+      const duplicate: ReferralRedeemResponse = {
+        granted: false,
+        bonusDays: 0,
+        expiresAt: null,
+        reason: 'already_redeemed',
+      }
+      return jsonResponse(duplicate, 200, origin)
     }
     throw dbError(error)
   }
 
-  await client
+  // The credits are granted at this point, so a failure to move the referrer's
+  // counter cannot be reported as a failed redemption — the person would be
+  // told their bonus did not arrive over an account that already has it. It is
+  // recorded on the audit row instead, which is where "why is this count low?"
+  // is answered.
+  const counted = await client
     .from('referrals')
     .update({ redemption_count: ((owner.data?.redemption_count as number | null) ?? 0) + 1 })
     .eq('code', code)
@@ -105,12 +119,15 @@ serveFunction('referral-redeem', async ({ request, origin }) => {
   await audit({
     userId: user.id,
     action: 'referral.redeemed',
-    metadata: { bonus_days: decision.bonusDays },
+    metadata: { bonus_days: decision.bonusDays, counter_updated: counted.error === null },
   })
 
-  return jsonResponse(
-    { granted: true, bonusDays: decision.bonusDays, expiresAt: decision.expiresAt, reason: null },
-    200,
-    origin,
-  )
+  const granted: ReferralRedeemResponse = {
+    granted: true,
+    bonusDays: decision.bonusDays,
+    expiresAt: decision.expiresAt,
+    reason: null,
+  }
+
+  return jsonResponse(granted, 200, origin)
 })

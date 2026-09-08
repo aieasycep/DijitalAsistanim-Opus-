@@ -1,4 +1,3 @@
-import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
 import {
   type CommitmentDirection,
@@ -7,7 +6,7 @@ import {
   addLocalDays,
 } from '@da/domain'
 import { formatFullDate } from '@da/i18n'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { KeyboardAvoidingView, Platform, View } from 'react-native'
@@ -18,6 +17,7 @@ import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
 import { Text } from '../../src/components/ui/Text'
 import { TextField } from '../../src/components/ui/TextField'
+import { useInvalidateAfterWrite } from '../../src/hooks/queries'
 import { useUserContext } from '../../src/hooks/useUserContext'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
 import { errorMessageKey } from '../../src/lib/query-client'
@@ -38,7 +38,7 @@ export default function NewCommitmentScreen() {
   const { locale } = useI18n()
   const router = useRouter()
   const api = useApi()
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateAfterWrite()
   const { timeZone } = useUserContext()
 
   const [text, setText] = useState('')
@@ -62,7 +62,9 @@ export default function NewCommitmentScreen() {
         quote: text.trim(),
       }),
     onSuccess: async (commitment) => {
-      await queryClient.invalidateQueries({ queryKey: qk.commitments() })
+      // A promise due today belongs on the Today feed and the plan as well as
+      // in the list, so every surface that reads commitments is refreshed.
+      await invalidate()
       router.replace(`/commitment/${commitment.id}`)
     },
   })

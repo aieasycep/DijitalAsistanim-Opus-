@@ -1,5 +1,6 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
+import { AppError } from '@da/domain'
 import { formatMoney } from '@da/i18n'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,6 +10,7 @@ import { View } from 'react-native'
 import { Badge } from '../src/components/ui/Badge'
 import { Button } from '../src/components/ui/Button'
 import { Card } from '../src/components/ui/Card'
+import { Pressable } from '../src/components/ui/Pressable'
 import { Screen } from '../src/components/ui/Screen'
 import { ScreenHeader } from '../src/components/ui/ScreenHeader'
 import { Text } from '../src/components/ui/Text'
@@ -76,19 +78,21 @@ export default function PaywallScreen() {
   const chosen =
     selected ?? packages.find((pkg) => pkg.period === 'annual')?.id ?? packages[0]?.id ?? null
 
-  const syncEntitlement = useCallback(
-    async (customerId: string | null) => {
-      await api.subscription.refresh(customerId ? { revenueCatCustomerId: customerId } : {})
-      await queryClient.invalidateQueries({ queryKey: qk.subscription() })
-    },
-    [api, queryClient],
-  )
+  /**
+   * Pull the server's own view of the entitlement down after the store has
+   * acted. The store's answer decides whether to dismiss this screen; the
+   * server's answer decides what the rest of the app unlocks.
+   */
+  const syncEntitlement = useCallback(async () => {
+    await api.subscription.refresh()
+    await queryClient.invalidateQueries({ queryKey: qk.subscription() })
+  }, [api, queryClient])
 
   const buy = useMutation({
     mutationFn: async () => {
-      if (!chosen) throw new Error('no package selected')
+      if (!chosen) throw new AppError('subscription_error', { detail: 'no package selected' })
       const result = await purchase(chosen)
-      await syncEntitlement(result.customerId)
+      await syncEntitlement()
       return result
     },
     onSuccess: (result) => {
@@ -102,7 +106,7 @@ export default function PaywallScreen() {
   const restoreMutation = useMutation({
     mutationFn: async () => {
       const result = await restore()
-      await syncEntitlement(result.customerId)
+      await syncEntitlement()
       return result
     },
     onSuccess: (result) => {
@@ -123,8 +127,13 @@ export default function PaywallScreen() {
           <Text variant="h1" accessibilityRole="header">
             {t('paywall.headline')}
           </Text>
+          {/* `paywall.lock.body` interpolates the feature's name, and nothing
+              here has one to give — an unfilled placeholder is left intact by
+              design, so arriving from a gate used to read literally as
+              "{feature} için Pro plana geçmen gerekiyor". `lock.title` says the
+              same thing and needs no value. */}
           <Text variant="body" tone="secondary">
-            {params.source ? t('paywall.lock.body') : t('paywall.subtitle')}
+            {params.source ? t('paywall.lock.title') : t('paywall.subtitle')}
           </Text>
         </View>
 
@@ -154,38 +163,48 @@ export default function PaywallScreen() {
               const isSelected = chosen === pkg.id
               const perMonth = pkg.period === 'annual' ? pkg.price / 12 : pkg.price
               return (
-                <Card
+                // The choice is announced, not just tinted: `selected` is what a
+                // screen reader reads out, and the check mark is what someone
+                // who cannot separate the two backgrounds sees.
+                <Pressable
                   key={pkg.id}
                   onPress={() => setSelected(pkg.id)}
+                  scaleOnPress={false}
                   accessibilityLabel={`${t(`paywall.plan.${pkg.period}`)} ${pkg.priceString}`}
-                  tone={isSelected ? 'primary' : 'surface'}
-                  style={{ gap: spacing.xxs }}
+                  accessibilityState={{ selected: isSelected }}
                   testID={`paywall-plan-${pkg.period}`}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                    <Text variant="bodyStrong" style={{ flex: 1 }}>
-                      {t(`paywall.plan.${pkg.period}`)}
+                  <Card tone={isSelected ? 'primary' : 'surface'} style={{ gap: spacing.xxs }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                      <MaterialIcons
+                        name={isSelected ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={isSelected ? theme.colors.primary : theme.colors.textTertiary}
+                      />
+                      <Text variant="bodyStrong" style={{ flex: 1 }}>
+                        {t(`paywall.plan.${pkg.period}`)}
+                      </Text>
+                      {pkg.period === 'annual' ? (
+                        <Badge label={t('paywall.plan.recommended')} tone="primary" />
+                      ) : null}
+                    </View>
+                    <Text variant="h3" tabular>
+                      {pkg.priceString}
                     </Text>
                     {pkg.period === 'annual' ? (
-                      <Badge label={t('paywall.plan.recommended')} tone="primary" />
+                      <Text variant="micro" tone="tertiary">
+                        {t('paywall.price.annualPerMonth', {
+                          price: formatMoney(perMonth, pkg.currencyCode, locale),
+                        })}
+                      </Text>
                     ) : null}
-                  </View>
-                  <Text variant="h3" tabular>
-                    {pkg.priceString}
-                  </Text>
-                  {pkg.period === 'annual' ? (
-                    <Text variant="micro" tone="tertiary">
-                      {t('paywall.price.annualPerMonth', {
-                        price: formatMoney(perMonth, pkg.currencyCode, locale),
-                      })}
-                    </Text>
-                  ) : null}
-                  {pkg.trialDays ? (
-                    <Text variant="micro" tone="primary">
-                      {t('paywall.price.trial', { days: pkg.trialDays })}
-                    </Text>
-                  ) : null}
-                </Card>
+                    {pkg.trialDays ? (
+                      <Text variant="micro" tone="primary">
+                        {t('paywall.price.trial', { days: pkg.trialDays })}
+                      </Text>
+                    ) : null}
+                  </Card>
+                </Pressable>
               )
             })}
           </View>
@@ -238,6 +257,16 @@ export default function PaywallScreen() {
             testID="paywall-continue-free"
           />
         </View>
+
+        {/* A restore that found nothing has to say so — silence reads as a
+            broken button, and this is the outcome most people who tap it get.
+            It sits under the buttons, not above them, so an answer appearing
+            cannot shift the control the reader is about to press next. */}
+        {restoreMutation.isSuccess && !restoreMutation.data.isPro ? (
+          <Text variant="secondary" tone="tertiary" center>
+            {t('settings.subscription.nothingToRestore')}
+          </Text>
+        ) : null}
 
         <Card style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary">

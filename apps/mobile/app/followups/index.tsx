@@ -1,6 +1,6 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
-import { nextLocalTimeOccurrence, systemClock, type FollowUp } from '@da/domain'
+import { nextWorkingDay, systemClock, type FollowUp } from '@da/domain'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -14,7 +14,12 @@ import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
 import { Sheet } from '../../src/components/ui/Sheet'
 import { EmptyState, ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { Text } from '../../src/components/ui/Text'
-import { useFollowUps, useInvalidateAfterWrite, useThreads } from '../../src/hooks/queries'
+import {
+  useFollowUps,
+  useInvalidateAfterWrite,
+  useThread,
+  useThreads,
+} from '../../src/hooks/queries'
 import { useApprovalFlow } from '../../src/hooks/useApprovalFlow'
 import { useUserContext } from '../../src/hooks/useUserContext'
 import { useT } from '../../src/i18n/I18nProvider'
@@ -46,9 +51,23 @@ export default function FollowUpsScreen() {
       followUp.recipientEmail,
     [threadsQuery.data],
   )
-  const { proposeAndReview, isProposing } = useApprovalFlow()
+  const { proposeAndReview, isProposing, error: proposeError } = useApprovalFlow()
 
   const [draftFor, setDraftFor] = useState<FollowUp | null>(null)
+
+  /**
+   * The mailbox a nudge would leave from.
+   *
+   * A reply has to be sent from the account that holds the thread, so the
+   * account is the thread's and never a guess: this screen used to put an
+   * empty string in the approval payload, which `emailSendPayloadSchema`
+   * rejects as a uuid, so the send button threw before anything left the
+   * device and the rejection was dropped on the floor.
+   */
+  const threadQuery = useThread(draftFor?.threadId ?? null)
+  const sendAccountId = threadQuery.data?.connectedAccountId ?? null
+  /** Settled and still no mailbox — a pending query is not an answer. */
+  const threadUnavailable = draftFor !== null && !threadQuery.isPending && sendAccountId === null
 
   const now = systemClock.now()
   const followUps = (query.data ?? []).filter(
@@ -64,6 +83,9 @@ export default function FollowUpsScreen() {
 
   const nudge = useMutation({
     mutationFn: (followUp: FollowUp) => api.followUps.nudgeDraft(followUp.id),
+    // Drafting moves the follow-up to `nudged`; the list says so once it has
+    // been refetched.
+    onSuccess: refresh,
   })
 
   const close = useMutation({
@@ -72,11 +94,10 @@ export default function FollowUpsScreen() {
   })
 
   const snooze = useMutation({
+    // "Remind me tomorrow" means the start of the next working day — the
+    // domain's rule, so a Friday afternoon nudge is not due again on Saturday.
     mutationFn: (followUpId: string) =>
-      api.followUps.snooze(
-        followUpId,
-        nextLocalTimeOccurrence(now, '09:00', timeZone).toISOString(),
-      ),
+      api.followUps.snooze(followUpId, nextWorkingDay(now, timeZone).toISOString()),
     onSuccess: refresh,
   })
 
@@ -91,7 +112,7 @@ export default function FollowUpsScreen() {
   const sendForApproval = useCallback(() => {
     const draft = nudge.data
     const followUp = draftFor
-    if (!draft || !followUp) return
+    if (!draft || !followUp || !sendAccountId) return
     setDraftFor(null)
     void proposeAndReview({
       type: 'email_send',
@@ -102,7 +123,7 @@ export default function FollowUpsScreen() {
       discriminator: `nudge:${followUp.id}`,
       payload: {
         kind: 'email_send',
-        connectedAccountId: '',
+        connectedAccountId: sendAccountId,
         threadId: followUp.threadId,
         inReplyToMessageId: followUp.messageId,
         to: [followUp.recipientEmail],
@@ -112,7 +133,7 @@ export default function FollowUpsScreen() {
         tone: 'professional',
       },
     })
-  }, [draftFor, nudge.data, proposeAndReview, t])
+  }, [draftFor, nudge.data, proposeAndReview, sendAccountId, t])
 
   const renderGroup = (title: string, items: FollowUp[]) =>
     items.length === 0 ? null : (
@@ -168,16 +189,22 @@ export default function FollowUpsScreen() {
         onClose={() => setDraftFor(null)}
         title={t('followup.nudge.title')}
         closeLabel={t('common.action.close')}
-        footer={
-          <Button
-            label={t('reply.review.send')}
-            onPress={sendForApproval}
-            fullWidth
-            loading={isProposing}
-            disabled={!nudge.data}
-            testID="followup-nudge-send"
-          />
-        }
+        // No mailbox, no send button: a control that cannot work is worse than
+        // no control at all, so the sheet says why instead of offering one.
+        {...(sendAccountId === null
+          ? {}
+          : {
+              footer: (
+                <Button
+                  label={t('reply.review.send')}
+                  onPress={sendForApproval}
+                  fullWidth
+                  loading={isProposing}
+                  disabled={!nudge.data}
+                  testID="followup-nudge-send"
+                />
+              ),
+            })}
         testID="followup-nudge-sheet"
       >
         {nudge.isPending ? (
@@ -200,6 +227,22 @@ export default function FollowUpsScreen() {
               {t('reply.neverAutoSend')}
             </Text>
           </View>
+        ) : null}
+
+        {threadUnavailable ? (
+          <Card tone="critical">
+            <Text variant="secondary" tone="critical">
+              {threadQuery.isError ? t(errorMessageKey(threadQuery.error)) : t('errors.not_found')}
+            </Text>
+          </Card>
+        ) : null}
+
+        {proposeError ? (
+          <Card tone="critical">
+            <Text variant="secondary" tone="critical">
+              {t(errorMessageKey(proposeError))}
+            </Text>
+          </Card>
         ) : null}
       </Sheet>
     </Screen>

@@ -53,6 +53,23 @@ export default function ProfileSettingsScreen() {
     },
   })
 
+  /**
+   * The picture comes from the identity provider, so the app cannot choose a
+   * new one — but it can drop the one it was given, and until now it could not:
+   * `avatarUrl` was accepted by the client and silently discarded by
+   * `profile-update`, under a caption that read like a button and was not one.
+   */
+  const removePhoto = useMutation({
+    mutationFn: () => api.settings.updateProfile({ avatarUrl: null }),
+    onSuccess: async (updated) => {
+      track('settings_changed')
+      setProfile(updated)
+      await queryClient.invalidateQueries({ queryKey: qk.settings() })
+    },
+  })
+
+  const failure = save.error ?? removePhoto.error
+
   const dirty = name !== (profile?.displayName ?? '') || timeZone !== (profile?.timeZone ?? '')
 
   return (
@@ -66,9 +83,16 @@ export default function ProfileSettingsScreen() {
             imageUrl={profile?.avatarUrl ?? null}
             size={72}
           />
-          <Text variant="micro" tone="tertiary">
-            {t('settings.profile.avatarChange')}
-          </Text>
+          {profile?.avatarUrl ? (
+            <Button
+              label={t('settings.profile.avatarRemove')}
+              onPress={() => removePhoto.mutate()}
+              variant="ghost"
+              size="sm"
+              loading={removePhoto.isPending}
+              testID="profile-avatar-remove"
+            />
+          ) : null}
         </View>
 
         <TextField
@@ -100,10 +124,10 @@ export default function ProfileSettingsScreen() {
           />
         </Card>
 
-        {save.isError ? (
+        {failure ? (
           <Card tone="critical">
             <Text variant="secondary" tone="critical">
-              {t(errorMessageKey(save.error))}
+              {t(errorMessageKey(failure))}
             </Text>
           </Card>
         ) : null}

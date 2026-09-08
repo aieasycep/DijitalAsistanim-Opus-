@@ -37,15 +37,70 @@ const SUGGESTIONS = [
   'search.suggestion.fromVip',
 ] as const
 
-const HIT_ICON: Record<string, keyof typeof MaterialIcons.glyphMap> = {
+/**
+ * What each kind of hit is called, keyed by the contract's own union so a kind
+ * added to the wire cannot reach this screen without a name.
+ *
+ * The label used to be built as `search.scope.${hit.type}`, which read as a
+ * lookup that always works and was not one: the catalogue has no
+ * `search.scope.life_event`, so a tracked parcel or flight in the results threw
+ * on a missing key in development and rendered the raw key in production. A
+ * life event is named here the way its own screen names it.
+ */
+const SCOPE_LABEL_KEY: Record<SearchType, string> = {
+  email: 'search.scope.email',
+  calendar_event: 'search.scope.calendar_event',
+  task: 'search.scope.task',
+  capture: 'search.scope.capture',
+  commitment: 'search.scope.commitment',
+  notification: 'search.scope.notification',
+  contact: 'search.scope.contact',
+  user_input: 'search.scope.user_input',
+  life_event: 'today.section.personal',
+}
+
+const HIT_ICON: Record<SearchType, keyof typeof MaterialIcons.glyphMap> = {
   email: 'mail-outline',
   calendar_event: 'event',
-  commitment: 'handshake',
-  contact: 'person-outline',
-  capture: 'photo-camera',
   task: 'check-circle-outline',
+  capture: 'photo-camera',
+  commitment: 'handshake',
   notification: 'notifications-none',
+  contact: 'person-outline',
   user_input: 'edit-note',
+  life_event: 'track-changes',
+}
+
+/**
+ * Where a hit opens, or `null` when the app has no screen for that kind.
+ *
+ * A remembered note, a notification and a task are real answers to the question
+ * asked, so they are still listed — but their rows are rendered flat rather
+ * than as buttons that swallow the tap.
+ */
+const HIT_ROUTE: Record<SearchType, ((id: string) => string) | null> = {
+  email: (id) => `/thread/${id}`,
+  calendar_event: (id) => `/event/${id}`,
+  task: null,
+  capture: (id) => `/capture?id=${id}`,
+  commitment: (id) => `/commitment/${id}`,
+  notification: null,
+  contact: (id) => `/person/${id}`,
+  user_input: null,
+  life_event: (id) => `/life/${id}`,
+}
+
+/**
+ * `hit.type` arrives as a string on the wire, so these are read through maps
+ * rather than indexed directly — an unknown kind falls back instead of
+ * producing `undefined` halfway down the render.
+ */
+const LABEL_BY_TYPE = new Map<string, string>(Object.entries(SCOPE_LABEL_KEY))
+const ICON_BY_TYPE = new Map<string, keyof typeof MaterialIcons.glyphMap>(Object.entries(HIT_ICON))
+const ROUTE_BY_TYPE = new Map<string, ((id: string) => string) | null>(Object.entries(HIT_ROUTE))
+
+function routeFor(hit: SearchHit): string | null {
+  return ROUTE_BY_TYPE.get(hit.type)?.(encodeURIComponent(hit.id)) ?? null
 }
 
 /**
@@ -68,17 +123,15 @@ export default function SearchScreen() {
     if (params.q) setQuery(params.q)
   }, [params.q])
 
-  const types: SearchType[] =
-    scope === 'all' ? ['email', 'calendar_event', 'commitment', 'contact', 'capture'] : [scope]
+  // "Tümü" sends no filter at all rather than a list of kinds: the function
+  // reads an empty filter as every kind, so a kind added to the contract is
+  // searchable here without this list having to be kept in step.
+  const types: SearchType[] = scope === 'all' ? [] : [scope]
   const searchQuery = useSearch(query, types)
 
   const openHit = useCallback(
-    (type: string, id: string) => {
-      if (type === 'email') router.push(`/thread/${id}`)
-      else if (type === 'calendar_event') router.push(`/event/${id}`)
-      else if (type === 'commitment') router.push(`/commitment/${id}`)
-      else if (type === 'contact') router.push(`/person/${id}`)
-      else if (type === 'capture') router.push(`/capture?id=${id}`)
+    (route: string) => {
+      router.push(route)
     },
     [router],
   )
@@ -173,41 +226,54 @@ export default function SearchScreen() {
                 const elapsed = hit.occurredAt
                   ? elapsedKey(new Date(hit.occurredAt), systemClock.now())
                   : null
+                const route = routeFor(hit)
+                const rowStyle = {
+                  flexDirection: 'row' as const,
+                  gap: spacing.sm,
+                  paddingVertical: spacing.sm,
+                  alignItems: 'flex-start' as const,
+                }
+                const body = (
+                  <>
+                    <MaterialIcons
+                      name={ICON_BY_TYPE.get(hit.type) ?? 'search'}
+                      size={18}
+                      color={theme.colors.textTertiary}
+                      style={{ marginTop: 2 }}
+                    />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text variant="body" numberOfLines={2}>
+                        {hit.title}
+                      </Text>
+                      <Text variant="micro" tone="tertiary" numberOfLines={2}>
+                        {hit.snippet}
+                      </Text>
+                      <Text variant="micro" tone="tertiary">
+                        {t(LABEL_BY_TYPE.get(hit.type) ?? 'search.scope.all')}
+                        {elapsed ? ` · ${plural(elapsed.key, elapsed.count)}` : ''}
+                      </Text>
+                    </View>
+                  </>
+                )
                 return (
                   <View key={`${hit.type}:${hit.id}`}>
                     {index > 0 ? <Divider inset={36} /> : null}
-                    <Pressable
-                      onPress={() => openHit(hit.type, hit.id)}
-                      haptic="light"
-                      scaleOnPress={false}
-                      accessibilityLabel={hit.title}
-                      style={{
-                        flexDirection: 'row',
-                        gap: spacing.sm,
-                        paddingVertical: spacing.sm,
-                        alignItems: 'flex-start',
-                      }}
-                      testID={`search-hit-${hit.id}`}
-                    >
-                      <MaterialIcons
-                        name={HIT_ICON[hit.type] ?? 'search'}
-                        size={18}
-                        color={theme.colors.textTertiary}
-                        style={{ marginTop: 2 }}
-                      />
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text variant="body" numberOfLines={2}>
-                          {hit.title}
-                        </Text>
-                        <Text variant="micro" tone="tertiary" numberOfLines={2}>
-                          {hit.snippet}
-                        </Text>
-                        <Text variant="micro" tone="tertiary">
-                          {t(`search.scope.${hit.type}`)}
-                          {elapsed ? ` · ${plural(elapsed.key, elapsed.count)}` : ''}
-                        </Text>
+                    {route ? (
+                      <Pressable
+                        onPress={() => openHit(route)}
+                        haptic="light"
+                        scaleOnPress={false}
+                        accessibilityLabel={hit.title}
+                        style={rowStyle}
+                        testID={`search-hit-${hit.id}`}
+                      >
+                        {body}
+                      </Pressable>
+                    ) : (
+                      <View style={rowStyle} testID={`search-hit-${hit.id}`}>
+                        {body}
                       </View>
-                    </Pressable>
+                    )}
                   </View>
                 )
               })}

@@ -84,10 +84,21 @@ export default function MeetingPrepScreen() {
           <Text variant="h2" accessibilityRole="header">
             {prep.event.title}
           </Text>
-          <Card style={{ gap: spacing.xs }}>
-            <Badge label={t('common.aiGenerated')} tone="primary" icon="auto-awesome" />
-            <Text variant="body">{prep.summary}</Text>
-          </Card>
+          {/* No model, no paragraph: the sections below still stand on their
+              own, so the card says so instead of sitting empty under an
+              "AI generated" badge. */}
+          {prep.summary.length > 0 ? (
+            <Card style={{ gap: spacing.xs }}>
+              <Badge label={t('common.aiGenerated')} tone="primary" icon="auto-awesome" />
+              <Text variant="body">{prep.summary}</Text>
+            </Card>
+          ) : (
+            <Card>
+              <Text variant="secondary" tone="tertiary">
+                {t('meeting.unavailable')}
+              </Text>
+            </Card>
+          )}
         </View>
 
         <View>
@@ -115,40 +126,42 @@ export default function MeetingPrepScreen() {
           )}
         </View>
 
-        <View>
-          <SectionHeader title={`${t('meeting.attendees.title')} · ${prep.attendees.length}`} />
-          <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
-            {prep.attendees.map((attendee, index) => (
-              <View key={attendee.email}>
-                {index > 0 ? <Divider inset={44} /> : null}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    gap: spacing.sm,
-                    alignItems: 'center',
-                    paddingVertical: spacing.sm,
-                  }}
-                >
-                  <Avatar name={attendee.name ?? attendee.email} size={32} />
-                  <View style={{ flex: 1 }}>
-                    <Text variant="body" numberOfLines={1}>
-                      {attendee.name ?? attendee.email}
-                    </Text>
-                    <Text variant="micro" tone="tertiary" numberOfLines={1}>
-                      {[attendee.company, attendee.role].filter(Boolean).join(' · ') ||
-                        attendee.email}
-                    </Text>
+        {prep.attendees.length > 0 ? (
+          <View>
+            <SectionHeader title={`${t('meeting.attendees.title')} · ${prep.attendees.length}`} />
+            <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
+              {prep.attendees.map((attendee, index) => (
+                <View key={attendee.email}>
+                  {index > 0 ? <Divider inset={44} /> : null}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      gap: spacing.sm,
+                      alignItems: 'center',
+                      paddingVertical: spacing.sm,
+                    }}
+                  >
+                    <Avatar name={attendee.name ?? attendee.email} size={32} />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="body" numberOfLines={1}>
+                        {attendee.name ?? attendee.email}
+                      </Text>
+                      <Text variant="micro" tone="tertiary" numberOfLines={1}>
+                        {[attendee.company, attendee.role].filter(Boolean).join(' · ') ||
+                          attendee.email}
+                      </Text>
+                    </View>
+                    {attendee.isVip ? (
+                      <Badge label={t('person.header.vip')} tone="warning" icon="star" />
+                    ) : attendee.lastContactAt === null ? (
+                      <Badge label={t('meeting.attendees.firstMeeting')} tone="info" />
+                    ) : null}
                   </View>
-                  {attendee.isVip ? (
-                    <Badge label={t('person.header.vip')} tone="warning" icon="star" />
-                  ) : attendee.lastContactAt === null ? (
-                    <Badge label={t('meeting.attendees.firstMeeting')} tone="info" />
-                  ) : null}
                 </View>
-              </View>
-            ))}
-          </Card>
-        </View>
+              ))}
+            </Card>
+          </View>
+        ) : null}
 
         <View>
           <SectionHeader title={t('meeting.prep.openItems')} />

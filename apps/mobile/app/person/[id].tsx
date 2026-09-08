@@ -1,6 +1,6 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
-import { systemClock } from '@da/domain'
+import { systemClock, type Contact } from '@da/domain'
 import { elapsedKey } from '@da/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -19,7 +19,7 @@ import { Text } from '../../src/components/ui/Text'
 import { useCommitments, usePerson, useThreads } from '../../src/hooks/queries'
 import { useUserContext } from '../../src/hooks/useUserContext'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 
 /**
@@ -66,13 +66,15 @@ export default function PersonScreen() {
     [contact, commitmentsQuery.data],
   )
 
+  // The contact carries its own id, so the mutation never has to trust the
+  // route parameter it was rendered from.
   const toggleVip = useMutation({
-    mutationFn: (isVip: boolean) => api.people.setVip(contactId as string, isVip),
+    mutationFn: (input: { contact: Contact; isVip: boolean }) =>
+      api.people.setVip(input.contact.id, input.isVip),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: qk.person(contactId as string) }),
-        queryClient.invalidateQueries({ queryKey: qk.contacts() }),
-      ])
+      // `qk.contacts()` is the prefix of `qk.person()` and of the VIP list, so
+      // one invalidation refreshes this screen and the VIP settings screen.
+      await queryClient.invalidateQueries({ queryKey: qk.contacts() })
     },
   })
 
@@ -91,6 +93,9 @@ export default function PersonScreen() {
         <ScreenHeader title={t('person.title')} />
         <ErrorState
           message={query.isError ? t(errorMessageKey(query.error)) : t('errors.not_found')}
+          {...(query.isError && isRetryable(query.error)
+            ? { retryLabel: t('common.action.retry'), onRetry: () => void query.refetch() }
+            : {})}
         />
       </Screen>
     )
@@ -146,7 +151,7 @@ export default function PersonScreen() {
         <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
           <Button
             label={contact.isVip ? t('person.action.unmarkVip') : t('person.action.markVip')}
-            onPress={() => toggleVip.mutate(!contact.isVip)}
+            onPress={() => toggleVip.mutate({ contact, isVip: !contact.isVip })}
             variant={contact.isVip ? 'neutral' : 'primary'}
             size="sm"
             loading={toggleVip.isPending}
@@ -160,6 +165,15 @@ export default function PersonScreen() {
             testID="person-threads"
           />
         </View>
+
+        {/* A refused promotion has to say so: the badge and the button label are
+            both read from the unchanged contact, so a silent failure looks
+            exactly like a tap that never registered. */}
+        {toggleVip.isError ? (
+          <Text variant="secondary" tone="critical">
+            {t(errorMessageKey(toggleVip.error))}
+          </Text>
+        ) : null}
 
         <Card style={{ gap: spacing.xxs }}>
           <Text variant="caption" tone="tertiary">

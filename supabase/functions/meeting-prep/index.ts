@@ -1,6 +1,11 @@
-import { meetingPrepSchema } from '@da/validation'
-import { z } from 'zod'
-import { uuidSchema } from '@da/validation'
+import {
+  eventAttendees,
+  meetingPrepRequest,
+  meetingPrepSchema,
+  type MeetingPrep,
+  type MeetingPrepAttendee,
+  type MeetingPrepResponse,
+} from '@da/validation'
 import { AppError, systemClock } from '../_shared/domain.ts'
 import { completeJson, isAiConfigured } from '../_shared/ai.ts'
 import { dbError, loadUserContext, requireUser, serviceClient } from '../_shared/db.ts'
@@ -8,8 +13,6 @@ import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
 import { checkAiBudget, loadEntitlements, requireFeature } from '../_shared/limits.ts'
 import { searchMemory } from '../_shared/memory.ts'
 import { meetingPrepSystem } from '../_shared/prompts.ts'
-
-const requestSchema = z.object({ eventId: uuidSchema })
 
 const PREP_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -41,26 +44,98 @@ const PREP_JSON_SCHEMA: Record<string, unknown> = {
   },
 }
 
-interface Attendee {
-  email?: string
-  name?: string
-  isSelf?: boolean
+/** The columns of `contacts` this brief reads. */
+interface ContactRow {
+  email: string
+  name: string | null
+  company: string | null
+  role: string | null
+  last_contact_at: string | null
+  is_vip: boolean
+}
+
+/** The columns of `email_threads` this brief reads. */
+interface ThreadRow {
+  id: string
+  subject: string | null
+  summary: string | null
+  last_message_at: string | null
+  participant_emails: string[] | null
+}
+
+/** A line the invite itself marked as a list item. */
+const LIST_MARKER = /^\s*(?:[-–—*•·]|\d{1,2}[.)])\s+/
+const LINK = /https?:\/\//i
+
+const MAX_AGENDA_ITEMS = 12
+
+/**
+ * The agenda, read off the invite rather than written for it.
+ *
+ * Only lines the organiser marked as list items count — the screen labels the
+ * section "taken from the invite", so a paragraph of prose is context and a
+ * join link is plumbing. An invite with no list has no agenda, and the screen
+ * says exactly that.
+ */
+function agendaFrom(description: string | null): string[] {
+  if (description === null) return []
+  // A set, because the screen keys the list by its text and an invite that
+  // repeats a line would collide.
+  const items = new Set<string>()
+  for (const line of description.split(/\r?\n/)) {
+    if (!LIST_MARKER.test(line)) continue
+    const text = line.replace(LIST_MARKER, '').trim()
+    if (text.length === 0 || LINK.test(text)) continue
+    items.add(text.slice(0, 300))
+    if (items.size === MAX_AGENDA_ITEMS) break
+  }
+  return [...items]
+}
+
+function normalize(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function textOf(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/**
+ * Whether a promise belongs to someone in the room.
+ *
+ * The section says "nothing is open with these people", so a promise with no
+ * counterparty is not one of them. Matching is done on the name in either
+ * direction — the extractor stores "Mehmet" where the contact is "Mehmet
+ * Yılmaz" — and on the address' local part, which is what the name is missing
+ * from when the promise came out of a thread with no display name.
+ */
+function belongsToRoom(personName: unknown, names: readonly string[]): boolean {
+  const name = normalize(personName)
+  if (name.length === 0) return false
+  return names.some((candidate) => candidate.includes(name) || name.includes(candidate))
 }
 
 /**
  * Meeting Prep — the product's signature screen.
  *
- * Everything shown is assembled from records the user can open: recent threads
- * with the attendees, commitments in both directions, and memory chunks about
- * the people involved. When there is nothing to say, the prep says so with a
- * low confidence rather than filling the page with generic meeting advice.
+ * Everything shown is assembled from records the user can open: the agenda off
+ * the invite, the people from `contacts`, the open items from real commitment
+ * rows and the threads from their own mailbox. The model contributes exactly
+ * two things — the two-minute paragraph and the points worth raising — and
+ * when it is unavailable the rest of the brief still stands on its own.
  *
- * The result is cached on the event because it costs a reasoning-tier call and
- * reopening the screen must not re-bill it.
+ * The response is the brief the screen renders, section for section, not this
+ * function's working notes: it used to answer `{ prep, sources, generated }`
+ * while the client required the brief, so every "Hazırla" opened an error
+ * screen. `MeetingPrepResponse` is now the same object on both sides.
+ *
+ * The call is reasoning-tier and is not cached server-side; `useMeetingPrep`
+ * holds the answer for ten minutes, so reopening the screen does not re-bill
+ * it while an explicit "prepare again" does.
  */
 serveFunction('meeting-prep', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, requestSchema)
+  const body = await parseBody(request, meetingPrepRequest)
   const now = systemClock.now()
   const profile = await loadUserContext(user.id)
   const client = serviceClient()
@@ -70,18 +145,26 @@ serveFunction('meeting-prep', async ({ request, origin }) => {
 
   const event = await client
     .from('calendar_events')
-    .select('id, title, description, location, starts_at, ends_at, attendees, conference_url')
+    .select('*')
     .eq('id', body.eventId)
     .eq('user_id', user.id)
     .maybeSingle()
   if (event.error) throw dbError(event.error)
   if (!event.data) throw new AppError('not_found', { detail: 'event_missing' })
 
-  const attendees = (
-    Array.isArray(event.data.attendees) ? (event.data.attendees as Attendee[]) : []
-  ).filter((a) => !a.isSelf && a.email)
+  const eventRow = event.data as Record<string, unknown>
+  // One entry per address: the screen keys the list by it, and a provider that
+  // lists an invitee twice must not put them in the room twice.
+  const addresses = new Set<string>()
+  const attendees = eventAttendees.parse(eventRow['attendees']).filter((attendee) => {
+    if (attendee.isSelf || attendee.email.length === 0) return false
+    const address = attendee.email.toLowerCase()
+    if (addresses.has(address)) return false
+    addresses.add(address)
+    return true
+  })
 
-  const emails = attendees.map((a) => (a.email ?? '').toLowerCase()).filter(Boolean)
+  const emails = [...addresses]
 
   const [contacts, threads, commitments, memory] = await Promise.all([
     emails.length > 0
@@ -102,100 +185,126 @@ serveFunction('meeting-prep', async ({ request, origin }) => {
       : Promise.resolve({ data: [], error: null }),
     client
       .from('commitments')
-      .select('id, text, direction, person_name, due_at, status')
+      .select('*')
       .eq('user_id', user.id)
       .in('status', ['open', 'overdue'])
+      .order('due_at', { ascending: true, nullsFirst: false })
       .limit(20),
     searchMemory(
       user.id,
-      `${event.data.title ?? ''} ${attendees.map((a) => a.name ?? '').join(' ')}`,
+      `${textOf(eventRow['title']) ?? ''} ${attendees.map((a) => a.name ?? '').join(' ')}`,
       6,
     ),
   ])
 
-  const relevantCommitments = (commitments.data ?? []).filter((row) => {
-    const name = ((row.person_name as string | null) ?? '').toLowerCase()
-    return (
-      name === '' ||
-      attendees.some(
-        (a) =>
-          (a.name ?? '').toLowerCase().includes(name) ||
-          name.includes((a.name ?? '').toLowerCase()),
-      )
-    )
+  // A brief assembled from three queries, one of which quietly failed, is the
+  // kind of half-truth this screen exists to avoid: say so instead.
+  if (contacts.error) throw dbError(contacts.error)
+  if (threads.error) throw dbError(threads.error)
+  if (commitments.error) throw dbError(commitments.error)
+
+  const contactRows = (contacts.data ?? []) as ContactRow[]
+  const threadRows = (threads.data ?? []) as ThreadRow[]
+  const commitmentRows = (commitments.data ?? []) as Record<string, unknown>[]
+
+  /** Every name and address local part the room answers to. */
+  const roomNames = [
+    ...attendees.map((attendee) => normalize(attendee.name)),
+    ...attendees.map((attendee) => normalize(attendee.email.split('@')[0])),
+    ...contactRows.map((contact) => normalize(contact.name)),
+  ].filter((name) => name.length > 0)
+
+  const openCommitments = commitmentRows.filter((row) =>
+    belongsToRoom(row['person_name'], roomNames),
+  )
+
+  const attendeeBriefs: MeetingPrepAttendee[] = attendees.map((attendee) => {
+    const address = attendee.email.toLowerCase()
+    const contact = contactRows.find((row) => normalize(row.email) === address) ?? null
+    // Threads come back newest first, so the first match is the last exchange.
+    const thread =
+      threadRows.find((row) =>
+        (row.participant_emails ?? []).some((email) => normalize(email) === address),
+      ) ?? null
+    return {
+      email: attendee.email,
+      name: contact?.name ?? attendee.name,
+      company: contact?.company ?? null,
+      role: contact?.role ?? null,
+      isVip: contact?.is_vip === true,
+      lastContactAt: contact?.last_contact_at ?? null,
+      recentContext: thread?.summary ?? null,
+    }
   })
 
+  const agenda = agendaFrom(textOf(eventRow['description']))
+
+  // What the model is allowed to reason from, and nothing else.
   const sources = {
     event: {
-      title: event.data.title,
-      startsAt: event.data.starts_at,
-      endsAt: event.data.ends_at,
-      location: event.data.location,
-      description: event.data.description,
+      title: textOf(eventRow['title']),
+      startsAt: textOf(eventRow['starts_at']),
+      endsAt: textOf(eventRow['ends_at']),
+      location: textOf(eventRow['location']),
+      description: textOf(eventRow['description']),
+      agenda,
     },
-    attendees: attendees.map((a) => ({ name: a.name ?? null, email: a.email ?? null })),
-    contacts: contacts.data ?? [],
-    recentThreads: (threads.data ?? []).map((t) => ({
-      id: t.id,
-      subject: t.subject,
-      summary: t.summary,
-      at: t.last_message_at,
+    attendees: attendeeBriefs.map((attendee) => ({
+      name: attendee.name,
+      email: attendee.email,
+      company: attendee.company,
+      role: attendee.role,
+      lastContactAt: attendee.lastContactAt,
+      recentContext: attendee.recentContext,
     })),
-    commitments: relevantCommitments.map((c) => ({
-      id: c.id,
-      text: c.text,
-      direction: c.direction,
-      dueAt: c.due_at,
+    recentThreads: threadRows.map((thread) => ({
+      subject: thread.subject,
+      summary: thread.summary,
+      at: thread.last_message_at,
     })),
-    memory: memory.hits.map((h) => ({ id: h.sourceId, label: h.sourceLabel, content: h.content })),
+    commitments: openCommitments.map((row) => ({
+      text: row['text'],
+      direction: row['direction'],
+      dueAt: row['due_at'],
+    })),
+    memory: memory.hits.map((hit) => ({ label: hit.sourceLabel, content: hit.content })),
   }
 
-  if (!isAiConfigured()) {
-    // A useful prep without a model: the raw material, honestly labelled.
-    return jsonResponse(
-      {
-        prep: {
-          purpose: null,
-          lastContactSummary: null,
-          openLoops: [],
-          userOwes: relevantCommitments
-            .filter((c) => c.direction === 'user_owes')
-            .map((c) => String(c.text)),
-          otherOwes: relevantCommitments
-            .filter((c) => c.direction === 'other_owes')
-            .map((c) => String(c.text)),
-          talkingPoints: (threads.data ?? []).slice(0, 3).map((t) => String(t.subject ?? '')),
-          twoMinuteSummary: '',
-          confidence: 0,
-        },
-        sources,
-        generated: false,
+  let prep: MeetingPrep | null = null
+  if (isAiConfigured()) {
+    await checkAiBudget(user.id, entitlements, now)
+    prep = await completeJson({
+      userId: user.id,
+      operation: 'meeting_prep',
+      parse: (value) => meetingPrepSchema.safeParse(value),
+      request: {
+        tier: 'reasoning',
+        schemaName: 'meeting_prep',
+        jsonSchema: PREP_JSON_SCHEMA,
+        system: meetingPrepSystem({
+          locale: profile.locale,
+          nowIso: now.toISOString(),
+          timeZone: profile.timeZone,
+        }),
+        messages: [{ role: 'user', content: JSON.stringify(sources, null, 2) }],
+        maxOutputTokens: 1400,
+        temperature: 0.3,
       },
-      200,
-      origin,
-    )
+    })
   }
 
-  await checkAiBudget(user.id, entitlements, now)
+  // Without a model the brief is thinner, not broken: the agenda, the people,
+  // the open promises and the threads are all records the user already has.
+  const payload: MeetingPrepResponse = {
+    eventId: body.eventId,
+    event: eventRow,
+    summary: prep?.twoMinuteSummary ?? '',
+    agenda,
+    attendees: attendeeBriefs,
+    openCommitments,
+    relatedThreadIds: threadRows.map((thread) => thread.id),
+    suggestedQuestions: prep?.talkingPoints ?? [],
+  }
 
-  const prep = await completeJson({
-    userId: user.id,
-    operation: 'meeting_prep',
-    parse: (value) => meetingPrepSchema.safeParse(value),
-    request: {
-      tier: 'reasoning',
-      schemaName: 'meeting_prep',
-      jsonSchema: PREP_JSON_SCHEMA,
-      system: meetingPrepSystem({
-        locale: profile.locale,
-        nowIso: now.toISOString(),
-        timeZone: profile.timeZone,
-      }),
-      messages: [{ role: 'user', content: JSON.stringify(sources, null, 2) }],
-      maxOutputTokens: 1400,
-      temperature: 0.3,
-    },
-  })
-
-  return jsonResponse({ prep, sources, generated: true }, 200, origin)
+  return jsonResponse(payload, 200, origin)
 })

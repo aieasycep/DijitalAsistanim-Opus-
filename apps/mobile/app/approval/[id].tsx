@@ -1,5 +1,5 @@
 import { spacing } from '@da/design-tokens'
-import { APPROVAL_TTL_MS, type ApprovalPayload, systemClock, validateEdit } from '@da/domain'
+import { type ApprovalPayload, systemClock, validateEdit } from '@da/domain'
 import { formatFullDate, formatTime } from '@da/i18n'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
@@ -17,7 +17,7 @@ import { useApproval } from '../../src/hooks/queries'
 import { useApprovalFlow } from '../../src/hooks/useApprovalFlow'
 import { useUserContext } from '../../src/hooks/useUserContext'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, errorValues } from '../../src/lib/query-client'
 
 /** Fields the sheet can edit as free text, per action type. */
 const TEXT_FIELDS: Record<string, readonly string[]> = {
@@ -63,6 +63,27 @@ export default function ApprovalScreen() {
     [approval],
   )
 
+  // A rejected promise here is not a swallowed failure: the mutation keeps the
+  // error and the critical card below renders it. Letting it float would leave
+  // a refused send looking exactly like a successful one.
+  const runDecision = useCallback(
+    (targetId: string, decision: 'approve' | 'reject', editedPayload?: ApprovalPayload) => {
+      void decide({
+        approvalId: targetId,
+        decision,
+        ...(editedPayload ? { editedPayload } : {}),
+      }).catch(() => undefined)
+    },
+    [decide],
+  )
+
+  const runRetry = useCallback(
+    (targetId: string) => {
+      void retry(targetId).catch(() => undefined)
+    },
+    [retry],
+  )
+
   const openEditor = useCallback(() => {
     if (!approval) return
     const initial: Record<string, string> = {}
@@ -90,12 +111,8 @@ export default function ApprovalScreen() {
     }
 
     setEditOpen(false)
-    void decide({
-      approvalId: approval.id,
-      decision: 'approve',
-      editedPayload: edited as unknown as ApprovalPayload,
-    })
-  }, [approval, decide, draft])
+    runDecision(approval.id, 'approve', edited as unknown as ApprovalPayload)
+  }, [approval, draft, runDecision])
 
   if (query.isLoading && !approval) {
     return (
@@ -117,7 +134,9 @@ export default function ApprovalScreen() {
     )
   }
 
-  const expiresAt = new Date(new Date(approval.createdAt).getTime() + APPROVAL_TTL_MS)
+  // The server owns the deadline: re-proposing the same action refreshes it, so
+  // recomputing it from `createdAt` would show a countdown that already ran out.
+  const expiresAt = new Date(approval.expiresAt)
   const minutesLeft = Math.round((expiresAt.getTime() - systemClock.now().getTime()) / 60_000)
 
   return (
@@ -132,10 +151,10 @@ export default function ApprovalScreen() {
           approval={approval}
           timeZone={timeZone}
           busy={isDeciding}
-          onApprove={() => void decide({ approvalId: approval.id, decision: 'approve' })}
-          onReject={() => void decide({ approvalId: approval.id, decision: 'reject' })}
+          onApprove={() => runDecision(approval.id, 'approve')}
+          onReject={() => runDecision(approval.id, 'reject')}
           onEdit={openEditor}
-          {...(approval.status === 'failed' ? { onRetry: () => void retry(approval.id) } : {})}
+          {...(approval.status === 'failed' ? { onRetry: () => runRetry(approval.id) } : {})}
           testID="approval-detail-card"
         />
 
@@ -173,7 +192,7 @@ export default function ApprovalScreen() {
             ) : null}
             <Button
               label={t('approval.retry.retryNow')}
-              onPress={() => void retry(approval.id)}
+              onPress={() => runRetry(approval.id)}
               variant="tonal"
               size="sm"
               loading={isRetrying}
@@ -183,9 +202,9 @@ export default function ApprovalScreen() {
         ) : null}
 
         {error ? (
-          <Card tone="critical">
+          <Card tone="critical" testID="approval-action-error">
             <Text variant="secondary" tone="critical">
-              {t(errorMessageKey(error))}
+              {t(errorMessageKey(error), errorValues(error))}
             </Text>
           </Card>
         ) : null}

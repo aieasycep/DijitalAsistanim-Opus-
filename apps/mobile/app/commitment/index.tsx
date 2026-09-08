@@ -1,5 +1,5 @@
 import { spacing } from '@da/design-tokens'
-import { systemClock } from '@da/domain'
+import { type CommitmentStatus, systemClock } from '@da/domain'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { View } from 'react-native'
@@ -15,6 +15,17 @@ import { useT } from '../../src/i18n/I18nProvider'
 import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 
 type Filter = 'mine' | 'theirs' | 'done'
+
+/**
+ * A promise that is still owed.
+ *
+ * Snoozing defers a promise, it does not keep it, so a snoozed row belongs in
+ * the direction tabs beside the open ones — and this screen is the only place
+ * it can appear at all, since every server-side feed asks for `open` and
+ * `overdue` only. Filing it under "Tamamlandı" told the user they had done
+ * something they had merely postponed.
+ */
+const OWED_STATUSES: readonly CommitmentStatus[] = ['open', 'overdue', 'snoozed']
 
 /**
  * Promises, both directions.
@@ -33,9 +44,9 @@ export default function CommitmentsScreen() {
   const now = systemClock.now()
   const all = query.data ?? []
   const commitments = all.filter((commitment) => {
-    const open = commitment.status === 'open' || commitment.status === 'overdue'
-    if (filter === 'done') return !open
-    if (!open) return false
+    const owed = OWED_STATUSES.includes(commitment.status)
+    if (filter === 'done') return !owed
+    if (!owed) return false
     return filter === 'mine'
       ? commitment.direction === 'user_owes'
       : commitment.direction === 'other_owes'

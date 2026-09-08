@@ -19,12 +19,28 @@ import { useT } from '../../src/i18n/I18nProvider'
 import { revokeSession } from '../../src/lib/auth'
 import { clearSnapshot } from '../../src/lib/native/widget'
 import { cancelAllLocalNotifications } from '../../src/lib/notifications'
+import { errorMessageKey } from '../../src/lib/query-client'
 import { useSessionStore } from '../../src/stores/session'
 
 interface Entry {
   route: string
   labelKey: string
   icon: keyof typeof MaterialIcons.glyphMap
+}
+
+/**
+ * The end-to-end id of a menu row: `settings-` plus the screen it opens, so
+ * `/settings/language` is `settings-language`.
+ *
+ * Derived from the route rather than written out per entry, because the id and
+ * the destination must not be able to disagree. This row used to be tagged with
+ * the *label key* — `settings-settings.menu.language` for a flow reaching for
+ * `settings-language` — and nothing caught it: the id checker only ever sees
+ * the literal `settings-` prefix of the template, so every flow that tapped a
+ * settings row was green in CI and timed out on a device.
+ */
+function screenOf(route: string): string {
+  return route.slice('/settings/'.length)
 }
 
 const GROUPS: ReadonlyArray<{ titleKey: string; entries: readonly Entry[] }> = [
@@ -107,9 +123,23 @@ export default function SettingsScreen() {
     router.replace('/(auth)')
   }, [router, signOut])
 
-  const connectedCount = (accounts.data ?? []).filter(
-    (account) => account.status === 'connected',
-  ).length
+  // Null while the answer is unknown. A failed query used to read as a
+  // confident "0 connected accounts" next to a row whose screen would have
+  // listed three of them.
+  const connectedCount =
+    accounts.data === undefined
+      ? null
+      : accounts.data.filter((account) => account.status === 'connected').length
+
+  const summaryError = accounts.error ?? subscription.error
+
+  const { isError: accountsFailed, refetch: refetchAccounts } = accounts
+  const { isError: subscriptionFailed, refetch: refetchSubscription } = subscription
+
+  const retrySummary = useCallback(() => {
+    if (accountsFailed) void refetchAccounts()
+    if (subscriptionFailed) void refetchSubscription()
+  }, [accountsFailed, refetchAccounts, subscriptionFailed, refetchSubscription])
 
   return (
     <Screen scroll bottomInset={spacing.xxl}>
@@ -139,13 +169,37 @@ export default function SettingsScreen() {
             {profile?.email ?? ''}
           </Text>
         </View>
-        <Badge
-          label={entitlements.plan === 'pro' ? t('paywall.plan.pro') : t('paywall.plan.free')}
-          tone={entitlements.plan === 'pro' ? 'primary' : 'neutral'}
-        />
+        {/* `useEntitlements` assumes Free until the answer arrives, which is
+            right while it is loading and wrong once the query has failed — a
+            Pro user must not be told they are on Free. */}
+        {subscriptionFailed ? null : (
+          <Badge
+            label={entitlements.plan === 'pro' ? t('paywall.plan.pro') : t('paywall.plan.free')}
+            tone={entitlements.plan === 'pro' ? 'primary' : 'neutral'}
+          />
+        )}
       </Card>
 
-      {entitlements.plan === 'free' ? (
+      {/* The count on the integrations row and the plan on the subscription row
+          both come from queries. When one fails the menu still works, so the
+          failure is stated here rather than rendered as a zero and a free
+          plan the user would have to disprove. */}
+      {summaryError ? (
+        <Card tone="critical" style={{ marginTop: spacing.sm, gap: spacing.xs }}>
+          <Text variant="secondary" tone="critical">
+            {t(errorMessageKey(summaryError))}
+          </Text>
+          <Button
+            label={t('common.action.retry')}
+            onPress={retrySummary}
+            variant="tonal"
+            size="sm"
+            testID="settings-summary-retry"
+          />
+        </Card>
+      ) : null}
+
+      {entitlements.plan === 'free' && !subscriptionFailed ? (
         <Card tone="primary" style={{ marginTop: spacing.sm, gap: spacing.xs }}>
           <Text variant="bodyStrong" tone="primary">
             {t('paywall.headline')}
@@ -171,13 +225,13 @@ export default function SettingsScreen() {
                   title={t(entry.labelKey)}
                   icon={entry.icon}
                   onPress={() => router.push(entry.route)}
-                  {...(entry.route === '/settings/accounts'
+                  {...(entry.route === '/settings/accounts' && connectedCount !== null
                     ? { value: String(connectedCount) }
                     : {})}
                   {...(entry.route === '/settings/subscription' && subscription.data
                     ? { value: t(`settings.subscription.${subscription.data.status}`) }
                     : {})}
-                  testID={`settings-${entry.labelKey}`}
+                  testID={`settings-${screenOf(entry.route)}`}
                 />
               </View>
             ))}

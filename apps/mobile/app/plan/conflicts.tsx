@@ -35,11 +35,22 @@ export default function ConflictsScreen() {
   const query = usePlanWeek(today)
 
   const days = query.data?.days ?? []
+
+  // A conflict names the events it is about, not a time range: `detectConflicts`
+  // reports which meetings clash and by how much, and the sentence itself comes
+  // from `messageKey` + `values`. The range shown below is therefore derived
+  // from the events involved rather than sent alongside them.
   const conflicts = days.flatMap((day) =>
-    day.conflicts.map((conflict) => ({
-      conflict,
-      events: day.events.filter((event) => conflict.eventIds.includes(event.id)),
-    })),
+    day.conflicts.map((conflict) => {
+      const events = day.events.filter((event) => conflict.eventIds.includes(event.id))
+      const starts = events.map((event) => new Date(event.startsAt).getTime())
+      const ends = events.map((event) => new Date(event.endsAt).getTime())
+      const span =
+        events.length > 0
+          ? { from: new Date(Math.min(...starts)), to: new Date(Math.max(...ends)) }
+          : null
+      return { conflict, events, span }
+    }),
   )
 
   return (
@@ -67,9 +78,9 @@ export default function ConflictsScreen() {
             {plural('calendar.conflict.count', conflicts.length)}
           </Text>
 
-          {conflicts.map(({ conflict, events }) => (
+          {conflicts.map(({ conflict, events, span }) => (
             <Card
-              key={`${conflict.startsAt}-${conflict.eventIds.join('-')}`}
+              key={`${conflict.kind}-${conflict.eventIds.join('-')}`}
               tone="warning"
               style={{ gap: spacing.xs }}
               testID={`conflict-${conflict.eventIds[0] ?? 'unknown'}`}
@@ -77,17 +88,14 @@ export default function ConflictsScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
                 <MaterialIcons name="error-outline" size={18} color={theme.colors.warningText} />
                 <Text variant="bodyStrong" tone="warning" style={{ flex: 1 }}>
-                  {t('calendar.conflict.overlap')}
+                  {t(conflict.messageKey, conflict.values)}
                 </Text>
               </View>
-              <Text variant="micro" tone="warning">
-                {formatTimeRange(
-                  new Date(conflict.startsAt),
-                  new Date(conflict.endsAt),
-                  locale,
-                  timeZone,
-                )}
-              </Text>
+              {span ? (
+                <Text variant="micro" tone="warning">
+                  {formatTimeRange(span.from, span.to, locale, timeZone)}
+                </Text>
+              ) : null}
 
               <View style={{ gap: spacing.xs }}>
                 {events.map((event, index) => (

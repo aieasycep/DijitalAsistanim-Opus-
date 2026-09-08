@@ -44,6 +44,7 @@ import type {
   Task,
   TaskStatus,
 } from '@da/domain'
+import type { PlanConflict, PlanDayLoad, PlanFreeBlock, PlanSuggestion } from '@da/validation'
 import type { ApiClientConfig } from './config'
 import type { Http } from './http'
 import type { Db } from './supabase'
@@ -332,13 +333,19 @@ export interface LifeEventRow extends OwnedRow {
   status: LifeEvent['status']
 }
 
+/**
+ * `briefings.stats` is a JSONB blob, not a set of columns, and every writer
+ * (`briefing-generate`, `initial-analysis`, `notification-scheduler`) stores it
+ * with the domain's own field names. Spelling it the column way here mapped
+ * every stat to `undefined` on the briefing and Today screens.
+ */
 export interface BriefingStatsRow {
-  emails_analyzed: number
-  important_count: number
-  meeting_count: number
-  deadline_count: number
-  follow_up_count: number
-  estimated_minutes_saved: number
+  emailsAnalyzed: number
+  importantCount: number
+  meetingCount: number
+  deadlineCount: number
+  followUpCount: number
+  estimatedMinutesSaved: number
 }
 
 export interface BriefingRow extends OwnedRow {
@@ -558,24 +565,19 @@ export interface NudgeDraft {
 
 export type PlanRange = 'day' | 'week'
 
-export interface PlanFreeBlock {
-  startsAt: IsoInstant
-  endsAt: IsoInstant
-  minutes: number
-}
+/**
+ * The plan's leaf shapes are the wire contract's, not a second opinion.
+ *
+ * They used to be declared here as well, and the two definitions disagreed:
+ * the client asked for `load.meetingMinutes` and a conflict as a bare time
+ * range, while the functions sent what `@da/domain` actually computes. Both
+ * halves type-checked; the screen rendered `NaN`. Re-exporting is what makes
+ * that impossible now.
+ */
+export type { PlanConflict, PlanFreeBlock, PlanSuggestion }
 
-export interface PlanConflict {
-  eventIds: string[]
-  startsAt: IsoInstant
-  endsAt: IsoInstant
-}
-
-export interface DayLoadSummary {
-  meetingCount: number
-  meetingMinutes: number
-  longestFreeMinutes: number
-  level: 'light' | 'moderate' | 'heavy'
-}
+/** The day's shape, as `summarizeDayLoad` computes it. */
+export type DayLoadSummary = PlanDayLoad
 
 export interface DayPlan {
   date: IsoDate
@@ -590,18 +592,9 @@ export interface DayPlan {
 
 export interface WeekPlan {
   startDate: IsoDate
+  /** Inclusive: the seventh day, not the exclusive boundary after it. */
   endDate: IsoDate
   days: DayPlan[]
-}
-
-export interface PlanSuggestion {
-  id: string
-  kind: 'focus_block' | 'reschedule' | 'buffer' | 'prepare' | 'decline'
-  title: string
-  detail: string
-  startsAt: IsoInstant | null
-  endsAt: IsoInstant | null
-  relatedEventId: string | null
 }
 
 export interface MeetingAttendeeBrief {

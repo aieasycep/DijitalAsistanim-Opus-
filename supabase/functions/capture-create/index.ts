@@ -1,4 +1,14 @@
-import { assertUrlAllowed, captureAnalysisSchema, createCaptureRequestSchema } from '@da/validation'
+import {
+  assertUrlAllowed,
+  captureCreateAnalysis,
+  captureCreateRequest,
+  FETCH_TIMEOUT_MS,
+  MAX_REDIRECTS,
+  MAX_RESPONSE_BYTES,
+  verifyQuotes,
+  type CaptureCreateResponse,
+  type CaptureExtractionRecord,
+} from '@da/validation'
 import { AppError, systemClock, verifyDateAgainstSource } from '../_shared/domain.ts'
 import { completeJson, isAiConfigured, truncateForModel } from '../_shared/ai.ts'
 import { audit } from '../_shared/audit.ts'
@@ -7,7 +17,6 @@ import { fetchWithLimits, jsonResponse, parseBody, serveFunction } from '../_sha
 import { checkAiBudget, consumeRateLimit, loadEntitlements } from '../_shared/limits.ts'
 import { captureSystem } from '../_shared/prompts.ts'
 import { CAPTURES_BUCKET, downloadToText } from '../_shared/storage.ts'
-import { MAX_REDIRECTS, MAX_RESPONSE_BYTES, FETCH_TIMEOUT_MS } from '@da/validation'
 
 const CAPTURE_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -22,7 +31,9 @@ const CAPTURE_JSON_SCHEMA: Record<string, unknown> = {
     'location',
     'people',
     'amount',
+    'amountQuote',
     'reference',
+    'referenceQuote',
     'keyPoints',
     'suggestedActions',
     'confidence',
@@ -46,7 +57,12 @@ const CAPTURE_JSON_SCHEMA: Record<string, unknown> = {
     summary: { type: 'string', maxLength: 800 },
     startsAt: { type: ['string', 'null'] },
     endsAt: { type: ['string', 'null'] },
-    dateQuote: { type: ['string', 'null'], maxLength: 600 },
+    dateQuote: {
+      type: ['string', 'null'],
+      maxLength: 600,
+      description:
+        'startsAt hangi cümleden okunduysa o cümle, içerikte birebir geçtiği hâliyle. startsAt doluysa zorunlu.',
+    },
     location: { type: ['string', 'null'], maxLength: 200 },
     people: { type: 'array', maxItems: 10, items: { type: 'string', maxLength: 120 } },
     amount: {
@@ -54,8 +70,25 @@ const CAPTURE_JSON_SCHEMA: Record<string, unknown> = {
       additionalProperties: false,
       required: ['value', 'currency'],
       properties: { value: { type: 'number' }, currency: { type: 'string' } },
+      description: 'Yalnızca içerikte yazan tutar. Hesaplama yapma, para birimini uydurma.',
     },
-    reference: { type: ['string', 'null'], maxLength: 80 },
+    amountQuote: {
+      type: ['string', 'null'],
+      maxLength: 600,
+      description:
+        'Tutarın okunduğu satır, içerikte birebir geçtiği hâliyle. amount doluysa zorunlu; alıntı veremiyorsan amount null olsun.',
+    },
+    reference: {
+      type: ['string', 'null'],
+      maxLength: 80,
+      description: 'Kargo takip numarası, PNR, rezervasyon kodu. Yalnızca içerikte yazıyorsa.',
+    },
+    referenceQuote: {
+      type: ['string', 'null'],
+      maxLength: 600,
+      description:
+        'Referansın okunduğu satır, içerikte birebir geçtiği hâliyle. reference doluysa zorunlu; alıntı veremiyorsan reference null olsun.',
+    },
     keyPoints: { type: 'array', maxItems: 8, items: { type: 'string', maxLength: 240 } },
     suggestedActions: {
       type: 'array',
@@ -165,13 +198,17 @@ function stripHtml(html: string): string {
 /**
  * Universal Capture: take something the user grabbed and work out what it is.
  *
- * Every extracted date is re-derived from the source text with the
- * deterministic extractor and dropped when it cannot be found, so a capture
- * never puts a meeting in the calendar on a day the poster did not name.
+ * Nothing factual leaves this function unchecked. A date is re-derived from
+ * the source with the deterministic extractor, so a capture never puts a
+ * meeting in the calendar on a day the poster did not name; an amount and a
+ * booking or tracking reference each have to be quoted from the text the model
+ * was shown, and `verifyQuotes` looks the quote up before the claim is stored.
+ * A claim that fails either check is dropped — the summary survives, the
+ * invented total does not.
  */
 serveFunction('capture-create', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, createCaptureRequestSchema)
+  const body = await parseBody(request, captureCreateRequest)
   const now = systemClock.now()
   const profile = await loadUserContext(user.id)
   const client = serviceClient()
@@ -197,17 +234,26 @@ serveFunction('capture-create', async ({ request, origin }) => {
 
   const captureId = created.data.id as string
 
+  /**
+   * A capture we could not read is still a capture.
+   *
+   * This used to answer with a hand-built `{ id, status, failureReason }`
+   * stub, which the client mapped into a `Capture` with no `kind`, no
+   * `userId` and no timestamps — the screen then rendered its badge as
+   * `capture.kind.undefined`. The row it just wrote is the answer, on this
+   * path exactly as on the successful one.
+   */
   const fail = async (reason: string): Promise<Response> => {
-    await client
+    const failed = await client
       .from('captures')
       .update({ status: 'failed', failure_reason: reason })
       .eq('id', captureId)
       .eq('user_id', user.id)
-    return jsonResponse(
-      { capture: { id: captureId, status: 'failed', failureReason: reason } },
-      200,
-      origin,
-    )
+      .select('*')
+      .single()
+    if (failed.error) throw dbError(failed.error)
+    const payload: CaptureCreateResponse = { capture: failed.data }
+    return jsonResponse(payload, 200, origin)
   }
 
   try {
@@ -243,10 +289,15 @@ serveFunction('capture-create', async ({ request, origin }) => {
 
     await checkAiBudget(user.id, entitlements, now)
 
+    // The model reads a bounded slice of a long capture, and a quote can only
+    // be checked against what the model was actually given: verifying against
+    // the untruncated text would accept a "quote" from a passage it never saw.
+    const modelText = truncateForModel(sourceText)
+
     const analysis = await completeJson({
       userId: user.id,
       operation: 'capture_analyze',
-      parse: (value) => captureAnalysisSchema.safeParse(value),
+      parse: (value) => captureCreateAnalysis.safeParse(value),
       request: {
         tier: 'fast',
         schemaName: 'capture_analysis',
@@ -257,29 +308,49 @@ serveFunction('capture-create', async ({ request, origin }) => {
           timeZone: profile.timeZone,
           kind: body.kind,
         }),
-        messages: [{ role: 'user', content: truncateForModel(sourceText) }],
+        messages: [{ role: 'user', content: modelText }],
         maxOutputTokens: 1200,
       },
     })
 
-    // Verify the dates independently; an unverifiable one is dropped rather
-    // than surfaced as an event the user might approve.
-    let startsAt = analysis.startsAt
-    let endsAt = analysis.endsAt
-    if (startsAt && !verifyDateAgainstSource(startsAt, sourceText, now, profile.timeZone)) {
-      startsAt = null
-      endsAt = null
-    }
+    // Each factual claim is checked against the sentence the model says it
+    // came from. A claim with no quote, or with a quote that is not in the
+    // capture, is dropped: the summary survives, the invented total does not.
+    const unquoted = new Set(
+      verifyQuotes(modelText, [
+        { field: 'date', quote: analysis.dateQuote },
+        { field: 'amount', quote: analysis.amountQuote },
+        { field: 'reference', quote: analysis.referenceQuote },
+      ]).map((violation) => violation.field),
+    )
 
-    const extracted = {
+    // The date carries a second, independent check: the deterministic
+    // extractor has to find the same instant in the text, so a correctly
+    // quoted sentence still cannot smuggle in a day the source does not name.
+    const dateVerified =
+      analysis.startsAt !== null &&
+      analysis.dateQuote !== null &&
+      !unquoted.has('date') &&
+      verifyDateAgainstSource(analysis.startsAt, modelText, now, profile.timeZone) !== null
+
+    const amountVerified =
+      analysis.amount !== null && analysis.amountQuote !== null && !unquoted.has('amount')
+
+    const referenceVerified =
+      analysis.reference !== null && analysis.referenceQuote !== null && !unquoted.has('reference')
+
+    const extracted: CaptureExtractionRecord = {
       title: analysis.title,
       summary: analysis.summary,
-      startsAt,
-      endsAt,
+      startsAt: dateVerified ? analysis.startsAt : null,
+      endsAt: dateVerified ? analysis.endsAt : null,
+      dateQuote: dateVerified ? analysis.dateQuote : null,
       location: analysis.location,
       people: analysis.people,
-      amount: analysis.amount,
-      reference: analysis.reference,
+      amount: amountVerified ? analysis.amount : null,
+      amountQuote: amountVerified ? analysis.amountQuote : null,
+      reference: referenceVerified ? analysis.reference : null,
+      referenceQuote: referenceVerified ? analysis.referenceQuote : null,
       keyPoints: analysis.keyPoints,
       confidence: analysis.confidence,
       suggestedActions: analysis.suggestedActions,
@@ -305,10 +376,20 @@ serveFunction('capture-create', async ({ request, origin }) => {
       action: 'capture.analyzed',
       entityType: 'capture',
       entityId: captureId,
-      metadata: { kind: body.kind, intent: analysis.intent, hasDate: startsAt !== null },
+      metadata: {
+        kind: body.kind,
+        intent: analysis.intent,
+        hasDate: dateVerified,
+        // Which claims the model produced and could not support. Flags only —
+        // the audit trail never carries the capture's contents.
+        droppedDate: analysis.startsAt !== null && !dateVerified,
+        droppedAmount: analysis.amount !== null && !amountVerified,
+        droppedReference: analysis.reference !== null && !referenceVerified,
+      },
     })
 
-    return jsonResponse({ capture: data }, 200, origin)
+    const payload: CaptureCreateResponse = { capture: data }
+    return jsonResponse(payload, 200, origin)
   } catch (error) {
     const code = error instanceof AppError ? error.code : 'capture_failed'
     await client

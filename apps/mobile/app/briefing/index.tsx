@@ -58,7 +58,7 @@ export default function BriefingScreen() {
   const router = useRouter()
   const api = useApi()
   const { timeZone } = useUserContext()
-  const params = useLocalSearchParams<{ kind?: string; date?: string }>()
+  const params = useLocalSearchParams<{ kind?: string; date?: string; listen?: string }>()
 
   const kind: BriefingKind = isBriefingKind(params.kind) ? params.kind : 'morning'
   const forDate = params.date ?? toIsoDate(systemClock.now(), timeZone)
@@ -68,11 +68,40 @@ export default function BriefingScreen() {
   const items = useMemo<BriefingItem[]>(() => query.data?.items ?? [], [query.data])
   const audio = useBriefingAudio(briefing)
   const marked = useRef(false)
+  /**
+   * Arriving from the hero's "Dinle" button.
+   *
+   * Today links here with `listen=1`, and the parameter used to be read by
+   * nobody — the button opened the briefing and left the user to find the
+   * speaker icon. Playback starts once the narrative has loaded, and the ref
+   * makes it once per visit rather than on every re-render.
+   */
+  const listenRequested = params.listen === '1'
+  const autoPlayed = useRef(false)
 
+  useEffect(() => {
+    if (!listenRequested || autoPlayed.current || !audio.available) return
+    autoPlayed.current = true
+    audio.play()
+  }, [listenRequested, audio.available, audio.play])
+
+  /**
+   * Asking for this briefing again.
+   *
+   * `force` is what the button means: it overrides the quiet-day rule, the
+   * midday no-change rule and the cache, because the user is standing here
+   * asking for it. The server can still answer that it wrote nothing; that
+   * answer is shown rather than swallowed, and there is nothing to refetch
+   * for it.
+   */
   const regenerate = useMutation({
     mutationFn: () => api.briefings.generate({ kind, forDate, force: true }),
-    onSuccess: () => void query.refetch(),
+    onSuccess: (result) => {
+      if (result.status === 'ready') void query.refetch()
+    },
   })
+
+  const regenerateSkipped = regenerate.data?.status === 'skipped'
 
   useEffect(() => {
     if (!briefing || briefing.openedAt || marked.current) return
@@ -123,11 +152,18 @@ export default function BriefingScreen() {
       <Screen scroll={false}>
         <EmptyState
           icon="wb-twilight"
-          title={t('briefing.status.queued')}
-          description={t('briefing.statusHint.queued')}
+          title={regenerateSkipped ? t('briefing.status.skipped') : t('briefing.status.queued')}
+          description={
+            regenerateSkipped ? t('empty.briefing.skipped') : t('briefing.statusHint.queued')
+          }
           actionLabel={t('briefing.regenerate')}
           onAction={() => regenerate.mutate()}
         />
+        {regenerate.isError ? (
+          <Text variant="micro" tone="critical" center>
+            {t(errorMessageKey(regenerate.error))}
+          </Text>
+        ) : null}
       </Screen>
     )
   }
@@ -261,6 +297,18 @@ export default function BriefingScreen() {
           loading={regenerate.isPending}
           testID="briefing-regenerate"
         />
+
+        {regenerateSkipped ? (
+          <Text variant="micro" tone="tertiary" center>
+            {t('empty.briefing.skipped')}
+          </Text>
+        ) : null}
+
+        {regenerate.isError ? (
+          <Text variant="micro" tone="critical" center>
+            {t(errorMessageKey(regenerate.error))}
+          </Text>
+        ) : null}
 
         <Text variant="micro" tone="tertiary" center>
           {t('briefing.signature')}

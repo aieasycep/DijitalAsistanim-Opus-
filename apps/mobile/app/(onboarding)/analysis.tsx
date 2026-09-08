@@ -1,6 +1,10 @@
 import { spacing } from '@da/design-tokens'
 import { ERROR_CODES, type ErrorCode } from '@da/domain'
-import type { InitialAnalysisProgress } from '@da/validation'
+import {
+  initialAnalysisProgressFor,
+  type InitialAnalysisOrderedPhase,
+  type InitialAnalysisResponse,
+} from '@da/validation'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
@@ -21,12 +25,23 @@ function isErrorCode(code: string | null | undefined): code is ErrorCode {
   return typeof code === 'string' && (ERROR_CODES as readonly string[]).includes(code)
 }
 
-/** The four things the pass does, in the order the phases report them. */
+/**
+ * The four things the pass does, in the order the phases report them.
+ *
+ * A step is ticked by comparing the server's `progress` against the fraction
+ * `initialAnalysisProgressFor` gives its phase — the same function the server
+ * used to produce that number. The screen used to keep its own copy of the
+ * phase ordering and index into it, which meant the bar and the ticks were two
+ * independent readings of one run, and a phase added on one side moved only
+ * one of them. It also meant a failed run showed no ticks at all, because
+ * `failed` is not in the ordering: now the run reports how far it got, so the
+ * steps that did finish stay finished.
+ */
 const PHASES: ReadonlyArray<{
-  phase: InitialAnalysisProgress['phase']
+  phase: InitialAnalysisOrderedPhase
   labelKey: string
   countKey: string
-  count: (progress: InitialAnalysisProgress) => number
+  count: (progress: InitialAnalysisResponse) => number
 }> = [
   {
     phase: 'mail',
@@ -52,16 +67,6 @@ const PHASES: ReadonlyArray<{
     countKey: 'onboarding.analysis.foundFollowUps',
     count: (progress) => progress.followUpsFound,
   },
-]
-
-const PHASE_ORDER: ReadonlyArray<InitialAnalysisProgress['phase']> = [
-  'queued',
-  'mail',
-  'analysis',
-  'calendar',
-  'follow_ups',
-  'briefing',
-  'done',
 ]
 
 /**
@@ -98,7 +103,24 @@ export default function AnalysisStep() {
     start.mutate()
   }, [start])
 
-  const progress = progressQuery.data ?? start.data ?? null
+  /**
+   * Whichever of the two answers is newer. They are the same schema, so this
+   * is a straight comparison: during the run the poll is ahead of the pass that
+   * started it, and once the pass returns its own answer is the last word.
+   */
+  const latest =
+    start.data && start.submittedAt > progressQuery.dataUpdatedAt
+      ? start.data
+      : (progressQuery.data ?? start.data ?? null)
+
+  /**
+   * A pass this screen started is in flight, so a failure reported before it
+   * is not the current answer. Polling deliberately stops on `failed`, and
+   * without this the retry button would spend its whole run showing the
+   * failure it was pressed to clear — which reads as a button that does
+   * nothing.
+   */
+  const progress = start.isPending && latest?.phase === 'failed' ? null : latest
   const phase = progress?.phase ?? 'queued'
   const isDone = phase === 'done'
   const isFailed = phase === 'failed'
@@ -107,7 +129,8 @@ export default function AnalysisStep() {
     if (isDone) track('first_analysis_completed')
   }, [isDone])
 
-  const phaseIndex = PHASE_ORDER.indexOf(phase)
+  /** How far the run got, whether or not it then stopped. */
+  const reachedFraction = progress?.progress ?? 0
 
   return (
     <StepFrame
@@ -123,8 +146,10 @@ export default function AnalysisStep() {
       }
       onPrimary={() => {
         if (isFailed) {
+          // Only the pass is restarted. Refetching the poll here would stamp
+          // the stalled failure as newer than the retry that is about to
+          // replace it, and polling resumes on its own once the phase moves.
           start.mutate()
-          void progressQuery.refetch()
           return
         }
         router.push('/(onboarding)/done')
@@ -140,9 +165,9 @@ export default function AnalysisStep() {
 
       <View style={{ gap: spacing.xs }}>
         {PHASES.map((entry) => {
-          const entryIndex = PHASE_ORDER.indexOf(entry.phase)
-          const reached = phaseIndex >= entryIndex
-          const complete = phaseIndex > entryIndex || isDone
+          const threshold = initialAnalysisProgressFor(entry.phase)
+          const reached = reachedFraction >= threshold
+          const complete = reachedFraction > threshold
           return (
             <View
               key={entry.phase}

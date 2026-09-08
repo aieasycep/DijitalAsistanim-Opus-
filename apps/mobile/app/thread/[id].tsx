@@ -1,10 +1,11 @@
 import { qk } from '@da/api-client'
 import { spacing } from '@da/design-tokens'
-import { systemClock } from '@da/domain'
-import type { EmailMessage, FeedbackSignal } from '@da/domain'
-import { elapsedKey, formatTime } from '@da/i18n'
+import { DAY_MS, systemClock } from '@da/domain'
+import type { EmailMessage, FeedbackSignal, FollowUp } from '@da/domain'
+import { elapsedKey, formatFullDate, formatTime } from '@da/i18n'
+import { LOW_CONFIDENCE_THRESHOLD } from '@da/validation'
 import { MaterialIcons } from '@expo/vector-icons'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import * as WebBrowser from 'expo-web-browser'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -24,7 +25,7 @@ import { Text } from '../../src/components/ui/Text'
 import { useI18n, useT } from '../../src/i18n/I18nProvider'
 import { useInvalidateAfterWrite } from '../../src/hooks/queries'
 import { useUserContext } from '../../src/hooks/useUserContext'
-import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
+import { errorMessageKey, errorValues, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 import { useTheme } from '../../src/theme/ThemeProvider'
 
@@ -49,7 +50,6 @@ export default function ThreadScreen() {
   const theme = useTheme()
   const router = useRouter()
   const api = useApi()
-  const queryClient = useQueryClient()
   const invalidate = useInvalidateAfterWrite()
   const { timeZone } = useUserContext()
   const params = useLocalSearchParams<{ id?: string }>()
@@ -78,11 +78,16 @@ export default function ThreadScreen() {
   const feedback = useMutation({
     mutationFn: (signal: FeedbackSignal) =>
       api.threads.feedback({ signal, entityType: 'email', entityId: threadId as string }),
-    onSuccess: async () => {
-      setFeedbackOpen(false)
-      await queryClient.invalidateQueries({ queryKey: qk.threads({ flow: 'all' }) })
-    },
+    // `not_important` mutes the thread and `stop_following` closes its
+    // follow-ups, so every ranked surface is stale — not just the unfiltered
+    // list this used to refresh.
+    onSuccess: invalidate,
+    // The sheet closes either way; a failure is then visible on the screen
+    // behind it rather than hidden under a modal that never dismissed.
+    onSettled: () => setFeedbackOpen(false),
   })
+
+  const actionError = markDone.error ?? feedback.error
 
   const toggleMessage = useCallback((messageId: string) => {
     setExpanded((current) =>
@@ -126,8 +131,13 @@ export default function ThreadScreen() {
 
   if (!thread) return null
 
+  const now = systemClock.now()
   const messages: EmailMessage[] = detail?.messages ?? []
   const latest = messages[messages.length - 1] ?? null
+  const commitments = detail?.commitments ?? []
+  // Only the ones still waiting: `detail()` no longer returns the answered or
+  // closed follow-ups, so anything here is genuinely unanswered.
+  const followUps: FollowUp[] = detail?.followUps ?? []
 
   return (
     <Screen scroll bottomInset={spacing.xxl}>
@@ -185,7 +195,9 @@ export default function ThreadScreen() {
                 {t('today.priority.reason', { reason: thread.reasonImportant })}
               </Text>
             ) : null}
-            {thread.confidence !== null && thread.confidence < 0.6 ? (
+            {/* The one bar the whole product hedges on, imported rather than
+                written out again here. */}
+            {thread.confidence !== null && thread.confidence < LOW_CONFIDENCE_THRESHOLD ? (
               <Text variant="micro" tone="tertiary">
                 {t('mail.triage.confidenceLow')}
               </Text>
@@ -258,11 +270,11 @@ export default function ThreadScreen() {
           ) : null}
         </View>
 
-        {(detail?.commitments.length ?? 0) > 0 ? (
+        {commitments.length > 0 ? (
           <View>
             <SectionHeader title={t('commitment.title')} />
             <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
-              {detail?.commitments.map((commitment, index) => (
+              {commitments.map((commitment, index) => (
                 <View key={commitment.id}>
                   {index > 0 ? <Divider /> : null}
                   <Pressable
@@ -270,19 +282,82 @@ export default function ThreadScreen() {
                     haptic="light"
                     scaleOnPress={false}
                     accessibilityLabel={commitment.text}
-                    style={{ paddingVertical: spacing.sm }}
+                    style={{ paddingVertical: spacing.sm, gap: spacing.xxs }}
                     testID={`thread-commitment-${commitment.id}`}
                   >
                     <Text variant="body" numberOfLines={2}>
                       {commitment.text}
                     </Text>
-                    <Text variant="micro" tone="tertiary">
-                      {t(`commitment.direction.${commitment.direction}`)}
-                    </Text>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.xs,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Text variant="micro" tone="tertiary">
+                        {t(`commitment.direction.${commitment.direction}`)}
+                      </Text>
+                      {/* A date only when the extractor found it in the mail
+                          itself. An ungrounded one is dropped at ingestion, so
+                          "tarih belirtilmedi" is the honest answer rather than
+                          a deadline nobody wrote. */}
+                      <Text variant="micro" tone="tertiary">
+                        {commitment.dueAt
+                          ? t('commitment.card.dueOn', {
+                              date: formatFullDate(new Date(commitment.dueAt), locale, timeZone),
+                            })
+                          : t('commitment.card.noDate')}
+                      </Text>
+                      {/* Extraction proposes; only a person confirms. */}
+                      {!commitment.confirmedByUser ? (
+                        <Badge
+                          label={t('common.state.proposed')}
+                          tone="primary"
+                          icon="auto-awesome"
+                        />
+                      ) : null}
+                    </View>
                   </Pressable>
                 </View>
               ))}
             </Card>
+          </View>
+        ) : null}
+
+        {followUps.length > 0 ? (
+          <View>
+            <SectionHeader title={t('followup.title')} />
+            <View style={{ gap: spacing.sm }}>
+              {followUps.map((followUp) => {
+                const silentDays = Math.floor(
+                  Math.max(0, now.getTime() - new Date(followUp.sentAt).getTime()) / DAY_MS,
+                )
+                const who = followUp.recipientName ?? followUp.recipientEmail
+                return (
+                  <Card
+                    key={followUp.id}
+                    onPress={() => router.push('/followups')}
+                    accessibilityLabel={who}
+                    style={{ gap: spacing.xxs }}
+                    testID={`thread-followup-${followUp.id}`}
+                  >
+                    <View style={{ flexDirection: 'row', gap: spacing.xxs, flexWrap: 'wrap' }}>
+                      <Badge label={t('followup.noReplyYet')} tone="warning" icon="schedule-send" />
+                    </View>
+                    <Text variant="body" numberOfLines={1}>
+                      {t('followup.card.sentTo', { name: who })}
+                    </Text>
+                    {silentDays >= 1 ? (
+                      <Text variant="micro" tone="tertiary" tabular>
+                        {plural('followup.card.waitingFor', silentDays)}
+                      </Text>
+                    ) : null}
+                  </Card>
+                )
+              })}
+            </View>
           </View>
         ) : null}
 
@@ -309,7 +384,7 @@ export default function ThreadScreen() {
                       </Text>
                       <Text variant="micro" tone="tertiary" numberOfLines={1}>
                         {(() => {
-                          const elapsed = elapsedKey(new Date(message.sentAt), systemClock.now())
+                          const elapsed = elapsedKey(new Date(message.sentAt), now)
                           return plural(elapsed.key, elapsed.count)
                         })()}
                       </Text>
@@ -348,6 +423,17 @@ export default function ThreadScreen() {
             })}
           </View>
         </View>
+
+        {/* A signal that was recorded and then reported as a failure is the
+            defect this screen was shipped with; a signal that failed and said
+            nothing is the same defect the other way round. */}
+        {actionError ? (
+          <Card tone="critical" testID="thread-action-error">
+            <Text variant="secondary" tone="critical">
+              {t(errorMessageKey(actionError), errorValues(actionError))}
+            </Text>
+          </Card>
+        ) : null}
 
         {!thread.requiresUserAction ? (
           <Text variant="micro" tone="tertiary" center>

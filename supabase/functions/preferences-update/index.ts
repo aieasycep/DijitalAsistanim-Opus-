@@ -1,4 +1,4 @@
-import { updatePreferencesRequestSchema } from '@da/validation'
+import { preferencesUpdateRequest, type PreferencesUpdateResponse } from '@da/validation'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
 
@@ -32,22 +32,27 @@ const COLUMN: Record<string, string> = {
  *
  * The time zone lives on `profiles` rather than `user_preferences`, so it is
  * split out here — every scheduled job reads it from the profile, and having
- * two copies would eventually disagree.
+ * two copies would eventually disagree. It is written where it belongs and is
+ * *not* echoed back on the preferences row: the row has no such column, and the
+ * answer used to imply it did.
+ *
+ * The write and the read-back are one statement, and it upserts rather than
+ * updates. The row is seeded by the signup trigger, so a user who signed up
+ * before this table existed has nothing to update — and the old code answered
+ * that user with an empty object, which `mapUserPreferences` turned into a
+ * `UserPreferences` of `undefined`s instead of an error anyone could see.
  */
 serveFunction('preferences-update', async ({ request, origin }) => {
   const user = await requireUser(request)
-  const body = await parseBody(request, updatePreferencesRequestSchema)
+  const body = await parseBody(request, preferencesUpdateRequest)
   const client = serviceClient()
 
-  const patch: Record<string, unknown> = {}
+  // Only the fields the caller actually sent: the patch is partial, and an
+  // absent field means "leave it alone", not "reset it".
+  const patch: Record<string, unknown> = { user_id: user.id }
   for (const [key, column] of Object.entries(COLUMN)) {
     const value = (body as Record<string, unknown>)[key]
     if (value !== undefined) patch[column] = value
-  }
-
-  if (Object.keys(patch).length > 0) {
-    const { error } = await client.from('user_preferences').update(patch).eq('user_id', user.id)
-    if (error) throw dbError(error)
   }
 
   if (body.timeZone !== undefined) {
@@ -60,16 +65,13 @@ serveFunction('preferences-update', async ({ request, origin }) => {
 
   const { data, error } = await client
     .from('user_preferences')
+    .upsert(patch, { onConflict: 'user_id' })
     .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle()
+    .single()
+
   if (error) throw dbError(error)
 
-  const profile = await client.from('profiles').select('time_zone').eq('id', user.id).maybeSingle()
+  const payload: PreferencesUpdateResponse = { preferences: data as Record<string, unknown> }
 
-  return jsonResponse(
-    { preferences: { ...(data ?? {}), time_zone: profile.data?.time_zone ?? null } },
-    200,
-    origin,
-  )
+  return jsonResponse(payload, 200, origin)
 })

@@ -1,4 +1,4 @@
-import { feedbackRequestSchema } from '@da/validation'
+import { ACK, type AckResponse, feedbackRequestSchema } from '@da/validation'
 import { systemClock } from '../_shared/domain.ts'
 import { dbError, requireUser, serviceClient } from '../_shared/db.ts'
 import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
@@ -9,6 +9,11 @@ import { jsonResponse, parseBody, serveFunction } from '../_shared/http.ts'
  * The signal is recorded and, for the two that have an immediate meaning, acted
  * on right away — a user who says "not important" expects the item to leave the
  * feed now, not after the next learning pass.
+ *
+ * It answers `ACK`. It used to answer `{ recorded: true, id }` while its caller
+ * parsed `{ ok }`, so every signal was written, acted on, and then reported to
+ * the user as a failure. The row's id is of no use to the caller: feedback is
+ * fire-and-forget, and nothing in the app can fetch or amend one afterwards.
  */
 serveFunction('feedback', async ({ request, origin }) => {
   const user = await requireUser(request)
@@ -16,33 +21,34 @@ serveFunction('feedback', async ({ request, origin }) => {
   const now = systemClock.now()
   const client = serviceClient()
 
-  const inserted = await client
-    .from('ai_feedback')
-    .insert({
-      user_id: user.id,
-      signal: body.signal,
-      entity_type: body.entityType,
-      entity_id: body.entityId,
-      note: body.note,
-    })
-    .select('id')
-    .single()
+  const inserted = await client.from('ai_feedback').insert({
+    user_id: user.id,
+    signal: body.signal,
+    entity_type: body.entityType,
+    entity_id: body.entityId,
+    note: body.note,
+  })
   if (inserted.error) throw dbError(inserted.error)
 
+  // Each immediate effect below is checked, because `ACK` means "done": a
+  // suppression or a VIP flag that failed must reach the user as an error
+  // rather than as the acknowledgement of a change that never happened.
   if (body.signal === 'not_important' && body.entityType === 'email') {
-    await client
+    const { error } = await client
       .from('email_threads')
       .update({ suppressed_at: now.toISOString(), priority_score: 0 })
       .eq('id', body.entityId)
       .eq('user_id', user.id)
+    if (error) throw dbError(error)
   }
 
   if (body.signal === 'stop_following' && body.entityType === 'email') {
-    await client
+    const { error } = await client
       .from('follow_ups')
       .update({ status: 'closed', closed_at: now.toISOString() })
       .eq('thread_id', body.entityId)
       .eq('user_id', user.id)
+    if (error) throw dbError(error)
   }
 
   if (body.signal === 'mark_vip' && body.entityType === 'contact') {
@@ -53,9 +59,10 @@ serveFunction('feedback', async ({ request, origin }) => {
       .eq('user_id', user.id)
       .select('email, name')
       .maybeSingle()
+    if (contact.error) throw dbError(contact.error)
 
     if (contact.data?.email) {
-      await client.from('vip_people').upsert(
+      const { error } = await client.from('vip_people').upsert(
         {
           user_id: user.id,
           contact_id: body.entityId,
@@ -65,8 +72,11 @@ serveFunction('feedback', async ({ request, origin }) => {
         },
         { onConflict: 'user_id,email' },
       )
+      if (error) throw dbError(error)
     }
   }
 
-  return jsonResponse({ recorded: true, id: inserted.data.id }, 200, origin)
+  const payload: AckResponse = ACK
+
+  return jsonResponse(payload, 200, origin)
 })

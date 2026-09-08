@@ -69,13 +69,23 @@ export default function AssistantScreen() {
     [ask, isAsking],
   )
 
+  /**
+   * How a citation opens, or nothing when it does not.
+   *
+   * A citation now carries the retrieved record's real type, so the chips can
+   * point at a task, a notification or a typed note — none of which has a
+   * screen of its own. Those get no handler at all, so `SourceChip` renders
+   * them as provenance without the chevron, rather than as a control that
+   * looks pressable and leads nowhere.
+   */
   const openCitation = useCallback(
-    (source: SourceRef) => () => {
-      if (source.type === 'email') router.push(`/thread/${source.id}`)
-      else if (source.type === 'calendar_event') router.push(`/event/${source.id}`)
-      else if (source.type === 'contact') router.push(`/person/${source.id}`)
-      else if (source.type === 'commitment') router.push(`/commitment/${source.id}`)
-      else if (source.type === 'capture') router.push(`/capture?id=${source.id}`)
+    (source: SourceRef): (() => void) | undefined => {
+      if (source.type === 'email') return () => router.push(`/thread/${source.id}`)
+      if (source.type === 'calendar_event') return () => router.push(`/event/${source.id}`)
+      if (source.type === 'contact') return () => router.push(`/person/${source.id}`)
+      if (source.type === 'commitment') return () => router.push(`/commitment/${source.id}`)
+      if (source.type === 'capture') return () => router.push(`/capture?id=${source.id}`)
+      return undefined
     },
     [router],
   )

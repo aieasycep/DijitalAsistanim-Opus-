@@ -1,14 +1,18 @@
 import { gradients, spacing } from '@da/design-tokens'
 import {
+  type FollowUp,
   type Insight,
   type InsightAction,
+  AppError,
   HOUR_MS,
   MINUTE_MS,
   comparePriority,
+  nextWorkingDay,
   systemClock,
 } from '@da/domain'
 import { formatWeekdayDate } from '@da/i18n'
 import { MaterialIcons } from '@expo/vector-icons'
+import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
 import { View } from 'react-native'
@@ -21,6 +25,7 @@ import { BriefingHero } from '../../src/components/today/BriefingHero'
 import { TodayHeader } from '../../src/components/today/TodayHeader'
 import { ApprovalBanner } from '../../src/components/today/ApprovalBanner'
 import { Button } from '../../src/components/ui/Button'
+import { Card } from '../../src/components/ui/Card'
 import { EmptyState, ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { SectionHeader } from '../../src/components/ui/Layout'
 import { Screen } from '../../src/components/ui/Screen'
@@ -31,9 +36,10 @@ import { track } from '../../src/lib/analytics'
 import { useApprovalFlow } from '../../src/hooks/useApprovalFlow'
 import { useEntitlements, useFeatureGate } from '../../src/hooks/useEntitlements'
 import { useInsightActions } from '../../src/hooks/useInsightActions'
-import { useTodayFeed } from '../../src/hooks/queries'
+import { useInvalidateAfterWrite, useTodayFeed } from '../../src/hooks/queries'
 import { useWidgetSync } from '../../src/hooks/useWidgetSync'
 import { useUserContext } from '../../src/hooks/useUserContext'
+import { useApi } from '../../src/providers/AppProviders'
 
 /**
  * Today — the app's home.
@@ -46,11 +52,18 @@ export default function TodayScreen() {
   const t = useT()
   const { locale, plural } = useI18n()
   const router = useRouter()
+  const api = useApi()
+  const invalidate = useInvalidateAfterWrite()
   const { timeZone, givenName } = useUserContext()
   const { can } = useEntitlements()
   const gate = useFeatureGate()
-  const { isDeciding } = useApprovalFlow()
-  const { runAction, isRunning } = useInsightActions()
+  const { isDeciding, proposeAndReview } = useApprovalFlow()
+  const {
+    runAction,
+    runningInsightId,
+    error: insightError,
+    clearError: clearInsightError,
+  } = useInsightActions()
   const [refreshing, setRefreshing] = useState(false)
 
   const query = useTodayFeed()
@@ -109,6 +122,71 @@ export default function TodayScreen() {
     [runAction],
   )
 
+  /**
+   * Chasing a silent thread, from Today.
+   *
+   * All three buttons used to push a query parameter at the thread screen —
+   * `?nudge=1`, `?remind=1` — which that screen has never read, so the card's
+   * whole action row was decoration. They now run the same writes the
+   * follow-ups screen runs.
+   *
+   * The nudge is drafted and then handed straight to the approval card, which
+   * shows the subject and body and lets the user edit both before approving.
+   * Nothing is sent by tapping the button.
+   */
+  const nudge = useMutation({
+    mutationFn: async (followUp: FollowUp) => {
+      // A reply leaves from the mailbox that holds the thread; an empty or
+      // guessed account id fails `emailSendPayloadSchema` before the request
+      // is ever made.
+      const [draft, thread] = await Promise.all([
+        api.followUps.nudgeDraft(followUp.id),
+        api.threads.get(followUp.threadId),
+      ])
+      if (!thread) {
+        throw new AppError('not_found', { detail: `thread ${followUp.threadId}` })
+      }
+      return proposeAndReview({
+        type: 'email_send',
+        what: t('followup.nudge.title'),
+        why: t('followup.card.sentTo', {
+          name: followUp.recipientName ?? followUp.recipientEmail,
+        }),
+        sourceType: 'email',
+        sourceId: followUp.threadId,
+        discriminator: `nudge:${followUp.id}`,
+        payload: {
+          kind: 'email_send',
+          connectedAccountId: thread.connectedAccountId,
+          threadId: followUp.threadId,
+          inReplyToMessageId: followUp.messageId,
+          to: [followUp.recipientEmail],
+          cc: [],
+          subject: draft.subject,
+          body: draft.body,
+          tone: 'professional',
+        },
+      })
+    },
+    onSuccess: invalidate,
+  })
+
+  const snooze = useMutation({
+    // "Remind me" means the start of the next working day — the domain's rule,
+    // so a Friday afternoon nudge is not due again on Saturday.
+    mutationFn: (followUpId: string) =>
+      api.followUps.snooze(followUpId, nextWorkingDay(now, timeZone).toISOString()),
+    onSuccess: invalidate,
+  })
+
+  const close = useMutation({
+    mutationFn: (followUpId: string) => api.followUps.close(followUpId),
+    onSuccess: invalidate,
+  })
+
+  const followUpError = nudge.error ?? snooze.error ?? close.error
+  const followUpBusy = nudge.isPending || snooze.isPending || close.isPending
+
   const openSource = useCallback(
     (insight: Insight) => () => {
       const source = insight.source
@@ -164,7 +242,22 @@ export default function TodayScreen() {
 
   const pendingApprovals = feed?.pendingApprovals ?? []
   const lifeEvents = feed?.lifeEvents.filter((e) => e.status === 'active') ?? []
-  const followUps = feed?.followUps.filter((f) => f.status === 'waiting') ?? []
+  // Both live statuses: drafting a nudge moves the row to `nudged`, and a card
+  // that disappears the moment you act on it reads as a bug, not as progress.
+  const followUps =
+    feed?.followUps.filter((f) => f.status === 'waiting' || f.status === 'nudged') ?? []
+
+  /**
+   * Where the hero goes.
+   *
+   * The briefing screen is a single route parameterised by a query param — see
+   * `targetToRoute` in `src/lib/deep-links.ts`. `/briefing/morning` has no file
+   * behind it, so the app's primary call to action used to land on the router's
+   * unmatched-route screen. The kind is the briefing's own, so an evening hero
+   * opens the evening briefing rather than the morning one.
+   */
+  const briefingKind = feed?.briefing?.kind ?? 'morning'
+  const briefingRoute = `/briefing?kind=${briefingKind}`
 
   const isQuietDay =
     openInsights.length === 0 &&
@@ -187,8 +280,8 @@ export default function TodayScreen() {
         briefing={feed?.briefing ?? null}
         priorityCount={openInsights.length}
         gradient={gradients.dawn}
-        onOpen={() => router.push('/briefing/morning')}
-        onListen={gate('voice_briefing', () => router.push('/briefing/morning?listen=1'))}
+        onOpen={() => router.push(briefingRoute)}
+        onListen={gate('voice_briefing', () => router.push(`${briefingRoute}&listen=1`))}
         canListen={can('voice_briefing')}
       />
 
@@ -218,16 +311,44 @@ export default function TodayScreen() {
             onAction={() => router.push('/(tabs)/flow')}
           />
           <View style={{ gap: spacing.sm }}>
-            {openInsights.slice(0, 5).map((insight) => (
-              <InsightCard
-                key={insight.id}
-                insight={insight}
-                onAction={handleInsightAction(insight)}
-                onOpenSource={insight.source ? openSource(insight) : undefined}
-                onPress={insight.source ? openSource(insight) : undefined}
-                testID={`insight-${insight.id}`}
-              />
-            ))}
+            {openInsights.slice(0, 5).map((insight) => {
+              // A quick action can create an approval or write to the row, so
+              // the card it was tapped on is dimmed and inert until it settles
+              // rather than accepting a second tap that would stack a duplicate.
+              const pending = runningInsightId === insight.id
+              return (
+                <View
+                  key={insight.id}
+                  pointerEvents={pending ? 'none' : 'auto'}
+                  style={{ opacity: pending ? 0.5 : 1 }}
+                >
+                  <InsightCard
+                    insight={insight}
+                    onAction={handleInsightAction(insight)}
+                    onOpenSource={insight.source ? openSource(insight) : undefined}
+                    onPress={insight.source ? openSource(insight) : undefined}
+                    testID={`insight-${insight.id}`}
+                  />
+                </View>
+              )
+            })}
+
+            {/* A failed quick action used to be reported to the error service
+                and to nobody else, so the button simply appeared to do nothing. */}
+            {insightError ? (
+              <Card tone="critical" style={{ gap: spacing.xs }}>
+                <Text variant="secondary" tone="critical">
+                  {t(errorMessageKey(insightError))}
+                </Text>
+                <Button
+                  label={t('errors.action.dismiss')}
+                  onPress={clearInsightError}
+                  variant="ghost"
+                  size="sm"
+                  testID="insight-action-error-dismiss"
+                />
+              </Card>
+            ) : null}
           </View>
         </View>
       ) : null}
@@ -277,13 +398,22 @@ export default function TodayScreen() {
                 followUp={followUp}
                 subject={followUp.recipientName ?? followUp.recipientEmail}
                 now={now}
-                onDraftNudge={() => router.push(`/thread/${followUp.threadId}?nudge=1`)}
-                onRemindTomorrow={() => router.push(`/thread/${followUp.threadId}?remind=1`)}
-                onClose={() => router.push('/followups')}
+                onDraftNudge={() => nudge.mutate(followUp)}
+                onRemindTomorrow={() => snooze.mutate(followUp.id)}
+                onClose={() => close.mutate(followUp.id)}
                 onOpenThread={() => router.push(`/thread/${followUp.threadId}`)}
+                busy={followUpBusy}
                 testID={`followup-${followUp.id}`}
               />
             ))}
+
+            {followUpError ? (
+              <Card tone="critical">
+                <Text variant="secondary" tone="critical">
+                  {t(errorMessageKey(followUpError))}
+                </Text>
+              </Card>
+            ) : null}
           </View>
         </View>
       ) : null}
@@ -348,8 +478,6 @@ export default function TodayScreen() {
           size="sm"
         />
       </View>
-
-      {isRunning ? null : null}
     </Screen>
   )
 }

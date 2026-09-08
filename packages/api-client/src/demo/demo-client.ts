@@ -1,11 +1,16 @@
 import {
   AppError,
   DAY_MS,
+  DEFAULT_REMINDER_WINDOWS,
   HOUR_MS,
   MINUTE_MS,
+  PREP_WINDOW_MINUTES,
   REFERRAL_BONUS_DAYS,
   addLocalDays,
+  detectConflicts,
+  resolveReminderTime,
   startOfLocalDay,
+  summarizeDayLoad,
   toIsoDate,
   type ApprovalAction,
   type CalendarEvent,
@@ -14,7 +19,13 @@ import {
   type IsoDate,
   type IsoInstant,
   type SourceRef,
+  type TimedEvent,
 } from '@da/domain'
+import {
+  initialAnalysisProgressFor,
+  type InitialAnalysisResponse,
+  type SyncStartResponse,
+} from '@da/validation'
 import type { ApiClientConfig } from '../config'
 import type { ApiClient } from '../index'
 import type {
@@ -104,30 +115,20 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
       })
     }
 
-    const conflicts = events
-      .flatMap((event, index) => events.slice(index + 1).map((other) => ({ event, other })))
-      .filter(
-        ({ event, other }) =>
-          new Date(other.startsAt).getTime() < new Date(event.endsAt).getTime() &&
-          new Date(event.startsAt).getTime() < new Date(other.endsAt).getTime(),
-      )
-      .map(({ event, other }) => ({
-        eventIds: [event.id, other.id],
-        startsAt: event.startsAt > other.startsAt ? event.startsAt : other.startsAt,
-        endsAt: event.endsAt < other.endsAt ? event.endsAt : other.endsAt,
-      }))
-
-    const meetingMinutes = busy.reduce(
-      (total, block) => total + Math.round((block.end - block.start) / MINUTE_MS),
-      0,
-    )
-    const longestFreeMinutes = freeBlocks.reduce((max, block) => Math.max(max, block.minutes), 0)
-    const load: DayLoadSummary = {
-      meetingCount: events.length,
-      meetingMinutes,
-      longestFreeMinutes,
-      level: meetingMinutes >= 300 ? 'heavy' : meetingMinutes >= 120 ? 'moderate' : 'light',
-    }
+    // Conflicts and the day's load come from the same domain functions the
+    // edge functions call, so the demo and a live account can never disagree
+    // about what "busy" or "clashing" means.
+    const timed: TimedEvent[] = events.map((event) => ({
+      id: event.id,
+      title: event.title,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      isAllDay: event.isAllDay,
+      location: event.location,
+      attendeeCount: event.attendees.length,
+    }))
+    const conflicts = detectConflicts(timed)
+    const load: DayLoadSummary = summarizeDayLoad(timed, anchor, timeZone())
 
     return {
       date,
@@ -309,6 +310,28 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
 
   const normalize = (value: string): string => value.toLocaleLowerCase('tr')
 
+  /**
+   * The onboarding pass, already finished.
+   *
+   * One function for both `initialAnalysis` and `initialAnalysisProgress`
+   * because they answer the same schema: they used to be two literals here and
+   * the counts in them had already drifted apart.
+   */
+  function analysisProgress(): InitialAnalysisResponse {
+    return {
+      phase: 'done',
+      emailsFound: store.messages.length,
+      importantFound: store.threads.filter(
+        (thread) => thread.importance === 'critical' || thread.importance === 'high',
+      ).length,
+      meetingsFound: store.events.length,
+      followUpsFound: store.followUps.filter((followUp) => followUp.status === 'waiting').length,
+      progress: initialAnalysisProgressFor('done'),
+      briefingId: store.briefings[0]?.id ?? null,
+      errorCode: null,
+    }
+  }
+
   return {
     mode: 'demo',
 
@@ -347,39 +370,30 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
 
     sync: {
       async start() {
+        // The demo run reports the same per-account outcomes the real one does,
+        // so the integrations screen exercises the same envelope in both modes.
+        const outcomes: SyncStartResponse['outcomes'] = []
         for (const state of store.syncStates) {
           state.lastRunAt = nowIso()
           state.status = 'idle'
+          if (state.resource === 'contacts') continue
+          outcomes.push({
+            resource: state.resource,
+            processed: 0,
+            inserted: 0,
+            analyzed: 0,
+            skipped: 0,
+            cursor: state.cursor,
+            complete: true,
+          })
         }
-        return { started: true, jobIds: ['demo-sync'] }
+        return { started: outcomes.length > 0, outcomes, failures: [] }
       },
       async initialAnalysis() {
-        const briefing = store.briefings[0]
-        return {
-          phase: 'done',
-          emailsFound: 34,
-          importantFound: store.threads.filter(
-            (thread) => thread.importance === 'critical' || thread.importance === 'high',
-          ).length,
-          meetingsFound: store.events.length,
-          followUpsFound: store.followUps.length,
-          progress: 1,
-          briefingId: briefing?.id ?? null,
-          errorCode: null,
-        }
+        return analysisProgress()
       },
       async initialAnalysisProgress() {
-        const briefing = store.briefings[0]
-        return {
-          phase: 'done',
-          emailsFound: 34,
-          importantFound: 4,
-          meetingsFound: store.events.length,
-          followUpsFound: store.followUps.length,
-          progress: 1,
-          briefingId: briefing?.id ?? null,
-          errorCode: null,
-        }
+        return analysisProgress()
       },
       async status() {
         return [...store.syncStates]
@@ -450,6 +464,8 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
         )
         if (existing && input.force !== true) {
           return {
+            status: 'ready',
+            reason: 'cached',
             briefing: existing,
             items: store.briefingItems.filter((item) => item.briefingId === existing.id),
           }
@@ -472,7 +488,7 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
           .filter((item) => item.briefingId === template.id)
           .map((item) => ({ ...item, id: nextId(), briefingId: id, ...owned() }))
         store.briefingItems.push(...items)
-        return { briefing, items }
+        return { status: 'ready', reason: 'generated', briefing, items }
       },
       async requestAudio(input) {
         const briefing = found(
@@ -611,53 +627,27 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
           detailed:
             'Merhaba,\n\nRevize teklif için birim fiyat tablosunu güncelliyorum; kalemleri son maliyetlerle yenileyip cuma 17:00’dan önce göndereceğim. Ek bir başlık eklememi istersen bugün içinde yazman yeterli.\n\nİyi çalışmalar,\nDeniz',
         }
-        const body = bodies[input.tone] ?? bodies['professional'] ?? ''
-        let approvalId: string | null = null
-        if (input.asApproval === true) {
-          const account = found(store.accounts[0], 'demo account')
-          const id = nextId()
-          const payload = {
-            kind: 'email_send' as const,
-            connectedAccountId: account.id,
-            threadId: thread.id,
-            inReplyToMessageId: null,
-            to: thread.participantEmails.filter((email) => email !== store.profile.email),
-            cc: [],
-            subject: `Re: ${thread.subject}`,
-            body,
-            tone: input.tone,
-          }
-          store.approvals.push({
-            id,
-            ...owned(),
-            type: 'email_send',
-            status: 'pending',
-            what: `${thread.subject} yanıtını gönder`,
-            why: 'Yanıt senden bekleniyor.',
-            source: sourceForThread(thread.id),
-            payload,
-            originalPayload: payload,
-            idempotencyKey: `demo-reply-${id.slice(-6)}`,
-            expiresAt: new Date(now().getTime() + DAY_MS).toISOString(),
-            approvedAt: null,
-            executedAt: null,
-            rejectedAt: null,
-            failureReason: null,
-            attemptCount: 0,
-            resultRef: null,
-          })
-          approvalId = id
-        }
+        const tone = input.tone ?? 'professional'
+        const body = bodies[tone] ?? bodies['professional'] ?? ''
+        // Whom the reply answers, and which message it continues, exactly as
+        // `reply-draft` resolves them — the demo must not be able to address a
+        // reply the live function would address differently.
+        const conversation = store.messages
+          .filter((message) => message.threadId === thread.id)
+          .sort((a, b) => a.sentAt.localeCompare(b.sentAt))
+        const lastInbound = conversation.filter((message) => !message.isFromUser).at(-1)
+        const to = lastInbound
+          ? [lastInbound.fromEmail]
+          : thread.participantEmails.filter((email) => email !== store.profile.email)
         return {
           threadId: thread.id,
+          connectedAccountId: thread.connectedAccountId,
           subject: `Re: ${thread.subject}`,
           body,
-          tone: input.tone,
-          approvalId,
-          alternatives: [
-            { tone: 'short' as const, body: bodies['short'] ?? '' },
-            { tone: 'detailed' as const, body: bodies['detailed'] ?? '' },
-          ],
+          tone,
+          to,
+          inReplyToMessageId: conversation.at(-1)?.externalMessageId ?? null,
+          openQuestions: [],
           grounded: true,
         }
       },
@@ -805,27 +795,35 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
           (best, block) => (best === null || block.minutes > best.minutes ? block : best),
           null,
         )
+        // A suggestion travels as an i18n key and its values, never as a
+        // sentence: the demo speaks whichever language the app is set to, for
+        // the same reason a live account does.
         const suggestions: PlanSuggestion[] = []
         if (longest) {
           suggestions.push({
             id: `focus-${date}`,
-            kind: 'focus_block' as const,
-            title: 'Teklif için odak bloğu ayır',
-            detail: `${longest.minutes} dakikalık boşluk revize teklifi bitirmeye yeter.`,
+            kind: 'focus_block',
+            messageKey: 'plan.suggestion.focusBlock',
+            values: { minutes: longest.minutes },
             startsAt: longest.startsAt,
             endsAt: longest.endsAt,
+            minutes: longest.minutes,
             relatedEventId: null,
           })
         }
         const meeting = plan.events.find((event) => event.attendees.length > 1)
         if (meeting) {
+          const prepStart = new Date(
+            new Date(meeting.startsAt).getTime() - PREP_WINDOW_MINUTES * MINUTE_MS,
+          ).toISOString()
           suggestions.push({
             id: `prepare-${meeting.id}`,
-            kind: 'prepare' as const,
-            title: `${meeting.title} için hazırlan`,
-            detail: 'Gündem maddelerini toplantı öncesi gözden geçir.',
-            startsAt: meeting.startsAt,
-            endsAt: meeting.endsAt,
+            kind: 'prepare',
+            messageKey: 'plan.suggestion.prepBlock',
+            values: { minutes: PREP_WINDOW_MINUTES, title: meeting.title },
+            startsAt: prepStart,
+            endsAt: meeting.startsAt,
+            minutes: PREP_WINDOW_MINUTES,
             relatedEventId: meeting.id,
           })
         }
@@ -1226,22 +1224,35 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
           .slice(0, input.limit ?? 100)
       },
       async create(input) {
+        // The same calculator `reminder-create` runs, over the demo calendar,
+        // so a preset means the same thing here as it does on a live account.
+        const resolution = resolveReminderTime({
+          preset: input.preset,
+          now: now(),
+          timeZone: timeZone(),
+          windows: DEFAULT_REMINDER_WINDOWS,
+          busy: store.events.map((event) => ({
+            startsAt: event.startsAt,
+            endsAt: event.endsAt,
+          })),
+          ...(input.customAt ? { customAt: input.customAt } : {}),
+        })
         const reminder = {
           id: nextId(),
           ...owned(),
           title: input.title,
           body: input.body ?? null,
-          remindAt: input.remindAt,
+          remindAt: resolution.remindAt,
           preset: input.preset,
           source: null,
           relatedEntityType: input.relatedEntityType ?? null,
           relatedEntityId: input.relatedEntityId ?? null,
           status: 'scheduled' as const,
           firedAt: null,
-          category: 'follow_up' as const,
+          category: 'deadline' as const,
         }
         store.reminders.push(reminder)
-        return reminder
+        return { reminder, resolution }
       },
       async cancel(reminderId) {
         const reminder = found(
@@ -1379,20 +1390,20 @@ export function createDemoClient(config: ApiClientConfig): ApiClient {
       },
       async redeem(code) {
         if (code.trim().toUpperCase() === store.referral.code) {
-          return { granted: false, bonusDays: 0, expiresAt: null, reason: 'referral_self' }
+          // `self_referral` is the decision `evaluateReferralRedemption` makes;
+          // `referral_self` is the error *code* that carries its message. The
+          // demo used to answer with the latter, so the screen's reason lookup
+          // would have missed it.
+          return { granted: false, bonusDays: 0, expiresAt: null, reason: 'self_referral' }
         }
+        const expiresAt = new Date(now().getTime() + REFERRAL_BONUS_DAYS * DAY_MS).toISOString()
         store.subscription = {
           ...store.subscription,
           status: 'trialing',
-          trialEndsAt: new Date(now().getTime() + REFERRAL_BONUS_DAYS * DAY_MS).toISOString(),
+          trialEndsAt: expiresAt,
           updatedAt: nowIso(),
         }
-        return {
-          granted: true,
-          bonusDays: REFERRAL_BONUS_DAYS,
-          expiresAt: store.subscription.trialEndsAt,
-          reason: null,
-        }
+        return { granted: true, bonusDays: REFERRAL_BONUS_DAYS, expiresAt, reason: null }
       },
     },
 

@@ -1,16 +1,16 @@
+import type { NotificationPreferences, Profile, UserPreferences } from '@da/domain'
 import {
-  LOCALES,
-  type NotificationPreferences,
-  type Profile,
-  type UserPreferences,
-} from '@da/domain'
-import {
-  timeZoneSchema,
-  updateNotificationPreferencesRequestSchema,
-  updatePreferencesRequestSchema,
+  notificationPreferencesUpdateRequest,
+  notificationPreferencesUpdateResponse,
+  preferencesUpdateRequest,
+  preferencesUpdateResponse,
+  profileUpdateRequest,
+  profileUpdateResponse,
+  type NotificationPreferencesUpdateRequest,
+  type PreferencesUpdateRequest,
+  type ProfileUpdateRequest,
 } from '@da/validation'
-import { z } from 'zod'
-import { parseRequest, rowOf } from '../http'
+import { parseRequest } from '../http'
 import { mapNotificationPreferences, mapProfile, mapUserPreferences } from '../mappers'
 import type {
   EndpointContext,
@@ -19,29 +19,20 @@ import type {
   UserPreferencesRow,
 } from '../types'
 
-const preferencesEnvelopeSchema = z.object({ preferences: rowOf<UserPreferencesRow>() })
-const notificationEnvelopeSchema = z.object({
-  notificationPreferences: rowOf<NotificationPreferencesRow>(),
-})
-const profileEnvelopeSchema = z.object({ profile: rowOf<ProfileRow>() })
+/**
+ * A row the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around it and leaves the row itself
+ * permissive — adding a column must not require a contract change — so the
+ * mapper is what narrows a row into a domain entity.
+ */
+function rowAs<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
-const profileUpdateSchema = z
-  .object({
-    displayName: z.string().min(1).max(120).nullable(),
-    givenName: z.string().min(1).max(60).nullable(),
-    avatarUrl: z.string().url().nullable(),
-    timeZone: timeZoneSchema,
-    locale: z.enum(LOCALES),
-    /** Set once, when the onboarding flow finishes; the server stamps the time. */
-    onboardingCompleted: z.literal(true),
-  })
-  .partial()
-
-export type PreferencesPatch = z.infer<typeof updatePreferencesRequestSchema>
-export type NotificationPreferencesPatch = z.infer<
-  typeof updateNotificationPreferencesRequestSchema
->
-export type ProfilePatch = z.infer<typeof profileUpdateSchema>
+export type PreferencesPatch = PreferencesUpdateRequest
+export type NotificationPreferencesPatch = NotificationPreferencesUpdateRequest
+export type ProfilePatch = ProfileUpdateRequest
 
 export interface SettingsApi {
   preferences(): Promise<UserPreferences | null>
@@ -61,14 +52,14 @@ export function createSettingsApi(ctx: EndpointContext): SettingsApi {
     },
 
     async updatePreferences(patch) {
-      const request = parseRequest(updatePreferencesRequestSchema, patch)
+      const request = parseRequest(preferencesUpdateRequest, patch)
       const result = await ctx.http.callFunction(
         'preferences-update',
         request,
-        preferencesEnvelopeSchema,
+        preferencesUpdateResponse,
         { retry: false },
       )
-      return mapUserPreferences(result.preferences)
+      return mapUserPreferences(rowAs<UserPreferencesRow>(result.preferences))
     },
 
     async notificationPrefs() {
@@ -77,14 +68,16 @@ export function createSettingsApi(ctx: EndpointContext): SettingsApi {
     },
 
     async updateNotificationPrefs(patch) {
-      const request = parseRequest(updateNotificationPreferencesRequestSchema, patch)
+      const request = parseRequest(notificationPreferencesUpdateRequest, patch)
       const result = await ctx.http.callFunction(
         'notification-preferences-update',
         request,
-        notificationEnvelopeSchema,
+        notificationPreferencesUpdateResponse,
         { retry: false },
       )
-      return mapNotificationPreferences(result.notificationPreferences)
+      return mapNotificationPreferences(
+        rowAs<NotificationPreferencesRow>(result.notificationPreferences),
+      )
     },
 
     async profile() {
@@ -93,11 +86,11 @@ export function createSettingsApi(ctx: EndpointContext): SettingsApi {
     },
 
     async updateProfile(patch) {
-      const request = parseRequest(profileUpdateSchema, patch)
-      const result = await ctx.http.callFunction('profile-update', request, profileEnvelopeSchema, {
+      const request = parseRequest(profileUpdateRequest, patch)
+      const result = await ctx.http.callFunction('profile-update', request, profileUpdateResponse, {
         retry: false,
       })
-      return mapProfile(result.profile)
+      return mapProfile(rowAs<ProfileRow>(result.profile))
     },
   }
 }

@@ -88,29 +88,30 @@ export default function MeetingNoteScreen() {
 
           {extracted ? (
             <View style={{ gap: spacing.xs }}>
-              <Text variant="caption" tone="tertiary">
-                {t('meeting.post.extracted')}
-              </Text>
               {extracted.length === 0 ? (
                 <Text variant="secondary" tone="tertiary">
                   {t('meeting.post.noActions')}
                 </Text>
               ) : (
-                extracted.map((commitment) => (
-                  <Card
-                    key={commitment.id}
-                    onPress={() => router.push(`/commitment/${commitment.id}`)}
-                    accessibilityLabel={commitment.text}
-                    style={{ gap: spacing.xxs }}
-                  >
-                    <Text variant="body">{commitment.text}</Text>
-                    <Text variant="micro" tone="tertiary">
-                      {t(`commitment.directionShort.${commitment.direction}`)} ·{' '}
-                      {t('commitment.card.quote', { quote: commitment.quote })}
-                    </Text>
-                  </Card>
-                ))
+                <Text variant="caption" tone="tertiary">
+                  {t('meeting.post.extracted', { count: extracted.length })}
+                </Text>
               )}
+              {extracted.map((commitment) => (
+                <Card
+                  key={commitment.id}
+                  onPress={() => router.push(`/commitment/${commitment.id}`)}
+                  accessibilityLabel={commitment.text}
+                  style={{ gap: spacing.xxs }}
+                  testID={`meeting-note-action-${commitment.id}`}
+                >
+                  <Text variant="body">{commitment.text}</Text>
+                  <Text variant="micro" tone="tertiary">
+                    {t(`commitment.directionShort.${commitment.direction}`)} ·{' '}
+                    {t('commitment.card.quote', { quote: commitment.quote })}
+                  </Text>
+                </Card>
+              ))}
             </View>
           ) : null}
 

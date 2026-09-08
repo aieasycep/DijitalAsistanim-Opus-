@@ -9,12 +9,12 @@ import { Toggle } from '../../src/components/ui/Controls'
 import { Divider, ListRow } from '../../src/components/ui/Layout'
 import { Screen } from '../../src/components/ui/Screen'
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader'
-import { EmptyState, SkeletonCard } from '../../src/components/ui/States'
+import { EmptyState, ErrorState, SkeletonCard } from '../../src/components/ui/States'
 import { Text } from '../../src/components/ui/Text'
 import { useLearnedPreferences, usePreferences } from '../../src/hooks/queries'
 import { useT } from '../../src/i18n/I18nProvider'
 import { track } from '../../src/lib/analytics'
-import { errorMessageKey } from '../../src/lib/query-client'
+import { errorMessageKey, isRetryable } from '../../src/lib/query-client'
 import { useApi } from '../../src/providers/AppProviders'
 
 /**
@@ -58,6 +58,7 @@ export default function PersonalizationSettingsScreen() {
 
   const items = learned.data ?? []
   const learningEnabled = preferences.data?.learnFromInteractions ?? true
+  const mutationError = setLearning.error ?? toggleOne.error ?? forgetOne.error
 
   return (
     <Screen scroll bottomInset={spacing.xxl}>
@@ -89,6 +90,17 @@ export default function PersonalizationSettingsScreen() {
 
           {learned.isLoading && items.length === 0 ? (
             <SkeletonCard />
+          ) : learned.isError && items.length === 0 ? (
+            // "Nothing has been learned" and "we could not read what was
+            // learned" are different answers, and only one of them is a reason
+            // to stop worrying about what the assistant knows.
+            <ErrorState
+              message={t(errorMessageKey(learned.error))}
+              {...(isRetryable(learned.error)
+                ? { retryLabel: t('common.action.retry'), onRetry: () => void learned.refetch() }
+                : {})}
+              testID="learned-error"
+            />
           ) : items.length === 0 ? (
             <EmptyState
               icon="psychology"
@@ -130,9 +142,12 @@ export default function PersonalizationSettingsScreen() {
           )}
         </View>
 
-        {setLearning.isError || toggleOne.isError || forgetOne.isError ? (
-          <Text variant="secondary" tone="critical">
-            {t(errorMessageKey(setLearning.error ?? toggleOne.error ?? forgetOne.error))}
+        {/* The learning switch renders "on" until the preferences read says
+            otherwise, so a failed read has to be visible: the user is looking
+            at a control that does not yet reflect their account. */}
+        {mutationError !== null || preferences.isError ? (
+          <Text variant="secondary" tone="critical" testID="personalization-error">
+            {t(errorMessageKey(mutationError ?? preferences.error))}
           </Text>
         ) : null}
 

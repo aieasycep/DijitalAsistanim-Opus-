@@ -1,12 +1,25 @@
 import type { Commitment, CommitmentDirection, CommitmentStatus, IsoInstant } from '@da/domain'
-import { commitmentCreatePayloadSchema, isoInstantSchema } from '@da/validation'
-import { z } from 'zod'
-import { parseRequest, rowOf } from '../http'
+import {
+  commitmentCreateRequest,
+  commitmentCreateResponse,
+  isoInstantSchema,
+  type CommitmentSourceType,
+} from '@da/validation'
+import { parseRequest } from '../http'
 import { mapCommitment } from '../mappers'
 import type { Filter } from '../supabase'
 import type { CommitmentRow, EndpointContext } from '../types'
 
-const commitmentEnvelopeSchema = z.object({ commitment: rowOf<CommitmentRow>() })
+/**
+ * A row the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around it and leaves the row permissive —
+ * adding a column must not require a contract change — so the mapper is what
+ * narrows a row into a domain entity.
+ */
+function asRow<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
 export interface CommitmentFilter {
   status?: CommitmentStatus
@@ -22,6 +35,10 @@ export interface CreateCommitmentInput {
   dueAt?: IsoInstant | null
   /** The verbatim sentence this came from — a commitment is never invented. */
   quote: string
+  /** Where the sentence was read from. Defaults to the user typing it. */
+  sourceType?: CommitmentSourceType
+  /** The record it was read from, when the caller can name one. */
+  sourceId?: string | null
 }
 
 export interface CommitmentsApi {
@@ -65,21 +82,22 @@ export function createCommitmentsApi(ctx: EndpointContext): CommitmentsApi {
     },
 
     async create(input) {
-      const request = parseRequest(commitmentCreatePayloadSchema, {
-        kind: 'commitment_create',
+      const request = parseRequest(commitmentCreateRequest, {
         text: input.text,
         direction: input.direction,
         personName: input.personName ?? null,
         dueAt: input.dueAt ?? null,
         quote: input.quote,
+        sourceType: input.sourceType ?? 'user_input',
+        sourceId: input.sourceId ?? null,
       })
       const result = await ctx.http.callFunction(
         'commitment-create',
         request,
-        commitmentEnvelopeSchema,
+        commitmentCreateResponse,
         { retry: false },
       )
-      return mapCommitment(result.commitment)
+      return mapCommitment(asRow<CommitmentRow>(result.commitment))
     },
   }
 }

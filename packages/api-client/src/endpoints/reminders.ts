@@ -1,25 +1,54 @@
-import type { IsoInstant, Reminder, ReminderPreset, SourceType } from '@da/domain'
-import { reminderCreatePayloadSchema } from '@da/validation'
-import { z } from 'zod'
-import { parseRequest, rowOf } from '../http'
+import type { IsoInstant, Reminder, ReminderPreset, ResolvedReminder } from '@da/domain'
+import {
+  reminderCreateRequest,
+  reminderCreateResponse,
+  type ReminderEntityType,
+} from '@da/validation'
+import { parseRequest } from '../http'
 import { mapReminder } from '../mappers'
 import type { Filter } from '../supabase'
 import type { EndpointContext, ReminderRow } from '../types'
 
-const reminderEnvelopeSchema = z.object({ reminder: rowOf<ReminderRow>() })
+/**
+ * A row the function already selected and RLS already scoped.
+ *
+ * The contract pins the envelope around it and leaves the row itself
+ * permissive — adding a column must not require a contract change — so the
+ * mapper is what narrows a row into a domain entity.
+ */
+function rowOf<T>(value: Record<string, unknown>): T {
+  return value as unknown as T
+}
 
 export interface CreateReminderInput {
   title: string
   body?: string | null
-  remindAt: IsoInstant
   preset: ReminderPreset
-  relatedEntityType?: Exclude<SourceType, 'user_input'> | null
+  /**
+   * The instant the user picked. Required for the `custom` preset and ignored
+   * by the others: every other preset is resolved against the user's own
+   * morning, evening and quiet hours, which only the server knows.
+   */
+  customAt?: IsoInstant | null
+  /** The zone the preset's "evening" and "morning" are measured in. */
+  timeZone?: string
+  relatedEntityType?: ReminderEntityType | null
   relatedEntityId?: string | null
+}
+
+/**
+ * A reminder that was just set, together with the domain's account of the time
+ * it chose — the app renders `explanationKey` so a reminder pushed out of
+ * quiet hours can say so instead of silently firing hours late.
+ */
+export interface CreatedReminder {
+  reminder: Reminder
+  resolution: ResolvedReminder
 }
 
 export interface RemindersApi {
   list(input?: { status?: Reminder['status']; limit?: number }): Promise<Reminder[]>
-  create(input: CreateReminderInput): Promise<Reminder>
+  create(input: CreateReminderInput): Promise<CreatedReminder>
   cancel(reminderId: string): Promise<Reminder>
 }
 
@@ -37,24 +66,28 @@ export function createRemindersApi(ctx: EndpointContext): RemindersApi {
     },
 
     async create(input) {
-      const request = parseRequest(reminderCreatePayloadSchema, {
-        kind: 'reminder_create',
+      const request = parseRequest(reminderCreateRequest, {
         title: input.title,
         body: input.body ?? null,
-        remindAt: input.remindAt,
         preset: input.preset,
+        customAt: input.customAt ?? null,
+        ...(input.timeZone === undefined ? {} : { timeZone: input.timeZone }),
         relatedEntityType: input.relatedEntityType ?? null,
         relatedEntityId: input.relatedEntityId ?? null,
       })
       const result = await ctx.http.callFunction(
         'reminder-create',
         request,
-        reminderEnvelopeSchema,
+        reminderCreateResponse,
         {
+          // A retried create would set a second reminder for the same thing.
           retry: false,
         },
       )
-      return mapReminder(result.reminder)
+      return {
+        reminder: mapReminder(rowOf<ReminderRow>(result.reminder)),
+        resolution: result.resolution,
+      }
     },
 
     async cancel(reminderId) {

@@ -11,8 +11,8 @@ import {
   verifyDateAgainstSource,
 } from './domain.ts'
 import {
-  LOW_CONFIDENCE_THRESHOLD,
   REJECT_CONFIDENCE_THRESHOLD,
+  THREAD_COMMITMENT_SOURCE_TYPE,
   emailAnalysisSchema,
   stripUnverifiedClaims,
 } from '@da/validation'
@@ -450,21 +450,45 @@ async function analyzeOne(
 
   for (const commitment of verified.commitments) {
     if (commitment.confidence < REJECT_CONFIDENCE_THRESHOLD) continue
-    await client.from('commitments').insert({
+
+    // A commitment's date gets exactly the treatment the thread deadline gets
+    // above, and for the same reason: the quote proves the *sentence* is in the
+    // source, never that the instant read out of it is. Without this check a
+    // model that read "en kısa sürede" as next Friday wrote next Friday
+    // straight into `due_at`, and the app then chased the user over a deadline
+    // nobody had set. A promise whose date does not survive the check is still
+    // a promise — it is stored without one, and the card says "tarih yok".
+    let dueAt = commitment.dueAt
+    if (dueAt) {
+      const found = verifyDateAgainstSource(dueAt, message.bodyText, context.now, context.timeZone)
+      if (!found) dueAt = null
+    }
+
+    const { error } = await client.from('commitments').insert({
       user_id: context.userId,
       text: commitment.text,
       direction: commitment.direction,
       person_name: commitment.personName,
-      due_at: commitment.dueAt,
+      due_at: dueAt,
       status: 'open',
-      source_type: 'email',
+      source_type: THREAD_COMMITMENT_SOURCE_TYPE,
       source_id: threadId,
       source_quote: commitment.sourceQuote,
       confidence: commitment.confidence,
-      // Below the confidence bar the UI asks the user to confirm before the
-      // commitment starts counting against them.
-      confirmed_by_user: commitment.confidence >= LOW_CONFIDENCE_THRESHOLD,
+      // Never inferred from a score. This flag is the record that a *person*
+      // said yes — it is why the thread and commitment screens mark a promise
+      // "Öneri" until one has. Setting it from `confidence >= 0.6` meant the
+      // model confirming on the user's behalf, and a fluent invention scores
+      // high precisely when it is most worth asking about. The uncertainty
+      // still travels, in `confidence`, which is what the cards hedge on.
+      confirmed_by_user: false,
     })
+
+    // The unique index on (user, source_type, source_id, md5(source_quote)) is
+    // what makes a re-analysed thread idempotent, so a duplicate is the
+    // pipeline working. Anything else is a promise the user made and the app
+    // silently failed to record, which the caller's `failed` count must show.
+    if (error && error.code !== '23505') throw dbError(error)
   }
 
   if (verified.summary) {

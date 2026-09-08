@@ -1,0 +1,190 @@
+name: Android APK
+
+# Builds an installable APK on GitHub's runners and attaches it to the run.
+#
+# This exists because an APK cannot be produced without the Android SDK, and
+# `dl.google.com` — which serves the SDK, the platform images and Google's
+# Maven repo (the Android Gradle Plugin itself) — is not reachable from every
+# development environment. GitHub's ubuntu runners ship the SDK preinstalled,
+# so this is the shortest path from a commit to something you can install.
+#
+# HOW TO GET THE APK
+#   1. Actions → "Android APK" → "Run workflow" (or push to a branch).
+#   2. Open the finished run → Artifacts → download "dijital-asistan-apk".
+#   3. Unzip, copy the .apk to the phone, install (allow unknown sources).
+#
+# SIGNING
+#   The APK is signed with a keystore generated inside the run, unless you
+#   supply your own through repository secrets. A generated key is fine for
+#   installing and testing, and deliberately NOT fine for the Play Store: its
+#   signature changes every run, so consecutive builds cannot upgrade each
+#   other in place. Uninstall before installing a newer one, or add the
+#   secrets below to keep one stable identity.
+#
+#     ANDROID_KEYSTORE_BASE64   base64 of your .jks
+#     ANDROID_KEYSTORE_PASSWORD
+#     ANDROID_KEY_ALIAS
+#     ANDROID_KEY_PASSWORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Build variant'
+        type: choice
+        default: 'release'
+        options: ['release', 'debug']
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Generates apps/mobile/android from app.config.ts and the config
+      # plugins. Neither the android/ nor the ios/ directory is checked in, so
+      # this is where a broken plugin surfaces.
+      - name: Prebuild the Android project
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform android --clean --no-install
+        env:
+          # The app boots into demo mode when these are absent, which is
+          # exactly what a first test build should do.
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Resolve the signing key
+        id: signing
+        working-directory: apps/mobile/android/app
+        run: |
+          set -euo pipefail
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.jks
+            {
+              echo "store_password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+              echo "key_alias=${{ secrets.ANDROID_KEY_ALIAS }}"
+              echo "key_password=${{ secrets.ANDROID_KEY_PASSWORD }}"
+              echo "provided=true"
+            } >> "$GITHUB_OUTPUT"
+            echo "Using the keystore from repository secrets."
+          else
+            # A throwaway identity, good for installing and testing only.
+            keytool -genkeypair -v -storetype JKS \
+              -keystore release.jks \
+              -alias throwaway \
+              -keyalg RSA -keysize 2048 -validity 3650 \
+              -storepass throwaway -keypass throwaway \
+              -dname "CN=Dijital Asistan Test, OU=Test, O=Dijital Asistan, L=Istanbul, C=TR"
+            {
+              echo "store_password=throwaway"
+              echo "key_alias=throwaway"
+              echo "key_password=throwaway"
+              echo "provided=false"
+            } >> "$GITHUB_OUTPUT"
+            echo "::warning::Signed with a generated throwaway key. Uninstall any previous build before installing this one."
+          fi
+
+      - name: Point Gradle at the key
+        working-directory: apps/mobile/android
+        run: |
+          cat >> gradle.properties <<EOF
+          DA_UPLOAD_STORE_FILE=release.jks
+          DA_UPLOAD_STORE_PASSWORD=${{ steps.signing.outputs.store_password }}
+          DA_UPLOAD_KEY_ALIAS=${{ steps.signing.outputs.key_alias }}
+          DA_UPLOAD_KEY_PASSWORD=${{ steps.signing.outputs.key_password }}
+          EOF
+
+      # Expo's template wires the release variant to the `release` signing
+      # config, which defaults to the debug key. Repoint it at ours.
+      - name: Use the key for the release variant
+        working-directory: apps/mobile/android/app
+        run: |
+          python3 - <<'PY'
+          import re, pathlib
+          p = pathlib.Path('build.gradle')
+          s = p.read_text()
+          block = """
+    release {
+        storeFile file(DA_UPLOAD_STORE_FILE)
+        storePassword DA_UPLOAD_STORE_PASSWORD
+        keyAlias DA_UPLOAD_KEY_ALIAS
+        keyPassword DA_UPLOAD_KEY_PASSWORD
+    }
+"""
+          if 'DA_UPLOAD_STORE_FILE' not in s:
+              s = re.sub(r'signingConfigs\s*\{', 'signingConfigs {' + block, s, count=1)
+              p.write_text(s)
+              print('release signing config injected')
+          else:
+              print('already present')
+          PY
+          grep -A 8 'signingConfigs' build.gradle
+
+      - name: Assemble
+        working-directory: apps/mobile/android
+        run: |
+          VARIANT="${{ github.event.inputs.variant || 'release' }}"
+          if [ "$VARIANT" = "debug" ]; then
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          else
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          fi
+
+      - name: Collect the APK
+        id: collect
+        run: |
+          set -euo pipefail
+          APK=$(find apps/mobile/android/app/build/outputs/apk -name '*.apk' | head -1)
+          test -n "$APK"
+          mkdir -p dist
+          cp "$APK" "dist/dijital-asistan-${{ github.sha }}.apk"
+          ls -la dist
+          echo "size=$(du -h "$APK" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          {
+            echo "### APK ready"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Size: ${{ steps.collect.outputs.size }}"
+            echo "- Signed with: ${{ steps.signing.outputs.provided == 'true' && 'your keystore' || 'a generated throwaway key' }}"
+            echo ""
+            echo "Download it from the **Artifacts** section of this run, then install it on the phone."
+            echo "With no Supabase project configured the app opens in demo mode, so it is testable immediately."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dijital-asistan-apk
+          path: dist/*.apk
+          retention-days: 30
+          if-no-files-found: error
