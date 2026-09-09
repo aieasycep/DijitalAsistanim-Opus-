@@ -78,6 +78,12 @@ export const errors = {
     queuedOffline: 'Çevrimdışısın. Bağlanınca göndereceğiz.',
   },
 
+  bootDetail: {
+    label: 'Teknik ayrıntı',
+    copy: 'Ayrıntıyı kopyala',
+    copied: 'Kopyalandı',
+  },
+
   boundary: {
     title: 'Bir şeyler ters gitti',
     description: 'Bu ekranı açarken beklenmedik bir hata oldu. Verilerin yerinde duruyor.',

@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import * as Clipboard from 'expo-clipboard'
 import { View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -62,10 +63,36 @@ function readStoredPreference<T extends string>(
  */
 type BootPhase = 'starting' | 'ready' | 'failed'
 
+/**
+ * An unknown throw, as one line somebody can paste into a message.
+ *
+ * Deliberately not the stack: on a release build it is minified Hermes frames
+ * that mean nothing to the person holding the phone and little to whoever reads
+ * their message. The name and message are what identify the fault — for the
+ * failure this screen was built around, "TypeError: Cannot read property
+ * 'getRandomValues' of undefined" names it exactly.
+ */
+function describeFailure(caught: unknown): string {
+  if (caught instanceof Error) {
+    return caught.name === 'Error' ? caught.message : `${caught.name}: ${caught.message}`
+  }
+  return typeof caught === 'string' ? caught : JSON.stringify(caught)
+}
+
 interface BootRecoveryProps {
   onRetry: () => void
   onStartFresh: () => void
   busy: boolean
+  /**
+   * What actually failed, in the developer's words rather than the product's.
+   *
+   * This screen used to show only "something went wrong", and `reportError()`
+   * goes nowhere without a Sentry DSN — so a boot failure on someone else's
+   * phone was unknowable. It cost a full build cycle and a guess to learn that
+   * a missing `crypto` global was throwing here. A person who can read one line
+   * and paste it into a message closes that loop themselves.
+   */
+  detail: string | null
 }
 
 /**
@@ -83,8 +110,13 @@ interface BootRecoveryProps {
  * the sign-in — nothing else, because everything local is a cache of something
  * the server still holds.
  */
-function BootRecovery({ onRetry, onStartFresh, busy }: BootRecoveryProps) {
+function BootRecovery({ onRetry, onStartFresh, busy, detail }: BootRecoveryProps) {
   const t = useT()
+  const [copied, setCopied] = useState(false)
+  const copy = useCallback(() => {
+    if (detail === null) return
+    void Clipboard.setStringAsync(detail).then(() => setCopied(true))
+  }, [detail])
   return (
     <Screen scroll={false} testID="boot-recovery">
       <View style={{ flex: 1, justifyContent: 'center', gap: spacing.sm }}>
@@ -115,6 +147,25 @@ function BootRecovery({ onRetry, onStartFresh, busy }: BootRecoveryProps) {
         <Text variant="micro" tone="tertiary" center>
           {t('errors.supportHint')}
         </Text>
+
+        {detail === null ? null : (
+          <View style={{ gap: spacing.xxs, marginTop: spacing.sm }}>
+            <Text variant="micro" tone="tertiary" center>
+              {t('errors.bootDetail.label')}
+            </Text>
+            <Text variant="micro" tone="tertiary" center selectable numberOfLines={4}>
+              {detail}
+            </Text>
+            <Button
+              label={copied ? t('errors.bootDetail.copied') : t('errors.bootDetail.copy')}
+              onPress={copy}
+              variant="ghost"
+              fullWidth
+              disabled={copied}
+              testID="boot-copy-detail"
+            />
+          </View>
+        )}
       </View>
     </Screen>
   )
@@ -127,6 +178,7 @@ export interface AppProvidersProps {
 export function AppProviders({ children }: AppProvidersProps) {
   const [phase, setPhase] = useState<BootPhase>('starting')
   const [retrying, setRetrying] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
   const queryClient = useMemo(() => createQueryClient(), [])
   const hydrate = useSessionStore((s) => s.hydrate)
   const getAccessToken = useSessionStore((s) => s.getAccessToken)
@@ -151,6 +203,10 @@ export function AppProviders({ children }: AppProvidersProps) {
         setPhase('ready')
       } catch (caught) {
         reportError(caught, { scope: 'boot', extra: { reset } })
+        // Kept for the screen as well as the reporter: without a Sentry DSN the
+        // reporter is a no-op, and then this string is the only account of what
+        // happened that anybody will ever see.
+        setFailure(describeFailure(caught))
         setPhase('failed')
       }
     },
@@ -216,6 +272,7 @@ export function AppProviders({ children }: AppProvidersProps) {
                     onRetry={() => restart(false)}
                     onStartFresh={() => restart(true)}
                     busy={retrying}
+                    detail={failure}
                   />
                 ) : null}
               </ApiContext.Provider>

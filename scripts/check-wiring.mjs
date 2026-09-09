@@ -19,10 +19,15 @@
  * permission each one advertises, and the packages the mobile build
  * configuration names.
  *
- * The last of those was added after `babel.config.js` spent the whole project
- * naming a preset the app did not depend on. It resolved on every machine where
- * pnpm happened to hoist it and failed on a clean CI install, five minutes into
- * a Gradle build, as `Cannot find module`.
+ * Two of those were added after the fact, and both are the same shape: true of
+ * the machine the checks run on, false of the machine the code runs on.
+ * `babel.config.js` spent the whole project naming a preset the app did not
+ * depend on — it resolved wherever pnpm happened to hoist it and failed on a
+ * clean CI install, five minutes into a Gradle build. And `secure-storage.ts`
+ * called the global `crypto.getRandomValues`, which Node has and Hermes does
+ * not, so the app failed to boot on every fresh install while every test and
+ * every gate stayed green. Hence the last section: globals the device does not
+ * provide.
  *
  * Route matching is intentionally forgiving about *parameters* and strict
  * about *structure*: `/thread/${id}` matches `app/thread/[id].tsx` because a
@@ -426,6 +431,80 @@ if (existsSync(path.join(MOBILE, 'package.json'))) {
   }
 }
 
+// ── 6. No global the device runtime does not actually provide ───────────────
+
+// `secure-storage.ts` called `crypto.getRandomValues(bytes)` under a comment
+// asserting "expo-crypto's global polyfill … is installed by the Expo runtime
+// before any application code runs". It is not. Expo's winter runtime installs
+// fetch, FormData, URL, TextDecoder, AbortSignal and DOMException — no crypto —
+// and `expo-crypto` installs a global only in its `.web` build. On Hermes the
+// identifier is undefined.
+//
+// The line ran only when SecureStore held no key, which is precisely a first
+// launch, so the app failed to boot on every fresh install and opened on its
+// recovery screen. Every gate stayed green because all of them run in Node,
+// which has had a global `crypto` since v19 — the tests exercised a binding the
+// phone does not have.
+//
+// That is the same shape as the two dependency defects above: something true of
+// the machine the checks run on, and false of the machine the code runs on.
+
+const DEVICE_MISSING_GLOBALS = [
+  ['crypto', 'there is no global crypto on Hermes — import from expo-crypto'],
+  ['structuredClone', 'Hermes does not implement it'],
+  ['localStorage', 'no web storage — use the caches in src/lib/secure-storage.ts'],
+  ['sessionStorage', 'no web storage — use the caches in src/lib/secure-storage.ts'],
+  ['indexedDB', 'no web storage — use the caches in src/lib/secure-storage.ts'],
+  ['document', 'there is no DOM in React Native'],
+  ['Buffer', 'Node only — use Uint8Array'],
+]
+
+/** Source with comments and string literals blanked, so matches are real code. */
+function codeOnly(text) {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length))
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, (m) => ' '.repeat(m.length))
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, (m) => ' '.repeat(m.length))
+    .replace(/`(?:[^`\\]|\\.)*`/g, (m) => m.replace(/[^\n]/g, ' '))
+}
+
+let deviceFiles = 0
+const deviceTrees = [
+  path.join(root, 'apps', 'mobile', 'src'),
+  path.join(root, 'apps', 'mobile', 'app'),
+  path.join(root, 'packages'),
+]
+
+for (const tree of deviceTrees) {
+  for (const file of walk(tree, new Set(['.ts', '.tsx']))) {
+    const relative = path.relative(root, file)
+    // Tests run in Node, where these globals genuinely exist.
+    if (/\.test\.tsx?$/.test(relative) || relative.includes('__tests__')) continue
+    // Only packages the device actually loads; the console and site are not it.
+    if (
+      relative.startsWith('packages') &&
+      !/^packages\/(domain|validation|i18n|api-client|design-tokens)\//.test(relative)
+    ) {
+      continue
+    }
+
+    deviceFiles++
+    const lines = codeOnly(readFileSync(file, 'utf8')).split('\n')
+    for (const [name, why] of DEVICE_MISSING_GLOBALS) {
+      const pattern = new RegExp(`(^|[^.\\w$])${name}\\s*[.([]`, 'g')
+      lines.forEach((line, index) => {
+        if (!pattern.test(line)) return
+        pattern.lastIndex = 0
+        problems.push({
+          at: `${relative}:${index + 1}`,
+          rule: `uses the global "${name}", which the device runtime does not provide — ${why}. It resolves under Node, so every test and every gate would still pass.`,
+        })
+      })
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 if (problems.length > 0) {
@@ -441,7 +520,8 @@ console.log(
     `${routeRefs} navigation target(s) across ${routes.length} routes, ` +
     `${ciRefs} script reference(s) in CI, ` +
     `${navRefs} backoffice sidebar link(s), ` +
-    `and ${depRefs} package(s) named by the mobile config, all resolve.` +
+    `${depRefs} package(s) named by the mobile config, ` +
+    `and no unavailable global across ${deviceFiles} file(s) the device loads, all resolve.` +
     (dynamicRefs > 0
       ? `\n${dynamicRefs} navigation call(s) take a computed target and cannot be resolved statically.`
       : ''),

@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
 import { MMKV } from 'react-native-mmkv'
 
@@ -29,10 +30,21 @@ async function getOrCreateCacheKey(): Promise<string> {
   const existing = await SecureStore.getItemAsync(ENCRYPTION_KEY_ITEM)
   if (existing) return existing
 
-  const bytes = new Uint8Array(32)
-  // `crypto.getRandomValues` is provided by expo-crypto's global polyfill,
-  // which is installed by the Expo runtime before any application code runs.
-  crypto.getRandomValues(bytes)
+  // `getRandomBytes` from expo-crypto, NOT the global `crypto.getRandomValues`.
+  //
+  // There is no global `crypto` on this platform. Expo's winter runtime installs
+  // `fetch`, `FormData`, `URL`, `TextDecoder`, `AbortSignal` and `DOMException`,
+  // and no crypto; `expo-crypto` installs a global only in its `.web` build. On
+  // Hermes the identifier is simply undefined.
+  //
+  // This line used to read `crypto.getRandomValues(bytes)` above a comment
+  // asserting the polyfill existed. It threw on **every fresh install** — the
+  // key is minted only when SecureStore has none, which is exactly the first
+  // launch — so `boot()` caught it and the app opened on its recovery screen
+  // and never got further. It survived every gate because Node has had a global
+  // `crypto` since 19, so the unit tests exercised a binding the device does
+  // not have.
+  const bytes = Crypto.getRandomBytes(32)
   const key = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 
   await SecureStore.setItemAsync(ENCRYPTION_KEY_ITEM, key, {

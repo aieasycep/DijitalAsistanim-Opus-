@@ -81,6 +81,12 @@ export const errors = {
     queuedOffline: 'You are offline. We will send this once you reconnect.',
   },
 
+  bootDetail: {
+    label: 'Technical detail',
+    copy: 'Copy detail',
+    copied: 'Copied',
+  },
+
   boundary: {
     title: 'Something went wrong',
     description: 'An unexpected error occurred opening this screen. Your data is untouched.',
