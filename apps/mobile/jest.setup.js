@@ -17,6 +17,25 @@
  * `Animated.View` is a plain `View`. Nothing under test depends on the
  * intermediate frames — the components' behaviour is in their props.
  */
+/**
+ * Gesture Handler's own Jest setup, which installs the native module its
+ * `GestureHandlerRootView` calls `install()` on at render. Using the library's
+ * mock rather than a hand-written one means it keeps up with the library.
+ */
+require('react-native-gesture-handler/jestSetup')
+
+/**
+ * Safe-area context's own mock. The real `SafeAreaProvider` renders nothing
+ * until the native view reports insets, which never happens under Jest — so a
+ * component tree wrapped in it renders as empty and every query fails with no
+ * hint as to why. The mock honours an explicit `initialMetrics`, which is how
+ * `test-utils` supplies a notched device.
+ */
+jest.mock(
+  'react-native-safe-area-context',
+  () => require('react-native-safe-area-context/jest/mock').default,
+)
+
 jest.mock('react-native-reanimated', () => {
   const { View, Text, ScrollView, Image } = require('react-native')
   const immediate = (toValue) => toValue

@@ -36,12 +36,26 @@ export interface ErrorReporter {
   readonly enabled: boolean
 }
 
+/**
+ * Where an error goes when no Sentry DSN is configured.
+ *
+ * It logs in release builds too, and that is the point. This used to open with
+ * `if (!__DEV__) return`, so a build with no DSN — which is every build a tester
+ * installs — reported nothing anywhere: not to a service, not to the screen,
+ * not to logcat. When the app failed to boot on every fresh install, the only
+ * account of why was a screen saying "something went wrong", and finding the
+ * cause cost a full build cycle and a guess.
+ *
+ * `adb logcat` costs nothing and needs no DSN, no account and no network. The
+ * message is scrubbed either way, so this discloses nothing a crash dialog
+ * would not.
+ */
 const consoleReporter: ErrorReporter = {
   enabled: false,
   captureError(error, context) {
-    if (!__DEV__) return
     const message = error instanceof Error ? error.message : String(error)
-    console.error(`[${context.scope}] ${scrub(message)}`)
+    const where = context.extra?.['step'] === undefined ? '' : `/${String(context.extra['step'])}`
+    console.error(`[${context.scope}${where}] ${scrub(message)}`)
   },
   setUser: () => undefined,
 }

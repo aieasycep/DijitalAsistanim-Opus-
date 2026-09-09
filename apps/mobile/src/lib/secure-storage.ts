@@ -16,9 +16,47 @@ import { MMKV } from 'react-native-mmkv'
  * Raw message bodies are never cached at any tier.
  */
 
-const ENCRYPTION_KEY_ITEM = 'da.cache.key.v1'
+// v2: the v1 key was 64 hex characters, of which MMKV used the first 16. See
+// `getOrCreateCacheKey` for why that is 64 bits rather than the 256 intended.
+// An existing cache is unreadable under the new key, which is harmless — every
+// cached value is a copy of something the server still holds.
+const ENCRYPTION_KEY_ITEM = 'da.cache.key.v2'
+const LEGACY_ENCRYPTION_KEY_ITEM = 'da.cache.key.v1'
+
+/**
+ * MMKV's crypt key is AES-128 — 16 bytes — and anything longer is silently
+ * truncated rather than rejected:
+ *
+ *   MMKVPredef.h    constexpr size_t AES_KEY_LEN = 16;
+ *   AESCrypt.cpp:51 memcpy(m_key, key, (keyLength > AES_KEY_LEN) ? AES_KEY_LEN : keyLength);
+ *
+ * The key crosses the bridge as a string, so those 16 bytes are 16 *characters*.
+ * A 64-character hex string therefore contributed its first 16 hex digits —
+ * eight of the thirty-two random bytes, 64 bits — while looking like 256.
+ *
+ * Sixteen characters drawn from a 64-symbol alphabet is 96 bits and survives
+ * the UTF-8 round trip intact, which is the most that fits in the 16 bytes MMKV
+ * will read. `byte & 63` is uniform because 256 divides exactly by 64.
+ */
+const KEY_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+const KEY_LENGTH = 16
 
 let encrypted: MMKV | null = null
+
+/**
+ * Whether this process wiped local data since it started.
+ *
+ * MMKV caches native instances by id and returns the cached one without
+ * re-applying the key: `mmkvWithID` in MMKV_Android.cpp looks up
+ * `g_instanceDic` and, on a hit, returns it. So after a sign-out mints a new
+ * key, `new MMKV({ id: 'da.cache', encryptionKey: fresh })` hands back the
+ * pre-wipe instance still encrypting with the old one — everything written for
+ * the rest of the process would be unreadable on the next cold start, and the
+ * Keychain key would stop describing the data.
+ *
+ * Only a wipe can produce that mismatch, so only a wipe pays for `recrypt()`.
+ */
+let wipedThisProcess = false
 const plain = new MMKV({ id: 'da.prefs' })
 
 /**
@@ -44,8 +82,8 @@ async function getOrCreateCacheKey(): Promise<string> {
   // and never got further. It survived every gate because Node has had a global
   // `crypto` since 19, so the unit tests exercised a binding the device does
   // not have.
-  const bytes = Crypto.getRandomBytes(32)
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  const bytes = Crypto.getRandomBytes(KEY_LENGTH)
+  const key = Array.from(bytes, (b) => KEY_ALPHABET[b & 63]).join('')
 
   await SecureStore.setItemAsync(ENCRYPTION_KEY_ITEM, key, {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
@@ -57,7 +95,14 @@ async function getOrCreateCacheKey(): Promise<string> {
 export async function initEncryptedCache(): Promise<void> {
   if (encrypted) return
   const key = await getOrCreateCacheKey()
-  encrypted = new MMKV({ id: 'da.cache', encryptionKey: key })
+  const instance = new MMKV({ id: 'da.cache', encryptionKey: key })
+  if (wipedThisProcess) {
+    // See `wipedThisProcess`: this handle is the pre-wipe native instance, and
+    // the constructor's key was ignored. Re-key the handle we were given.
+    instance.recrypt(key)
+    wipedThisProcess = false
+  }
+  encrypted = instance
 }
 
 function requireEncrypted(): MMKV {
@@ -138,7 +183,9 @@ export async function wipeLocalData(): Promise<void> {
   encryptedCache.clearAll()
   plainCache.clearAll()
   encrypted = null
+  wipedThisProcess = true
   await SecureStore.deleteItemAsync(ENCRYPTION_KEY_ITEM)
+  await SecureStore.deleteItemAsync(LEGACY_ENCRYPTION_KEY_ITEM)
 }
 
 export const STORAGE_KEYS = {

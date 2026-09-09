@@ -63,6 +63,9 @@ function readStoredPreference<T extends string>(
  */
 type BootPhase = 'starting' | 'ready' | 'failed'
 
+/** The steps `boot()` runs, in order, so a failure can say which one it was. */
+type BootStep = 'reporting' | 'analytics' | 'refresher' | 'wipe' | 'cache' | 'hydrate'
+
 /**
  * An unknown throw, as one line somebody can paste into a message.
  *
@@ -186,27 +189,39 @@ export function AppProviders({ children }: AppProvidersProps) {
 
   const boot = useCallback(
     async (reset: boolean): Promise<void> => {
+      // Which step is running, so a failure can name it. `name: message` alone
+      // does not distinguish opening the Keychain from reading the session, and
+      // that distinction was the slowest part of diagnosing the boot failure
+      // this screen was built around.
+      let step: BootStep = 'reporting'
       try {
         // The encrypted cache has to exist before anything reads a cached value,
         // and analytics/error reporting before anything can fail interestingly.
         initErrorReporting()
+        step = 'analytics'
         initAnalytics()
         // The store refreshes tokens but must not depend on the auth module, so
         // the implementation is injected here, once, before hydration runs.
+        step = 'refresher'
         setSessionRefresher(refreshSupabaseSession)
         // Ordered so a corrupt cache is gone before anything tries to open it:
         // the wipe drops both stores and the Keychain key, and the next line
         // mints a new one.
-        if (reset) await wipeLocalData()
+        if (reset) {
+          step = 'wipe'
+          await wipeLocalData()
+        }
+        step = 'cache'
         await initEncryptedCache()
+        step = 'hydrate'
         await hydrate()
         setPhase('ready')
       } catch (caught) {
-        reportError(caught, { scope: 'boot', extra: { reset } })
+        reportError(caught, { scope: 'boot', extra: { reset, step } })
         // Kept for the screen as well as the reporter: without a Sentry DSN the
-        // reporter is a no-op, and then this string is the only account of what
-        // happened that anybody will ever see.
-        setFailure(describeFailure(caught))
+        // reporter only reaches logcat, and then this string is the only account
+        // of what happened that the person holding the phone will ever see.
+        setFailure(`${step}: ${describeFailure(caught)}`)
         setPhase('failed')
       }
     },
