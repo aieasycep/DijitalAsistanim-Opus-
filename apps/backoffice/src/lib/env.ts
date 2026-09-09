@@ -11,8 +11,9 @@ import { AppError } from '@da/domain'
  * Nothing read here is prefixed `NEXT_PUBLIC_`, which is the point: the
  * service-role key bypasses row level security entirely, so a build that
  * inlined it into a client bundle would hand every visitor the whole database.
- * `readEnv()` is imported by `db.ts` alone — which is `server-only` — so the key
- * stays on the server by construction rather than by convention.
+ * `readEnv()` is imported only by modules that are
+ * themselves `server-only`, so the key stays on the server by construction
+ * rather than by convention.
  *
  * ---------------------------------------------------------------------------
  * WHY THE ENVIRONMENT IS PART OF THE SAME MODULE
@@ -144,6 +145,15 @@ export type DeploymentEnvironment = (typeof DEPLOYMENT_ENVIRONMENTS)[number]
  * Serialisable by design: a Server Component obtains it and passes it to Client
  * Components as a prop.
  */
+/**
+ * Note on what is NOT here: there was a `showBanner` flag, documented as false
+ * in production because "a permanent banner on the real console is noise that
+ * trains operators to ignore banners". Nothing ever read it. `EnvironmentBadge`
+ * renders in every environment and branches on `isProduction` instead, which is
+ * the better answer — the chip says which project you are pointed at, and a
+ * console that shows nothing at all in production is one where "no chip" and
+ * "chip failed to render" look identical.
+ */
 export interface EnvironmentDescriptor {
   environment: DeploymentEnvironment
   /** Turkish label for the banner. */
@@ -151,12 +161,6 @@ export interface EnvironmentDescriptor {
   /** Four-character chip: PROD / TEST / GELS. */
   code: string
   isProduction: boolean
-  /**
-   * Whether the shell must render the environment banner. False in production
-   * only: a permanent banner on the real console is noise that trains operators
-   * to ignore banners.
-   */
-  showBanner: boolean
   /**
    * Whether destructive controls must be rendered in their non-production
    * treatment. True everywhere except production, so an operator can tell at a
@@ -256,7 +260,6 @@ export function describeEnvironment(): EnvironmentDescriptor {
     label: naming.label,
     code: naming.code,
     isProduction: environment === 'production',
-    showBanner: environment !== 'production',
     markDangerousActions: environment !== 'production',
     projectRef: supabaseUrl === undefined ? null : projectRefOf(supabaseUrl),
     release: optional('BACKOFFICE_RELEASE', 'VERCEL_GIT_COMMIT_SHA') ?? null,

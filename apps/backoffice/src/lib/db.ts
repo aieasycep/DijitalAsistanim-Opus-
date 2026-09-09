@@ -25,8 +25,14 @@ import {
 } from './pagination'
 
 /**
- * The only module in the backoffice that constructs a Supabase client, and the
- * only one that holds the service-role key.
+ * The only module that reads user data, and the one that decides which
+ * relations may be read at all.
+ *
+ * It is not the only module that constructs a Supabase client — `auth.ts`
+ * builds its own for GoTrue and for the admin roster, which is what a sign-in
+ * needs before there is a session to authorise a read. What is true, and what
+ * the rest of this comment is about, is that no query for user data is
+ * assembled anywhere else.
  *
  * ---------------------------------------------------------------------------
  * WHY THIS FILE IS SHAPED THE WAY IT IS

@@ -332,6 +332,74 @@ try {
     )
   }
 
+  // ── The role labels an operator reads ─────────────────────────────────────
+  //
+  // `admin_roles` is a readable relation, so `label_tr` and `description_tr`
+  // can reach a screen; `permissions.ts` carries copies for the paths with no
+  // database round trip. They had drifted — the seed said "Yapay Zeka Ops" for
+  // a role the console called "Yapay Zekâ Operasyonları", every description was
+  // written without Turkish characters, and the analyst's omitted the part that
+  // matters (that `redact.ts` puts it alone at the aggregate level, so it
+  // cannot see who a row is about).
+  //
+  // This check lives here, and not in the migration that fixed them, because a
+  // check placed after that migration's own UPDATEs is unreachable: they repair
+  // exactly what it would test. Running after every migration is the only point
+  // where drift introduced by a *later* one is still visible.
+  const permissionsSource = readFileSync(
+    path.join(root, 'apps/backoffice/src/lib/permissions.ts'),
+    'utf8',
+  )
+
+  /** `{ role: text }` from a frozen `Record<AdminRole, string>` literal. */
+  function tsRoleMap(constName) {
+    const start = permissionsSource.indexOf(`export const ${constName}`)
+    if (start === -1) return null
+    const open = permissionsSource.indexOf('{', start)
+    const close = permissionsSource.indexOf('})', open)
+    const body = permissionsSource.slice(open, close)
+    const entries = [...body.matchAll(/(\w+):\s*'((?:[^'\\]|\\.)*)'/g)]
+    return Object.fromEntries(entries.map((m) => [m[1], m[2].replace(/\\'/g, "'")]))
+  }
+
+  const tsLabels = tsRoleMap('ROLE_LABELS_TR')
+  const tsDescriptions = tsRoleMap('ROLE_DESCRIPTIONS_TR')
+  let labelProblems = 0
+
+  if (!tsLabels || !tsDescriptions) {
+    fail('permissions.ts: ROLE_LABELS_TR or ROLE_DESCRIPTIONS_TR could not be read')
+    labelProblems++
+  } else {
+    const rows = psql(
+      `select role::text || '\t' || label_tr || '\t' || description_tr
+       from public.admin_roles order by role`,
+      { database: dbName },
+    )
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+
+    for (const row of rows) {
+      const [role, label, description] = row.split('\t')
+      if (tsLabels[role] !== label) {
+        fail(
+          `admin_roles.${role}.label_tr is ${JSON.stringify(label)}; ROLE_LABELS_TR says ${JSON.stringify(tsLabels[role])}`,
+        )
+        labelProblems++
+      }
+      if (tsDescriptions[role] !== description) {
+        fail(
+          `admin_roles.${role}.description_tr is ${JSON.stringify(description)}; ROLE_DESCRIPTIONS_TR says ${JSON.stringify(tsDescriptions[role])}`,
+        )
+        labelProblems++
+      }
+    }
+
+    if (labelProblems === 0) {
+      ok(`${rows.length} role labels and descriptions match permissions.ts`)
+    }
+  }
+
   // ── Row Level Security ────────────────────────────────────────────────────
   const USER_TABLES = [
     'profiles',

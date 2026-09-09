@@ -66,7 +66,7 @@ packages/
   api-client/        Typed endpoint layer, query keys, demo-mode client
 
 supabase/
-  migrations/        20 migrations · 56 tables · RLS enabled and forced,
+  migrations/        21 migrations · 56 tables · RLS enabled and forced,
                      28 content-blind bo_* views for the console
   functions/         48 Deno edge functions
   tests/             Tests for the shared function helpers

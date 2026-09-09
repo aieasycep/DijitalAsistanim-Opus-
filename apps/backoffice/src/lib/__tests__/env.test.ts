@@ -273,7 +273,6 @@ describe('the environment banner', () => {
       label: 'Hazırlık ortamı',
       code: 'TEST',
       isProduction: false,
-      showBanner: true,
       markDangerousActions: true,
       projectRef: 'abcdefghijkl',
       release: null,
@@ -294,7 +293,6 @@ describe('the environment banner', () => {
       label: 'Canlı ortam',
       code: 'PROD',
       isProduction: true,
-      showBanner: false,
       markDangerousActions: false,
     })
     expect(environmentBannerText(production)).toContain('gerçek müşteri verisiyle çalışıyor')
@@ -337,7 +335,7 @@ describe('describeEnvironment — wrong in the safe direction', () => {
     const result = await describe_()
     expect(result.environment).toBe('production')
     expect(result.isProduction).toBe(true)
-    expect(result.showBanner).toBe(false)
+    expect(result.markDangerousActions).toBe(false)
   })
 
   it('accepts the spellings a deploy actually uses', async () => {
@@ -352,7 +350,6 @@ describe('describeEnvironment — wrong in the safe direction', () => {
     const result = await describe_()
     expect(result.environment).toBe('development')
     expect(result.isProduction).toBe(false)
-    expect(result.showBanner).toBe(true)
     expect(result.markDangerousActions).toBe(true)
   })
 

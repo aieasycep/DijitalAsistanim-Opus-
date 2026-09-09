@@ -15,6 +15,7 @@ import {
   type AuditDetail,
   type DatabaseHint,
 } from './db'
+import { MAX_REASON_LENGTH as REASON_CEILING } from './permissions.ts'
 
 /**
  * The wrapper every privileged operation in the console goes through.
@@ -138,10 +139,31 @@ export function toFieldIssues(error: unknown): readonly FieldIssue[] {
  * button.
  */
 export const MIN_REASON_LENGTH = 10
-export const MAX_REASON_LENGTH = 500
 
+/**
+ * The ceiling is the trail's, not this module's.
+ *
+ * It used to be 500 here while `audit.ts` wrote
+ * `reason.slice(0, MAX_REASON_LENGTH)` against the 280 in `permissions.ts` —
+ * and `readReason()` normalised (and sliced) *before* `reasonIssue()`
+ * validated. So a 400-character justification passed every check, was accepted
+ * without complaint, and reached `audit_logs` 120 characters shorter than the
+ * operator wrote it. Nothing failed and nobody was told; the record simply
+ * ended mid-sentence.
+ *
+ * Re-exported from `permissions.ts` rather than re-declared, because the
+ * number that matters is the one the row is written with, and two of them is
+ * how this happened.
+ */
+export { MAX_REASON_LENGTH } from './permissions.ts'
+
+/**
+ * Whitespace only. This deliberately does not truncate: a justification is the
+ * operator's own words, and quietly dropping the end of one is worse than
+ * refusing it — `reasonIssue()` says so instead, before anything is written.
+ */
 export function normaliseReason(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').slice(0, MAX_REASON_LENGTH)
+  return value.trim().replace(/\s+/g, ' ')
 }
 
 /** Null when the reason is acceptable, otherwise the issue to render. */
@@ -154,6 +176,12 @@ export function reasonIssue(value: string | null): FieldIssue | null {
     return {
       path: 'reason',
       message: `Gerekçe en az ${MIN_REASON_LENGTH} karakter olmalıdır.`,
+    }
+  }
+  if (trimmed.length > REASON_CEILING) {
+    return {
+      path: 'reason',
+      message: `Gerekçe en fazla ${REASON_CEILING} karakter olabilir.`,
     }
   }
   return null

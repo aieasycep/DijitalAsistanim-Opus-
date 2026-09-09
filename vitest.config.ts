@@ -6,6 +6,12 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url))
 export default defineConfig({
   resolve: {
     alias: {
+      // `server-only` throws by design so a bundler fails when a server module
+      // reaches the browser. Next still enforces that; Vitest has no bundler
+      // and no browser, so the import is pure obstruction here — and it was
+      // what kept `admin-action.ts`, the module every destructive action goes
+      // through, untestable.
+      'server-only': r('./scripts/test-stubs/server-only.ts'),
       '@da/design-tokens': r('./packages/design-tokens/src/index.ts'),
       '@da/domain': r('./packages/domain/src/index.ts'),
       '@da/validation': r('./packages/validation/src/index.ts'),
