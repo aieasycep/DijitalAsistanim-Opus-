@@ -1,0 +1,248 @@
+name: iOS build
+
+# Compiles the iOS app — the whole native project, including the two config
+# plugins nobody has ever compiled — on a GitHub macOS runner.
+#
+# WHAT YOU GET, AND WHAT YOU DO NOT
+#   You get a simulator build: a `.app` that runs in Xcode's iOS Simulator on a
+#   Mac. You do NOT get something installable on an iPhone, and that is not a
+#   limitation of this workflow.
+#
+#   Android lets a throwaway key sign a release and `adb install` accepts it.
+#   iOS has no equivalent: every binary that runs on a device carries a
+#   signature from a certificate issued by Apple, tied to a provisioning
+#   profile that names either the device or a TestFlight distribution. Both
+#   need a paid Apple Developer Program membership. On top of that, this app's
+#   share extension and widget both declare the App Group
+#   `group.com.dijitalasistan.app`, and App Groups are not available to the
+#   free personal team at all — so even the seven-day free-provisioning route
+#   would strip the widget.
+#
+#   So: this workflow proves the code compiles. Putting it on a phone is a
+#   separate, paid step (TestFlight), and nothing here pretends otherwise.
+#
+# WHY IT IS STILL WORTH RUNNING
+#   The iOS native project is generated from app.config.ts by four config
+#   plugins and is not checked in. Until this ran, nothing in CI had ever
+#   invoked the Swift compiler on any of it. That is precisely the shape of the
+#   defect that stopped the Android build five times in a row: every gate green
+#   against an app that could not actually be built.
+#
+# HOW TO RUN IT
+#   Actions → "iOS build" → Run workflow. Or push a commit whose message
+#   contains "[ios]".
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Release also builds the JS bundle into the app; Debug does not.'
+        type: choice
+        default: 'Release'
+        options: ['Release', 'Debug']
+  push:
+    branches: ['claude/**']
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    name: Build for the simulator
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ios]')
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    env:
+      CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+      EXPO_NO_TELEMETRY: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Printed rather than assumed. React Native 0.86 needs a recent Xcode,
+      # and a runner image rolling forward is the kind of change that turns a
+      # green build red with no commit behind it — this line is what makes that
+      # legible in the log.
+      - name: Record the toolchain
+        run: |
+          xcodebuild -version
+          pod --version
+          node --version
+          sw_vers
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Generates apps/mobile/ios from app.config.ts and the config plugins.
+      # --no-install keeps CocoaPods out of this step so a plugin failure and a
+      # pod failure cannot be mistaken for each other.
+      - name: Prebuild the iOS project
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform ios --clean --no-install
+
+      # The two iOS plugins write their target directories during prebuild. If
+      # a plugin silently no-ops — the failure mode its own code guards against
+      # — the Xcode project is still valid and still builds, just without the
+      # feature. Cheaper to catch here than to wonder later why the widget is
+      # missing from a build that succeeded.
+      - name: Check the plugins produced their targets
+        working-directory: apps/mobile/ios
+        run: |
+          set -euo pipefail
+          missing=0
+          for target in DijitalAsistanShare DijitalAsistanWidget; do
+            if [ -d "$target" ]; then
+              echo "ok: $target/"
+            else
+              echo "::error::prebuild produced no $target directory; the config plugin did not run."
+              missing=1
+            fi
+          done
+          PBX=$(find . -name project.pbxproj | head -1)
+          for target in DijitalAsistanShare DijitalAsistanWidget; do
+            if grep -q "$target" "$PBX"; then
+              echo "ok: $target is referenced by the Xcode project"
+            else
+              echo "::error::$target exists on disk but no Xcode target references it."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Install pods
+        working-directory: apps/mobile/ios
+        run: pod install || pod install --repo-update
+
+      # The scheme name is derived from the app's display name by prebuild, so
+      # it is read back from the project rather than hardcoded — renaming the
+      # app should not silently break the build.
+      - name: Resolve the workspace and scheme
+        id: xcode
+        working-directory: apps/mobile/ios
+        run: |
+          set -euo pipefail
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' | head -1)
+          test -n "$WORKSPACE"
+          SCHEME=$(xcodebuild -list -json -workspace "$WORKSPACE" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const l=JSON.parse(s).workspace.schemes;const pick=l.find(n=>!/Pods|-Pod/.test(n))??l[0];process.stdout.write(pick)})')
+          test -n "$SCHEME"
+          echo "Workspace: $WORKSPACE"
+          echo "Scheme:    $SCHEME"
+          echo "workspace=apps/mobile/ios/${WORKSPACE#./}" >> "$GITHUB_OUTPUT"
+          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
+
+      # CODE_SIGNING_ALLOWED=NO is what makes this possible without an Apple
+      # account: the simulator does not enforce signatures, so the entitlements
+      # the app and both extensions declare are compiled but never validated.
+      - name: Build
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace "${{ steps.xcode.outputs.workspace }}" \
+            -scheme "${{ steps.xcode.outputs.scheme }}" \
+            -configuration "$CONFIGURATION" \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      # Read the result off the finished bundle rather than trusting that the
+      # build phases ran. A Release app whose JS bundle never got compiled in
+      # launches to a permanently blank screen and looks perfect in the log —
+      # the Android equivalent of this check is the one that caught a release
+      # signed with the public debug key.
+      - name: Inspect the built app
+        id: inspect
+        run: |
+          set -euo pipefail
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name '*.app' -type d | head -1)
+          test -n "$APP"
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$APP")" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -sh "$APP" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+          echo "## Bundle contents"
+          ls -la "$APP"
+
+          echo "## Embedded extensions"
+          APPEX=$(find "$APP" -name '*.appex' -maxdepth 3 -type d || true)
+          echo "${APPEX:-(none)}"
+
+          failed=0
+          for target in DijitalAsistanShare DijitalAsistanWidget; do
+            if echo "$APPEX" | grep -q "$target.appex"; then
+              echo "ok: $target.appex is embedded"
+            else
+              echo "::error::$target.appex was not embedded in the app; the extension built but never shipped."
+              failed=1
+            fi
+          done
+
+          # Debug simulator builds deliberately load JS from Metro instead of
+          # embedding it, so the bundle is only required for Release.
+          if [ "$CONFIGURATION" = "Release" ]; then
+            if [ -f "$APP/main.jsbundle" ]; then
+              echo "ok: main.jsbundle is present ($(du -h "$APP/main.jsbundle" | cut -f1))"
+            else
+              echo "::error::Release build contains no main.jsbundle; the app would open to a blank screen."
+              failed=1
+            fi
+          fi
+          exit "$failed"
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ steps.inspect.outputs.app }}" \
+            "dist/dijital-asistan-simulator-${{ github.sha }}.app.zip"
+          ls -la dist
+
+      - name: Summary
+        run: |
+          {
+            echo "### iOS simulator build"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Configuration | ${{ env.CONFIGURATION }} |"
+            echo "| Scheme | ${{ steps.xcode.outputs.scheme }} |"
+            echo "| App | ${{ steps.inspect.outputs.name }} (${{ steps.inspect.outputs.size }}) |"
+            echo ""
+            echo "The whole native project compiled, both app extensions were built and embedded."
+            echo ""
+            echo "**This does not install on an iPhone.** iOS requires an Apple-issued signing"
+            echo "certificate and a provisioning profile for any on-device install, and this app's"
+            echo "App Group rules out the free personal team. To run it:"
+            echo ""
+            echo '```bash'
+            echo "unzip dijital-asistan-simulator-<sha>.app.zip"
+            echo "xcrun simctl boot 'iPhone 16'"
+            echo "open -a Simulator"
+            echo "xcrun simctl install booted ${{ steps.inspect.outputs.name }}"
+            echo "xcrun simctl launch booted com.dijitalasistan.app"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dijital-asistan-ios-simulator
+          path: dist/*.zip
+          retention-days: 30
+          if-no-files-found: error
