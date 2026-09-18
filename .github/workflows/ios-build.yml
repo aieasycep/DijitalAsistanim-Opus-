@@ -172,6 +172,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/logs"
           LOG="$RUNNER_TEMP/logs/xcodebuild.log"
 
+          # `|| status=$?` rather than a bare call: GitHub runs step scripts as
+          # `bash -e`, and `set -uo pipefail` does not clear an -e that is
+          # already in effect. The first attempt at this step read `status=$?`
+          # on the next line and never reached it — the shell died on the
+          # non-zero exit and every line of diagnosis below was skipped. A
+          # command on the left of `||` is exempt from -e.
+          status=0
           xcodebuild \
             -workspace "${{ steps.xcode.outputs.workspace }}" \
             -scheme "${{ steps.xcode.outputs.scheme }}" \
@@ -182,8 +189,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build > "$LOG" 2>&1
-          status=$?
+            build > "$LOG" 2>&1 || status=$?
 
           echo "xcodebuild exited $status; full log is the 'ios-build-log' artifact ($(wc -l < "$LOG") lines)."
           if [ "$status" -eq 0 ]; then
@@ -203,13 +209,17 @@ jobs:
 
           echo ""
           echo "--- context around the first error ---"
-          first=$(grep -nE 'error:|fatal error' "$LOG" | head -1 | cut -d: -f1)
+          # `|| true` for the same reason as above: grep finding nothing exits
+          # 1, and under -e an assignment from a failing substitution ends the
+          # script — taking the fallback branch, the one that matters when
+          # there is no `error:` line at all, with it.
+          first=$(grep -nE 'error:|fatal error' "$LOG" | head -1 | cut -d: -f1 || true)
           if [ -n "${first:-}" ]; then
-            start=$(( first > 40 ? first - 40 : 1 ))
-            sed -n "${start},$((first + 20))p" "$LOG" | cut -c1-400
+            start=$(( first > 15 ? first - 15 : 1 ))
+            sed -n "${start},$((first + 20))p" "$LOG" | cut -c1-200 || true
           else
-            echo "No 'error:' line at all — the last 60 lines instead:"
-            tail -60 "$LOG" | cut -c1-400
+            echo "No 'error:' line at all — the last 80 lines instead:"
+            tail -80 "$LOG" | cut -c1-200 || true
           fi
           exit "$status"
 
