@@ -221,8 +221,8 @@ Current output: 31 edge-function references across 48 functions and 124
 navigation targets across 51 routes all resolve; 5 navigation calls take a
 computed target and cannot be checked statically.
 
-It is not in `package.json`'s `verify` script and not in `.github/workflows/ci.yml`.
-Until it is, a dangling name can still land on `main`.
+It runs in `package.json`'s `verify` script and in `.github/workflows/ci.yml`, so
+a dangling name fails a push.
 
 ## What the gates do, and do not, prove
 
@@ -246,6 +246,19 @@ exists and renders an empty screen, passes.
 **`verify:no-dead-code` does not prove a control is useful,** only that it has a
 handler that is not empty and not a stub.
 
+**The iOS build proves the project compiles, and nothing about a device.**
+`.github/workflows/ios-build.yml` runs `expo prebuild` and then `xcodebuild` for
+the simulator on a macOS runner, which needs no Apple Developer account because
+the simulator does not enforce signatures. It compiles every target — the app,
+the widget, the share extension, and the local `da-native` module — and then
+reads the finished bundle back: both `.appex` extensions must be embedded, and a
+Release build must contain `main.jsbundle`, because a Release app without it
+launches to a permanently blank screen and looks perfect in the build log. What
+it cannot do is produce anything installable: an on-device binary needs an
+Apple-issued signature tied to a provisioning profile, and this app's App Group
+rules out the free personal team. Only TestFlight, with a paid account, puts it
+on a phone.
+
 **`verify:supabase` skips silently-ish when no PostgreSQL is reachable** — it
 prints a message and exits zero, so `pnpm verify` stays runnable for a
 contributor without a database. A green local `pnpm verify` therefore does not
@@ -256,7 +269,6 @@ always checked.
 
 ```bash
 pnpm verify
-node scripts/check-wiring.mjs   # not included above
 ```
 
 ## What is not covered

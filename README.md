@@ -158,6 +158,28 @@ and fails inside Gradle, which resolves differently. That was tested by hiding
 the link and watching the export succeed anyway. It is why `verify:wiring`
 checks declarations statically rather than trusting a successful bundle.
 
+Neither half compiles a line of native code, and on iOS nothing did. The Xcode
+project is generated from `app.config.ts` by four config plugins and is not
+checked in, so the Swift in the widget and the share extension had never reached
+a compiler. `.github/workflows/ios-build.yml` now builds it for the simulator on
+a macOS runner — Actions → **iOS build** → Run workflow, or a commit message
+containing `[ios]` — and no Apple Developer account is needed, because the
+simulator does not enforce signatures. It then reads the finished bundle back
+rather than trusting the build phases: both extensions must be embedded as
+`.appex`, and a Release build must carry `main.jsbundle`.
+
+The first run to reach the compiler found one error in 8,864 lines. The widget
+declared a private `tint(for:)` helper; inside a SwiftUI view body
+`View.tint(_:)` shadows it, so the call resolved to the modifier — which takes
+no `for:` label — and the target would not build. It had been there since the
+widget was written, behind every green gate.
+
+That build installs on no phone, and cannot. Every iOS binary that runs on a
+device carries an Apple-issued signature tied to a provisioning profile, and
+this app's widget and share extension both declare an App Group, which the free
+personal team does not grant. TestFlight, with a paid account, is the only route
+onto a device.
+
 ---
 
 ## Documentation
