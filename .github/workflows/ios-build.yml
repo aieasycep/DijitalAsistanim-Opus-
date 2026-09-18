@@ -51,7 +51,13 @@ jobs:
   simulator:
     name: Build for the simulator
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ios]')
-    runs-on: macos-15
+    # macos-15 ships Xcode 16.4, whose Swift is 6.1. Expo SDK 57 builds
+    # ExpoModulesJSI from an SPM package declaring `swift-tools-version: 6.2`,
+    # so package resolution fails there before a line of it compiles:
+    # "package 'apple' is using Swift tools version 6.2.0 but the installed
+    # version is 6.1.0". 6.2 arrives with Xcode 26. The guard below turns that
+    # into one legible sentence if an image ever rolls back under us.
+    runs-on: macos-26
     timeout-minutes: 90
 
     env:
@@ -77,12 +83,37 @@ jobs:
       - name: Record the toolchain
         run: |
           xcodebuild -version
+          swift --version
           pod --version
           node --version
           sw_vers
+          echo "## Xcode versions on this image"
+          ls -d /Applications/Xcode*.app 2>/dev/null || echo "(none)"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Expo builds two of its own SPM packages during the Xcode build, and a
+      # package whose swift-tools-version exceeds the toolchain fails at
+      # *resolution* — no source is compiled, and the message lands in the
+      # middle of an eleven-thousand-line transcript. Comparing the two numbers
+      # here costs a second and says the same thing in one line, before pods.
+      - name: Check Swift is new enough for Expo's SPM packages
+        run: |
+          set -uo pipefail
+          required=$(find node_modules/.pnpm -maxdepth 6 -name Package.swift -path '*expo*' -exec head -1 {} \; \
+            | sed -nE 's|^// *swift-tools-version: *([0-9]+\.[0-9]+).*|\1|p' \
+            | sort -V | tail -1)
+          installed=$(swift --version 2>&1 | sed -nE 's/.*[Ss]wift version ([0-9]+\.[0-9]+).*/\1/p' | head -1)
+          echo "Expo's SPM packages need Swift tools $required; this toolchain is $installed."
+          if [ -z "$required" ] || [ -z "$installed" ]; then
+            echo "::warning::Could not read one of the two versions, so nothing was checked."
+            exit 0
+          fi
+          if [ "$(printf '%s\n%s\n' "$required" "$installed" | sort -V | head -1)" != "$required" ]; then
+            echo "::error::Swift $installed is older than the $required that expo-modules-jsi requires. Package resolution will fail. Use a runner image whose Xcode carries Swift $required or newer."
+            exit 1
+          fi
 
       # Generates apps/mobile/ios from app.config.ts and the config plugins.
       # --no-install keeps CocoaPods out of this step so a plugin failure and a
@@ -199,12 +230,7 @@ jobs:
 
           echo ""
           echo "=============== diagnostics ==============="
-          echo "--- every error line ---"
-          grep -nE 'error:|fatal error|No such module|command not found|The following build commands failed' "$LOG" \
-            | grep -v 'clang: note' | head -40 || echo "(no line matched 'error:')"
-
-          echo ""
-          echo "--- ExpoModulesJSI script phase, which failed first last time ---"
+          echo "--- ExpoModulesJSI script phase ---"
           grep -nE '\[ExpoModulesJSI\]|Build ExpoModulesJSI xcframework' "$LOG" | head -30 || echo "(nothing)"
 
           echo ""
@@ -221,6 +247,15 @@ jobs:
             echo "No 'error:' line at all — the last 80 lines instead:"
             tail -80 "$LOG" | cut -c1-200 || true
           fi
+
+          # Deliberately last. Only the tail of a run's log can be read back
+          # through the API here — the archive lives on storage this network
+          # refuses — so the single most useful section is the one printed
+          # closest to the end.
+          echo ""
+          echo "--- every error line ---"
+          grep -nE 'error:|fatal error|No such module|command not found|The following build commands failed' "$LOG" \
+            | grep -v 'clang: note' | cut -c1-300 | head -40 || echo "(no line matched 'error:')"
           exit "$status"
 
       - name: Keep the build log whatever happened
