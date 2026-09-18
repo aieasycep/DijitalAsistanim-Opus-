@@ -117,7 +117,13 @@ struct Provider: TimelineProvider {
     }
 }
 
-private func tint(for importance: String) -> Color {
+// Not \`tint\`: SwiftUI puts a \`tint(_:)\` instance method on every View, and
+// inside a view body that member wins over a file-private global of the same
+// name. The call below then resolves to the modifier, which takes no \`for:\`
+// label, and the widget target fails to compile — "use of 'tint' refers to
+// instance method rather than global function". \`EmptyView_\` a few lines down
+// carries its trailing underscore to dodge the same class of collision.
+private func importanceColor(for importance: String) -> Color {
     switch importance {
     case "critical": return Color(red: 0.88, green: 0.33, blue: 0.25)
     case "high": return Color(red: 0.88, green: 0.60, blue: 0.11)
@@ -134,7 +140,7 @@ struct ItemRow: View {
     var body: some View {
         Link(destination: link(item.path)) {
             HStack(alignment: .top, spacing: 6) {
-                Circle().fill(tint(for: item.importance)).frame(width: 6, height: 6).padding(.top, 5)
+                Circle().fill(importanceColor(for: item.importance)).frame(width: 6, height: 6).padding(.top, 5)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
                     if let subtitle = item.subtitle {
