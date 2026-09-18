@@ -127,6 +127,13 @@ jobs:
       # The scheme name is derived from the app's display name by prebuild, so
       # it is read back from the project rather than hardcoded — renaming the
       # app should not silently break the build.
+      #
+      # It must equal the workspace name, and nothing else will do. A CocoaPods
+      # workspace lists a scheme for every pod and every local Expo module, and
+      # picking any of them builds a library rather than the app: the first
+      # attempt here took the first entry that did not look like a pod, got
+      # `DaNative` — this project's own native module — and failed 25 seconds
+      # in. Guessing is what produced that, so this no longer guesses.
       - name: Resolve the workspace and scheme
         id: xcode
         working-directory: apps/mobile/ios
@@ -134,20 +141,37 @@ jobs:
           set -euo pipefail
           WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' | head -1)
           test -n "$WORKSPACE"
-          SCHEME=$(xcodebuild -list -json -workspace "$WORKSPACE" \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const l=JSON.parse(s).workspace.schemes;const pick=l.find(n=>!/Pods|-Pod/.test(n))??l[0];process.stdout.write(pick)})')
-          test -n "$SCHEME"
-          echo "Workspace: $WORKSPACE"
-          echo "Scheme:    $SCHEME"
+          BASE=$(basename "$WORKSPACE" .xcworkspace)
+          echo "Workspace: $WORKSPACE (app scheme must be '$BASE')"
+
+          xcodebuild -list -json -workspace "$WORKSPACE" > /tmp/schemes.json
+          echo "## Schemes in the workspace"
+          node -e 'const l=require("/tmp/schemes.json").workspace.schemes;console.log(l.join("\n"))'
+
+          if ! node -e 'const l=require("/tmp/schemes.json").workspace.schemes;process.exit(l.includes(process.argv[1])?0:1)' "$BASE"; then
+            echo "::error::No scheme named '$BASE' in $WORKSPACE. The app scheme always carries the project name, so prebuild produced something unexpected — see the list above."
+            exit 1
+          fi
+
+          echo "Scheme:    $BASE"
           echo "workspace=apps/mobile/ios/${WORKSPACE#./}" >> "$GITHUB_OUTPUT"
-          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
+          echo "scheme=$BASE" >> "$GITHUB_OUTPUT"
 
       # CODE_SIGNING_ALLOWED=NO is what makes this possible without an Apple
       # account: the simulator does not enforce signatures, so the entitlements
       # the app and both extensions declare are compiled but never validated.
+      #
+      # The whole transcript goes to a file and only an extract is printed. An
+      # xcodebuild log is tens of megabytes of clang invocations, each one a
+      # single line thousands of characters wide, and the diagnosis is four
+      # lines somewhere inside it. Printing the extract *last* is deliberate:
+      # it is the part that survives when only the tail of a log can be read.
       - name: Build
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/logs"
+          LOG="$RUNNER_TEMP/logs/xcodebuild.log"
+
           xcodebuild \
             -workspace "${{ steps.xcode.outputs.workspace }}" \
             -scheme "${{ steps.xcode.outputs.scheme }}" \
@@ -158,7 +182,45 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build
+            build > "$LOG" 2>&1
+          status=$?
+
+          echo "xcodebuild exited $status; full log is the 'ios-build-log' artifact ($(wc -l < "$LOG") lines)."
+          if [ "$status" -eq 0 ]; then
+            grep -E '^\*\* BUILD SUCCEEDED' "$LOG" || true
+            exit 0
+          fi
+
+          echo ""
+          echo "=============== diagnostics ==============="
+          echo "--- every error line ---"
+          grep -nE 'error:|fatal error|No such module|command not found|The following build commands failed' "$LOG" \
+            | grep -v 'clang: note' | head -40 || echo "(no line matched 'error:')"
+
+          echo ""
+          echo "--- ExpoModulesJSI script phase, which failed first last time ---"
+          grep -nE '\[ExpoModulesJSI\]|Build ExpoModulesJSI xcframework' "$LOG" | head -30 || echo "(nothing)"
+
+          echo ""
+          echo "--- context around the first error ---"
+          first=$(grep -nE 'error:|fatal error' "$LOG" | head -1 | cut -d: -f1)
+          if [ -n "${first:-}" ]; then
+            start=$(( first > 40 ? first - 40 : 1 ))
+            sed -n "${start},$((first + 20))p" "$LOG" | cut -c1-400
+          else
+            echo "No 'error:' line at all — the last 60 lines instead:"
+            tail -60 "$LOG" | cut -c1-400
+          fi
+          exit "$status"
+
+      - name: Keep the build log whatever happened
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: ${{ runner.temp }}/logs/xcodebuild.log
+          retention-days: 14
+          if-no-files-found: warn
 
       # Read the result off the finished bundle rather than trusting that the
       # build phases ran. A Release app whose JS bundle never got compiled in
